@@ -19,8 +19,11 @@ The clFFT library is an open source OpenCL library implementation of discrete Fa
 * Supports dimension lengths that can be any mix of powers of 2, 3, and 5. 
 * Supports single and double precision floating point formats.
 
+## clFFT library user documentation
+[Library and API documentation]( http://clmathlibraries.github.io/clFFT/ ) for developers is available online as a GitHub Pages website
+
 ## clFFT Wiki
-The [project wiki](https://github.com/kknox/clFFT/wiki) contains helpful documentation, including a [build primer](https://github.com/kknox/clFFT/wiki/Build)
+The [project wiki](https://github.com/clMathLibraries/clFFT/wiki) contains helpful documentation, including a [build primer](https://github.com/clMathLibraries/clFFT/wiki/Build)
 
 ## Contributing code
 Please refer to and read the [Contributing](CONTRIBUTING.md) document for guidelines on how to contribute code to this open source project
