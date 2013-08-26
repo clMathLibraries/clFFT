@@ -22,6 +22,15 @@ else( )
 	cmake_minimum_required( VERSION 2.6 )
 endif( )
 
+if( CMAKE_GENERATOR MATCHES "NMake" )
+	option( NMAKE_COMPILE_VERBOSE "Print compile and link strings to the console" OFF )
+	if( NMAKE_COMPILE_VERBOSE )
+		set( CMAKE_START_TEMP_FILE "" )
+		set( CMAKE_END_TEMP_FILE "" )
+		set( CMAKE_VERBOSE_MAKEFILE 1 )
+	endif( )
+endif( )
+
 # This becomes the name of the solution file
 project( clFFT )
 
@@ -30,11 +39,6 @@ set( CLFFT_VERSION_MAJOR 2 )
 set( CLFFT_VERSION_MINOR 1 )
 set( CLFFT_VERSION_PATCH 0 )
 set( CLFFT_VERSION "${CLFFT_VERSION_MAJOR}.${CLFFT_VERSION_MINOR}.${CLFFT_VERSION_PATCH}")
-	
-# uncomment these to debug nmake and borland makefiles
-#SET(CMAKE_START_TEMP_FILE "")
-#SET(CMAKE_END_TEMP_FILE "")
-#SET(CMAKE_VERBOSE_MAKEFILE 1)
 
 set( CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${PROJECT_SOURCE_DIR} )
 
@@ -173,19 +177,11 @@ get_filename_component( C_COMPILER_NAME ${CMAKE_C_COMPILER} NAME_WE )
 if( C_COMPILER_NAME STREQUAL "cl" )
 	# Following options for nMake
 	message( STATUS "Detected MSVS Ver: " ${MSVC_VERSION} )
-	if( NOT MSVC_IDE )
-		message( STATUS "Using an nMake environment to build" )
 
-		# I can't get nmake to work because of faulty /machine:, not sure that this isn't a cmake bug
-		# if( BUILD64 )
-			# set( CMAKE_EXE_LINKER_FLAGS "/machine:amd64 ${CMAKE_EXE_LINKER_FLAGS}" )
-			# set( CMAKE_SHARED_LINKER_FLAGS "/machine:amd64 ${CMAKE_SHARED_LINKER_FLAGS}" )
-			# set( CMAKE_MODULE_LINKER_FLAGS  "/machine:amd64 ${CMAKE_MODULE_LINKER_FLAGS }" )
-		# else( )
-			# set( CMAKE_EXE_LINKER_FLAGS "/machine:i386 ${CMAKE_EXE_LINKER_FLAGS}" )
-		# endif( )
-
-	endif( )
+	# CMake sets huge stack frames for windows, for whatever reason.  We go with compiler default.
+	string( REGEX REPLACE "/STACK:[0-9]+" "" CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS}" )
+	string( REGEX REPLACE "/STACK:[0-9]+" "" CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS}" )
+	string( REGEX REPLACE "/STACK:[0-9]+" "" CMAKE_MODULE_LINKER_FLAGS "${CMAKE_MODULE_LINKER_FLAGS}" ) 
 
 elseif( C_COMPILER_NAME STREQUAL "gcc" )
 	message( STATUS "Detected GNU fortran compiler." )
