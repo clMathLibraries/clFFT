@@ -48,22 +48,9 @@ target_link_libraries( Client clFFT ${Boost_LIBRARIES} ${OPENCL_LIBRARIES} ${DL_
 set_target_properties( Client PROPERTIES VERSION ${CLFFT_VERSION} )
 set_target_properties( Client PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIR}/staging" )
 
-if( BUILD64 )
-	# CPack configuration; include the executable into the package
-	install( TARGETS Client
-			RUNTIME DESTINATION bin64
-			LIBRARY DESTINATION lib64
-			ARCHIVE DESTINATION lib64/import
-			)
-
-else()
-	# CPack configuration; include the executable into the package
-	install( TARGETS Client
-			RUNTIME DESTINATION bin32
-			LIBRARY DESTINATION lib32
-			ARCHIVE DESTINATION lib32/import
-			)
-endif()
-
-# configure_file( "${PROJECT_SOURCE_DIR}/client/CMakeLists.pack"
-		# "${PROJECT_BINARY_DIR}/samples/CMakeLists.txt" COPYONLY )
+# CPack configuration; include the executable into the package
+install( TARGETS Client
+        RUNTIME DESTINATION bin${SUFFIX_BIN}
+        LIBRARY DESTINATION lib${SUFFIX_LIB}
+        ARCHIVE DESTINATION lib${SUFFIX_LIB}/import
+        )

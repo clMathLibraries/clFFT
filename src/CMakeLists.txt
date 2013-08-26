@@ -80,8 +80,9 @@ else()
 endif()
 
 if( MSVC_IDE )
-	set( BUILD64 ${CMAKE_CL_64} )
     set_property( GLOBAL PROPERTY USE_FOLDERS TRUE )
+
+	set( BUILD64 ${CMAKE_CL_64} )
 else()
 	option( BUILD64 "Build a 64-bit product" ON )
 
@@ -93,15 +94,25 @@ else()
 	endif()
 endif()
 
+# These variables are meant to contain string which should be appended to the installation paths 
+# of library and executable binaries, respectively.  They are meant to be user configurable/overridable.  
+set( SUFFIX_LIB_DEFAULT "" )
+set( SUFFIX_BIN_DEFAULT "" )
+
 # Modify the global find property to help us find libraries like Boost in the correct paths for 64-bit
 # Essentially, find_library calls will look for /lib64 instead of /lib; works for windows and linux
 if( BUILD64 )
 	set_property( GLOBAL PROPERTY FIND_LIBRARY_USE_LIB64_PATHS TRUE )
 	message( STATUS "64bit build - FIND_LIBRARY_USE_LIB64_PATHS TRUE" )
-else()
+
+    set( SUFFIX_LIB_DEFAULT "64" )
+else( )
 	set_property( GLOBAL PROPERTY FIND_LIBRARY_USE_LIB64_PATHS FALSE )
 	message( STATUS "32bit build - FIND_LIBRARY_USE_LIB64_PATHS FALSE" )
-endif()
+endif( )
+
+set( SUFFIX_LIB ${SUFFIX_LIB_DEFAULT} CACHE STRING "String to append to 'lib' install path" )
+set( SUFFIX_BIN ${SUFFIX_BIN_DEFAULT} CACHE STRING "String to append to 'bin' install path" )
 
 # Client is built only if boost is found; on windows, we need vs10 or higher
 # Find Boost on the system, and configure the type of boost build we want
