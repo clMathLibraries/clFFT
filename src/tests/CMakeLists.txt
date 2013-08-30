@@ -49,16 +49,6 @@ set( clFFT.Test.Headers
   
 set( clFFT.Test.Files ${clFFT.Test.Source} ${clFFT.Test.Headers} )
 
-
-
-if( BUILD64 )
-    set( BIN_DIR bin64 )
-	set( LIB_DIR lib64 )
-else()
-    set( BIN_DIR bin32 )
-	set( LIB_DIR lib32 )
-endif()
-
 set( LD_PTHREAD "" )
 if( CMAKE_COMPILER_IS_GNUCXX )
 	set( CMAKE_CXX_FLAGS "-std=c++0x ${CMAKE_CXX_FLAGS}" )
@@ -103,7 +93,7 @@ set_target_properties( Test PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${PROJECT_BINAR
 
 # CPack configuration; include the executable into the package
 install( TARGETS Test
-		RUNTIME DESTINATION ${BIN_DIR}
-		LIBRARY DESTINATION ${LIB_DIR}
-		ARCHIVE DESTINATION ${LIB_DIR}/import
-		)
+        RUNTIME DESTINATION bin${SUFFIX_BIN}
+        LIBRARY DESTINATION lib${SUFFIX_LIB}
+        ARCHIVE DESTINATION lib${SUFFIX_LIB}/import
+        )
