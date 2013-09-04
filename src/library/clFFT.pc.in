@@ -1,11 +1,12 @@
 prefix=@CMAKE_INSTALL_PREFIX@
-exec_prefix=${prefix}
-libdir=${exec_prefix}/lib
+exec_prefix=${prefix}/bin@SUFFIX_BIN@
 includedir=${prefix}/include
+libdir=${exec_prefix}/lib@SUFFIX_LIB@
 
 Name: clFFT
-Description: OpenCL FFT library
+Description: Open source OpenCL FFT library
 Version: @CLFFT_VERSION@
+URL: https://github.com/clMathLibraries/clFFT
 
-Libs: -L${libdir} -lclFFT
 Cflags: -I${includedir}
+Libs: -L${libdir} -lclFFT
