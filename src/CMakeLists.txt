@@ -183,7 +183,7 @@ if( C_COMPILER_NAME STREQUAL "cl" )
 	string( REGEX REPLACE "/STACK:[0-9]+" "" CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS}" )
 	string( REGEX REPLACE "/STACK:[0-9]+" "" CMAKE_MODULE_LINKER_FLAGS "${CMAKE_MODULE_LINKER_FLAGS}" ) 
 
-elseif( C_COMPILER_NAME STREQUAL "gcc" )
+elseif( CMAKE_COMPILER_IS_GNUCXX )
 	message( STATUS "Detected GNU fortran compiler." )
 	EXEC_PROGRAM( ${CMAKE_CXX_COMPILER} ARGS --version OUTPUT_VARIABLE vnum )
 	STRING(REGEX REPLACE ".*([0-9])\\.([0-9])\\.([0-9]).*" "\\1\\2\\3" vnum ${vnum})
@@ -205,7 +205,7 @@ elseif( C_COMPILER_NAME STREQUAL "gcc" )
         set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} --coverage")
     endif()
 else( )
-	message( FATAL_ERROR "Compiler name not detected" )
+	message( FATAL_ERROR "Compiler not supported or not detected" )
 endif( )
 
 # If UNICODE is defined, pass extra definitions into 
