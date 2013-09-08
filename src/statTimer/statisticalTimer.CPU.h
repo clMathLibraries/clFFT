@@ -47,7 +47,8 @@ class CpuStatTimer : public baseStatTimer
 	cl_ulong	clkFrequency;
 
 	//	For linux; the resolution of a high-precision timer
-#if defined( __GNUC__ )
+	//  Mingw32 does not define timespec; can use windows timers
+#if !defined( _WIN32 )
 	timespec res;
 #endif
 

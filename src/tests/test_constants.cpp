@@ -14,7 +14,6 @@
  * limitations under the License.
  * ************************************************************************/
 
-
 #include "test_constants.h"
 #include <gtest/gtest.h>
 #include <stdexcept>

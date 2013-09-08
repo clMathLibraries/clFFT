@@ -208,8 +208,8 @@ else( )
 	message( FATAL_ERROR "Compiler name not detected" )
 endif( )
 
-# If UNICODE is defined, pass extra definitions into 
-if( UNICODE )
+# If UNICODE is defined for microsoft compilers, pass extra definitions
+if( MSVC AND UNICODE )
 	add_definitions( "/DUNICODE /D_UNICODE" )
 endif( )
 

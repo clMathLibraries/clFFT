@@ -23,7 +23,7 @@
 #include "unicode.compatibility.h"
 
 //	Creating a portable defintion of countof
-#if defined( _WIN32 )
+#if defined( _MSC_VER )
 	#define countOf _countof
 #else
 	#define countOf( arr ) ( sizeof( arr ) / sizeof( arr[ 0 ] ) )
