@@ -40,6 +40,9 @@ set( CLFFT_VERSION_MINOR 1 )
 set( CLFFT_VERSION_PATCH 0 )
 set( CLFFT_VERSION "${CLFFT_VERSION_MAJOR}.${CLFFT_VERSION_MINOR}.${CLFFT_VERSION_PATCH}")
 
+# This is incremented when the ABI to the library changes
+set( CLFFT_SOVERSION 2 )
+
 set( CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${PROJECT_SOURCE_DIR} )
 
 # On windows, it's convenient to change the default install prefix such that it does NOT point to 'program files'

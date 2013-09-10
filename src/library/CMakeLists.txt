@@ -78,6 +78,7 @@ add_library( clFFT SHARED ${clFFT.Files} )
 target_link_libraries( clFFT ${OPENCL_LIBRARIES} )
 
 set_target_properties( clFFT PROPERTIES VERSION ${CLFFT_VERSION} )
+set_target_properties( clFFT PROPERTIES SOVERSION ${CLFFT_SOVERSION} )
 set_target_properties( clFFT PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIR}/staging" )
 
 if( CMAKE_COMPILER_IS_GNUCC )
