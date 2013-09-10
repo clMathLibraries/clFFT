@@ -83,6 +83,13 @@ set_target_properties( clFFT PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${PROJECT_BINA
 if( UNIX )
 	# Right now, linux has problems compiling dynamic_cast, but the flag below doesn't help
 	# set_target_properties( clFFT PROPERTIES COMPILE_FLAGS "-frtti" )
+
+    configure_file( ${CMAKE_CURRENT_SOURCE_DIR}/clFFT.pc.in
+                    ${CMAKE_CURRENT_BINARY_DIR}/clFFT.pc @ONLY IMMEDIATE )
+
+    install( FILES ${CMAKE_CURRENT_BINARY_DIR}/clFFT.pc
+             DESTINATION lib/pkgconfig
+           )
 endif( )
 
 # CPack configuration; include the executable into the package
