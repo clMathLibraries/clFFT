@@ -65,6 +65,7 @@ include_directories( ${OPENCL_INCLUDE_DIRS} ${PROJECT_BINARY_DIR}/include ../inc
 
 add_library( StatTimer SHARED ${StatTimer.Files} )
 set_target_properties( StatTimer PROPERTIES VERSION ${CLFFT_VERSION} )
+set_target_properties( StatTimer PROPERTIES SOVERSION ${CLFFT_SOVERSION} )
 set_target_properties( StatTimer PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIR}/staging" )
 target_link_libraries( StatTimer ${OPENCL_LIBRARIES} )
 

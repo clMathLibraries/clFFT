@@ -78,11 +78,15 @@ add_library( clFFT SHARED ${clFFT.Files} )
 target_link_libraries( clFFT ${OPENCL_LIBRARIES} )
 
 set_target_properties( clFFT PROPERTIES VERSION ${CLFFT_VERSION} )
+set_target_properties( clFFT PROPERTIES SOVERSION ${CLFFT_SOVERSION} )
 set_target_properties( clFFT PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIR}/staging" )
 
-if( UNIX )
-	# Right now, linux has problems compiling dynamic_cast, but the flag below doesn't help
-	# set_target_properties( clFFT PROPERTIES COMPILE_FLAGS "-frtti" )
+if( CMAKE_COMPILER_IS_GNUCC )
+    configure_file( ${CMAKE_CURRENT_SOURCE_DIR}/clFFT.pc.in
+                    ${CMAKE_CURRENT_BINARY_DIR}/clFFT.pc @ONLY )
+
+    install( FILES ${CMAKE_CURRENT_BINARY_DIR}/clFFT.pc
+             DESTINATION lib${SUFFIX_LIB}/pkgconfig )
 endif( )
 
 # CPack configuration; include the executable into the package
