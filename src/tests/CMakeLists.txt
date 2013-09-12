@@ -50,7 +50,11 @@ set( clFFT.Test.Headers
 set( clFFT.Test.Files ${clFFT.Test.Source} ${clFFT.Test.Headers} )
 
 set( LD_PTHREAD "" )
-if( CMAKE_COMPILER_IS_GNUCXX )
+if( MINGW )
+    # -std=c++0x causes g++ to go into strict ANSI mode, which doesn't declare non-standard functions
+    # Googletest for mingw appears to have a dependency on _stricmp and off64_t
+	set( CMAKE_CXX_FLAGS "-std=gnu++0x ${CMAKE_CXX_FLAGS}" )
+elseif( CMAKE_COMPILER_IS_GNUCXX )
 	set( CMAKE_CXX_FLAGS "-std=c++0x ${CMAKE_CXX_FLAGS}" )
 	set( LD_PTHREAD "-lpthread" )
 endif( )
