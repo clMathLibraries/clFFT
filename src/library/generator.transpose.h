@@ -14,10 +14,6 @@
  * limitations under the License.
  * ************************************************************************/
 
-////////////////////////////////////////////
-//	Copyright (C) 2011 Advanced Micro Devices, Inc. All Rights Reserved.
-////////////////////////////////////////////
-
 #pragma once
 #if !defined( AMD_CLFFT_generator_transpose_H )
 #define AMD_CLFFT_generator_transpose_H
