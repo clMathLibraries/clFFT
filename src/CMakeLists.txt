@@ -66,12 +66,6 @@ option( BUILD_LOADLIBRARIES "Build the optional dynamic load libraries that the 
 # Otherwise, create a sensible default that the user can change
 if( DEFINED ENV{BOOST_ROOT} )
 	set( BOOST_ROOT $ENV{BOOST_ROOT} CACHE PATH "Environment variable defining the root of the Boost installation" )
-else( )
-	if( UNIX )
-		set( BOOST_ROOT "/usr" CACHE PATH "Modify this variable to point to the root of the Boost installation" )
-	else( )
-		set( BOOST_ROOT "/Path/To/boost_x_xx_x" CACHE PATH "Modify this variable to point to the root of the Boost installation" )
-	endif()
 endif( )
 
 # Currently, linux has a problem outputing both narrow and wide characters,
@@ -129,9 +123,9 @@ set( Boost_DETAILED_FAILURE_MSG   ON )
 set( Boost_DEBUG ON )
 set( Boost_ADDITIONAL_VERSIONS "1.46.1" "1.46" "1.44.0" "1.44" )
 
-# On linux, the boost installed in the system always appears to override any user boost installs
-if( UNIX )
-	set( Boost_NO_SYSTEM_PATHS TRUE )
+# Default Boost_NO_SYSTEM_PATHS to TRUE if the user does not specify themselves
+if( NOT DEFINED Boost_NO_SYSTEM_PATHS AND UNIX )
+	set( Boost_NO_SYSTEM_PATHS ON )
 endif( )
 
 # This will define Boost_FOUND
