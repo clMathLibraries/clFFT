@@ -35,9 +35,18 @@ endif( )
 project( clFFT )
 
 # Define a version for the code
-set( CLFFT_VERSION_MAJOR 2 )
-set( CLFFT_VERSION_MINOR 1 )
-set( CLFFT_VERSION_PATCH 0 )
+if( NOT DEFINED CLFFT_VERSION_MAJOR )
+    set( CLFFT_VERSION_MAJOR 2 )
+endif( )
+
+if( NOT DEFINED CLFFT_VERSION_MINOR )
+    set( CLFFT_VERSION_MINOR 1 )
+endif( )
+
+if( NOT DEFINED CLFFT_VERSION_PATCH )
+    set( CLFFT_VERSION_PATCH 0 )
+endif( )
+
 set( CLFFT_VERSION "${CLFFT_VERSION_MAJOR}.${CLFFT_VERSION_MINOR}.${CLFFT_VERSION_PATCH}")
 
 # This is incremented when the ABI to the library changes
