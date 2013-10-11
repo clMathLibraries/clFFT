@@ -2348,7 +2348,7 @@ namespace StockhamGenerator
 
 		}
 
-        void GenerateKernel(std::string &str)
+        void GenerateKernel(std::string &str, cl_device_id Dev_ID)
 		{
 			std::string twType = RegBaseType<PR>(2);
 			std::string rType  = RegBaseType<PR>(1);
@@ -2501,8 +2501,19 @@ namespace StockhamGenerator
 				else	str += "fft_back";
 				str += "(";
 
-				// TODO : address this kludge
-				str += "__constant cb_t *cb __attribute__((max_constant_size(32))), ";
+        // TODO : address this kludge
+        size_t SizeParam_ret = 0;
+        clGetDeviceInfo(Dev_ID, CL_DEVICE_VENDOR, 0, NULL, &SizeParam_ret);
+        char* nameVendor = new char[SizeParam_ret];
+        clGetDeviceInfo(Dev_ID, CL_DEVICE_VENDOR, SizeParam_ret, nameVendor, NULL);
+
+        //nv compiler doesn't support __constant kernel argument
+        if (strncmp(nameVendor, "NVIDIA",6)!=0)
+          str += "__constant cb_t *cb __attribute__((max_constant_size(32))), ";
+        else
+          str += "__global cb_t *cb, ";
+
+        delete [] nameVendor;
 
 				// Function attributes
 				if(params.fft_placeness == CLFFT_INPLACE)
@@ -3230,12 +3241,12 @@ clfftStatus FFTPlan::GenerateKernelPvt<Stockham>(FFTRepo& fftRepo ) const
 	case P_SINGLE:
 		{
 			Kernel<P_SINGLE> kernel(params);
-			kernel.GenerateKernel(programCode);
+			kernel.GenerateKernel(programCode, devices[0]);
 		} break;
 	case P_DOUBLE:
 		{
 			Kernel<P_DOUBLE> kernel(params);
-			kernel.GenerateKernel(programCode);
+			kernel.GenerateKernel(programCode, devices[0]);
 		} break;
 	}
 
