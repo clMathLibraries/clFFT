@@ -210,8 +210,8 @@ elseif( CMAKE_COMPILER_IS_GNUCXX )
         set( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} --coverage")
         set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} --coverage")
     endif()
-else( )
-	message( FATAL_ERROR "Compiler not supported or not detected" )
+# elseif( APPLE )
+#	set( CMAKE_CXX_FLAGS "-std=c++11 -stdlib=libc++ ${CMAKE_CXX_FLAGS}" )
 endif( )
 
 # If UNICODE is defined for microsoft compilers, pass extra definitions

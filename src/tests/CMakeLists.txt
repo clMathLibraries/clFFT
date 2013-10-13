@@ -57,6 +57,10 @@ if( MINGW )
 elseif( CMAKE_COMPILER_IS_GNUCXX )
 	set( CMAKE_CXX_FLAGS "-std=c++0x ${CMAKE_CXX_FLAGS}" )
 	set( LD_PTHREAD "-lpthread" )
+elseif( APPLE )
+	set( CMAKE_CXX_FLAGS "-std=c++11 -stdlib=libc++ ${CMAKE_CXX_FLAGS}" )
+#	set( CMAKE_CXX_FLAGS "-stdlib=libc++ ${CMAKE_CXX_FLAGS}" )
+	add_definitions( -DGTEST_USE_OWN_TR1_TUPLE )
 endif( )
 
 # Include standard OpenCL headers
