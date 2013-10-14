@@ -202,7 +202,7 @@ class	FFTPlan
 	clfftStatus GetKernelGenKeyPvt (FFTKernelGenKeyParams & params) const;
 
 	template <clfftGenerators G>
-	clfftStatus GenerateKernelPvt (FFTRepo& fftRepo) const;
+	clfftStatus GenerateKernelPvt (FFTRepo& fftRepo,  const cl_command_queue commQueueFFT ) const;
 
 	template <clfftGenerators G>
 	clfftStatus GetMax1DLengthPvt (size_t *longest ) const;
@@ -338,7 +338,7 @@ public:
 
 	clfftStatus GetWorkSizes (std::vector<size_t> & globalws, std::vector<size_t> & localws) const;
 	clfftStatus GetKernelGenKey (FFTKernelGenKeyParams & params) const;
-	clfftStatus GenerateKernel (FFTRepo & fftRepo) const;
+	clfftStatus GenerateKernel (FFTRepo & fftRepo, const cl_command_queue commQueueFFT) const;
 	clfftStatus GetMax1DLength (size_t *longest ) const;
 
 	void ResetBinarySizes();
