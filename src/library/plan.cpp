@@ -543,7 +543,7 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 
 	if(fftPlan->gen == Copy)
 	{
-		OPENCL_V( fftPlan->GenerateKernel( fftRepo ), _T( "GenerateKernel() failed" ) );
+		OPENCL_V( fftPlan->GenerateKernel( fftRepo, *commQueueFFT ), _T( "GenerateKernel() failed" ) );
 		OPENCL_V( CompileKernels( *commQueueFFT, plHandle, fftPlan->gen, fftPlan ), _T( "CompileKernels() failed" ) );
 		fftPlan->baked		= true;
 		return	CLFFT_SUCCESS;
@@ -1505,7 +1505,7 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 				//break;
 				if (fftPlan->transflag) //Transpose for 2D
 				{
-					OPENCL_V( fftPlan->GenerateKernel( fftRepo ), _T( "GenerateTransposeProgram() failed" ) );
+					OPENCL_V( fftPlan->GenerateKernel( fftRepo, *commQueueFFT ), _T( "GenerateTransposeProgram() failed" ) );
 					OPENCL_V( CompileKernels( *commQueueFFT, plHandle, fftPlan->gen, fftPlan ), _T( "CompileKernels() failed" ) );
 
 					fftPlan->baked		= true;
@@ -2445,7 +2445,7 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 	}
 
 	//	For the radices that we have factored, we need to load/compile and build the appropriate OpenCL kernels
-	OPENCL_V( fftPlan->GenerateKernel( fftRepo ), _T( "GenerateKernel() failed" ) );
+	OPENCL_V( fftPlan->GenerateKernel( fftRepo, *commQueueFFT ), _T( "GenerateKernel() failed" ) );
 
 	//	For the radices that we have factored, we need to load/compile and build the appropriate OpenCL kernels
 	OPENCL_V( CompileKernels( *commQueueFFT, plHandle, fftPlan->gen, fftPlan ), _T( "CompileKernels() failed" ) );
@@ -3265,13 +3265,13 @@ clfftStatus  FFTPlan::GetKernelGenKey (FFTKernelGenKeyParams & params) const
 	}
 }
 
-clfftStatus  FFTPlan::GenerateKernel (FFTRepo & fftRepo) const
+clfftStatus  FFTPlan::GenerateKernel (FFTRepo & fftRepo, const cl_command_queue commQueueFFT) const
 {
 	switch(gen)
 	{
-	case Stockham:		return GenerateKernelPvt<Stockham>(fftRepo);
-	case Transpose:		return GenerateKernelPvt<Transpose>(fftRepo);
-	case Copy:			return GenerateKernelPvt<Copy>(fftRepo);
+	case Stockham:		return GenerateKernelPvt<Stockham>(fftRepo, commQueueFFT);
+	case Transpose:		return GenerateKernelPvt<Transpose>(fftRepo, commQueueFFT);
+	case Copy:			return GenerateKernelPvt<Copy>(fftRepo, commQueueFFT);
 	default:			assert(false); return CLFFT_NOTIMPLEMENTED;
 	}
 }
