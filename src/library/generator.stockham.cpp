@@ -3229,10 +3229,16 @@ clfftStatus FFTPlan::GetMax1DLengthPvt<Stockham> (size_t * longest) const
 }
 
 template<>
-clfftStatus FFTPlan::GenerateKernelPvt<Stockham>(FFTRepo& fftRepo ) const
+clfftStatus FFTPlan::GenerateKernelPvt<Stockham>(FFTRepo& fftRepo, const cl_command_queue commQueueFFT ) const
 {
     FFTKernelGenKeyParams params;
     OPENCL_V( this->GetKernelGenKeyPvt<Stockham> (params), _T("GetKernelGenKey() failed!") );
+
+    cl_int status = CL_SUCCESS;
+    cl_device_id Device = NULL;
+    status = clGetCommandQueueInfo(commQueueFFT, CL_QUEUE_DEVICE, sizeof(cl_device_id), &Device, NULL);
+
+    OPENCL_V( status, _T( "clGetCommandQueueInfo failed" ) );
 
 	std::string programCode;
 	Precision pr = (params.fft_precision == CLFFT_SINGLE) ? P_SINGLE : P_DOUBLE;
@@ -3241,12 +3247,12 @@ clfftStatus FFTPlan::GenerateKernelPvt<Stockham>(FFTRepo& fftRepo ) const
 	case P_SINGLE:
 		{
 			Kernel<P_SINGLE> kernel(params);
-			kernel.GenerateKernel(programCode, devices[0]);
+			kernel.GenerateKernel(programCode, Device);
 		} break;
 	case P_DOUBLE:
 		{
 			Kernel<P_DOUBLE> kernel(params);
-			kernel.GenerateKernel(programCode, devices[0]);
+			kernel.GenerateKernel(programCode, Device);
 		} break;
 	}
 
