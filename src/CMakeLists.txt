@@ -180,7 +180,7 @@ get_filename_component( C_COMPILER_NAME ${CMAKE_C_COMPILER} NAME_WE )
 # message( "CMAKE_C_COMPILER: " ${CMAKE_C_COMPILER} )
 
 # Set common compile and link options
-if( C_COMPILER_NAME STREQUAL "cl" )
+if( MSVC )
 	# Following options for nMake
 	message( STATUS "Detected MSVS Ver: " ${MSVC_VERSION} )
 
@@ -210,8 +210,6 @@ elseif( CMAKE_COMPILER_IS_GNUCXX )
         set( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} --coverage")
         set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} --coverage")
     endif()
-# elseif( APPLE )
-#	set( CMAKE_CXX_FLAGS "-std=c++11 -stdlib=libc++ ${CMAKE_CXX_FLAGS}" )
 endif( )
 
 # If UNICODE is defined for microsoft compilers, pass extra definitions
