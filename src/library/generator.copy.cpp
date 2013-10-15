@@ -445,7 +445,7 @@ clfftStatus FFTPlan::GetMax1DLengthPvt<Copy> (size_t * longest) const
 using namespace CopyGenerator;
 
 template<>
-clfftStatus FFTPlan::GenerateKernelPvt<Copy>(FFTRepo& fftRepo ) const
+clfftStatus FFTPlan::GenerateKernelPvt<Copy>(FFTRepo& fftRepo, const cl_command_queue commQueueFFT ) const
 {
     FFTKernelGenKeyParams params;
     OPENCL_V( this->GetKernelGenKeyPvt<Copy> (params), _T("GetKernelGenKey() failed!") );

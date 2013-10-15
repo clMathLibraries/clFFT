@@ -822,7 +822,7 @@ clfftStatus FFTPlan::GetWorkSizesPvt<Transpose> (std::vector<size_t> & globalWS,
 //	OpenCL does not take unicode strings as input, so this routine returns only ASCII strings
 //	Feed this generator the FFTPlan, and it returns the generated program as a string
 template<>
-clfftStatus FFTPlan::GenerateKernelPvt<Transpose> ( FFTRepo& fftRepo ) const
+clfftStatus FFTPlan::GenerateKernelPvt<Transpose> ( FFTRepo& fftRepo, const cl_command_queue commQueueFFT ) const
 {
 	FFTKernelGenKeyParams params;
 	OPENCL_V( this->GetKernelGenKeyPvt<Transpose> (params), _T("GetKernelGenKey() failed!") );
