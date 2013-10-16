@@ -33,10 +33,12 @@ set( Client.Files ${Client.Source} ${Client.Headers} )
 set( DL_LIB "" )
 if( WIN32 )
 	add_definitions( "/D_CONSOLE" )
-else()
+elseif( APPLE )
+	set( CMAKE_CXX_FLAGS "-std=c++11 -stdlib=libc++ ${CMAKE_CXX_FLAGS}" )	
+else( )
 	# To use the dlopen() and dlclose() functions, we should link with libdl
 	set( DL_LIB "-ldl" )
-endif()
+endif( )
 
 # Include standard OpenCL headers
 include_directories( ${Boost_INCLUDE_DIRS} ${OPENCL_INCLUDE_DIRS} ../../../common ${PROJECT_BINARY_DIR}/include ../include )

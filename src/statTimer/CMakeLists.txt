@@ -69,7 +69,7 @@ set_target_properties( StatTimer PROPERTIES SOVERSION ${CLFFT_SOVERSION} )
 set_target_properties( StatTimer PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIR}/staging" )
 target_link_libraries( StatTimer ${OPENCL_LIBRARIES} )
 
-if( UNIX )
+if( UNIX AND NOT APPLE )
 	# This library dependency is brought in by the high precision timer available in linux
 	target_link_libraries( StatTimer -lrt )
 endif( )
