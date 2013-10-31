@@ -95,3 +95,34 @@ install( TARGETS clFFT
         LIBRARY DESTINATION lib${SUFFIX_LIB}
         ARCHIVE DESTINATION lib${SUFFIX_LIB}/import
         )
+        
+# For debug builds, include the debug runtimes into the package for testing on non-developer machines
+set( CMAKE_INSTALL_SYSTEM_RUNTIME_LIBS_SKIP true )
+set( CMAKE_INSTALL_DEBUG_LIBRARIES true )
+set( CMAKE_INSTALL_DEBUG_LIBRARIES_ONLY true )
+
+if( WIN32 )
+    set( CLFFT_RUNTIME_DESTINATION bin${SUFFIX_BIN} )
+else( )
+    set( CLFFT_RUNTIME_DESTINATION lib${SUFFIX_LIB} )
+endif( )
+
+include( InstallRequiredSystemLibraries )
+
+# Install necessary runtime files for debug builds
+install(    PROGRAMS ${CMAKE_INSTALL_SYSTEM_RUNTIME_LIBS}
+            CONFIGURATIONS Debug
+            DESTINATION ${CLFFT_RUNTIME_DESTINATION} )
+
+# Install all *.pdb files for debug builds
+install(    DIRECTORY ${PROJECT_BINARY_DIR}/staging/
+            DESTINATION ${CLFFT_RUNTIME_DESTINATION}
+            OPTIONAL
+            CONFIGURATIONS Debug
+            FILES_MATCHING PATTERN "*.pdb" )
+
+# Install a snapshot of the source as it was for this build; useful for the .pdb's
+install(    DIRECTORY ${PROJECT_SOURCE_DIR}
+            DESTINATION ${CLFFT_RUNTIME_DESTINATION}
+            OPTIONAL
+            CONFIGURATIONS Debug )

@@ -1,11 +1,11 @@
 clFFT
 =====
+[![Build Status](https://travis-ci.org/clMathLibraries/clFFT.png)](https://travis-ci.org/clMathLibraries/clFFT)
 
 clMath is a software library containing FFT and BLAS functions written in OpenCL. In addition to GPU devices, the libraries also support running on CPU devices to facilitate debugging and multicore programming.
 
 <a href="http://developer.amd.com/tools-and-sdks/heterogeneous-computing/amd-accelerated-parallel-processing-math-libraries/">APPML 1.10</a> is the most current generally available version of the library, and pre-built binaries are available for download on both Linux and Windows platforms.
 
-[![Build Status](https://travis-ci.org/kknox/clFFT.png)](https://travis-ci.org/kknox/clFFT)
 ## Introduction to clFFT
 
 The FFT is an implementation of the Discrete Fourier Transform (DFT) that makes use of symmetries in the FFT definition to reduce the mathematical intensity required from O(N<sup>2</sup>) to O(N log<sub>2</sub>( N )) when the sequence length N is the product of small prime factors. Currently, there is no standard API for FFT routines. Hardware vendors usually provide a set of high-performance FFTs optimized for their systems: no two vendors employ the same interfaces for their FFT routines. clFFT provides a set of FFT routines that are optimized for AMD graphics processors, but also are functional across CPU and other compute devices.
