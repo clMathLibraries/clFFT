@@ -494,6 +494,9 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 		return CLFFT_SUCCESS;
 	}
 
+	// Store the device for which we are baking
+	clGetCommandQueueInfo(*commQueueFFT, CL_QUEUE_DEVICE, sizeof(cl_device_id), &fftPlan->bakeDevice, NULL);
+
 	//find product of lengths
 	size_t pLength = 1;
 	switch(fftPlan->dim)

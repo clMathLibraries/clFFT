@@ -63,6 +63,16 @@ clfftStatus clfftEnqueueTransform(
 		OPENCL_V( clfftBakePlan( plHandle, numQueuesAndEvents, commQueues, NULL, NULL ), _T( "Failed to bake plan" ) );
 	}
 
+
+	// get the device information
+	cl_device_id q_device;
+	clGetCommandQueueInfo(*commQueues, CL_QUEUE_DEVICE, sizeof(cl_device_id), &q_device, NULL);
+
+	// verify if the current device is the same as the one used for baking the plan
+	if(q_device != fftPlan->bakeDevice)
+		return CLFFT_DEVICE_MISMATCH;
+
+
 	if		(fftPlan->inputLayout == CLFFT_REAL)	dir = CLFFT_FORWARD;
 	else if	(fftPlan->outputLayout == CLFFT_REAL)	dir = CLFFT_BACKWARD;
 

@@ -223,6 +223,10 @@ public:
 	size_t                  iDist, oDist;
 	size_t                  batchsize;
 
+	// Note the device passed to BakePlan, assuming we are baking for one device
+	// TODO, change this logic for handling multiple GPUs/devices
+	cl_device_id bakeDevice;
+
 	//	Devices that the user specified in the context passed to the create function
 	std::vector< cl_device_id > devices;
 
