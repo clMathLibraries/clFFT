@@ -447,28 +447,33 @@ using namespace CopyGenerator;
 template<>
 clfftStatus FFTPlan::GenerateKernelPvt<Copy>(FFTRepo& fftRepo, const cl_command_queue commQueueFFT ) const
 {
-    FFTKernelGenKeyParams params;
-    OPENCL_V( this->GetKernelGenKeyPvt<Copy> (params), _T("GetKernelGenKey() failed!") );
+  FFTKernelGenKeyParams params;
+  OPENCL_V( this->GetKernelGenKeyPvt<Copy> (params), _T("GetKernelGenKey() failed!") );
 
-	std::string programCode;
-	Precision pr = (params.fft_precision == CLFFT_SINGLE) ? P_SINGLE : P_DOUBLE;
-	switch(pr)
-	{
-	case P_SINGLE:
-		{
-			CopyKernel<P_SINGLE> kernel(params);
-			kernel.GenerateKernel(programCode);
-		} break;
-	case P_DOUBLE:
-		{
-			CopyKernel<P_DOUBLE> kernel(params);
-			kernel.GenerateKernel(programCode);
-		} break;
-	}
+  std::string programCode;
+  Precision pr = (params.fft_precision == CLFFT_SINGLE) ? P_SINGLE : P_DOUBLE;
+  switch(pr)
+  {
+  case P_SINGLE:
+    {
+      CopyKernel<P_SINGLE> kernel(params);
+      kernel.GenerateKernel(programCode);
+    } break;
+  case P_DOUBLE:
+    {
+      CopyKernel<P_DOUBLE> kernel(params);
+      kernel.GenerateKernel(programCode);
+    } break;
+  }
 
+  cl_int status = CL_SUCCESS;
+  cl_context QueueContext = NULL;
+  status = clGetCommandQueueInfo(commQueueFFT, CL_QUEUE_CONTEXT, sizeof(cl_context), &QueueContext, NULL);
 
-    OPENCL_V( fftRepo.setProgramCode( Copy, params, programCode ), _T( "fftRepo.setclString() failed!" ) );
-    OPENCL_V( fftRepo.setProgramEntryPoints( Copy, params, "copy_c2h", "copy_h2c" ), _T( "fftRepo.setProgramEntryPoint() failed!" ) );
+  OPENCL_V( status, _T( "clGetCommandQueueInfo failed" ) );
 
-    return CLFFT_SUCCESS;
+  OPENCL_V( fftRepo.setProgramCode( Copy, params, programCode, QueueContext ), _T( "fftRepo.setclString() failed!" ) );
+  OPENCL_V( fftRepo.setProgramEntryPoints( Copy, params, "copy_c2h", "copy_h2c", QueueContext ), _T( "fftRepo.setProgramEntryPoint() failed!" ) );
+
+  return CLFFT_SUCCESS;
 }

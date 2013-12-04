@@ -194,7 +194,7 @@ clfftStatus	clfftCreateDefaultPlan( clfftPlanHandle* plHandle, cl_context contex
 }
 
 //	Read the kernels that this plan uses from file, and store into the plan
-clfftStatus WriteKernel( const clfftPlanHandle plHandle, const clfftGenerators gen, const FFTKernelGenKeyParams& fftParams )
+clfftStatus WriteKernel( const clfftPlanHandle plHandle, const clfftGenerators gen, const FFTKernelGenKeyParams& fftParams, const cl_context& context )
 {
 	FFTRepo& fftRepo	= FFTRepo::getInstance( );
 
@@ -220,7 +220,7 @@ clfftStatus WriteKernel( const clfftPlanHandle plHandle, const clfftGenerators g
 	}
 
 	std::string kernel;
-	OPENCL_V( fftRepo.getProgramCode( gen, fftParams, kernel ), _T( "fftRepo.getProgramCode failed." ) );
+	OPENCL_V( fftRepo.getProgramCode( gen, fftParams, kernel, context ), _T( "fftRepo.getProgramCode failed." ) );
 
 	kernelFile.get( ) << kernel << std::endl;
 
@@ -250,16 +250,16 @@ clfftStatus CompileKernels( const cl_command_queue commQueueFFT, const clfftPlan
 	OPENCL_V( fftPlan->GetKernelGenKey( fftParams ), _T("GetKernelGenKey() failed!") );
 
 	cl_program program;
-	if( fftRepo.getclProgram( gen, fftParams, program ) == CLFFT_INVALID_PROGRAM )
+  if( fftRepo.getclProgram( gen, fftParams, program, fftPlan->context ) == CLFFT_INVALID_PROGRAM )
 	{
 		//	If the user wishes us to write the kernels out to disk, we do so
 		if( fftRepo.setupData.debugFlags & CLFFT_DUMP_PROGRAMS )
 		{
-			OPENCL_V( WriteKernel( plHandle, gen, fftParams ), _T( "WriteKernel failed." ) );
+			OPENCL_V( WriteKernel( plHandle, gen, fftParams, fftPlan->context ), _T( "WriteKernel failed." ) );
 		}
 
 		std::string programCode;
-		OPENCL_V( fftRepo.getProgramCode( gen, fftParams, programCode ), _T( "fftRepo.getProgramCode failed." ) );
+		OPENCL_V( fftRepo.getProgramCode( gen, fftParams, programCode, fftPlan->context  ), _T( "fftRepo.getProgramCode failed." ) );
 
 		const char* source = programCode.c_str();
 		program = clCreateProgramWithSource( fftPlan->context, 1, &source, NULL, &status );
@@ -317,7 +317,7 @@ clfftStatus CompileKernels( const cl_command_queue commQueueFFT, const clfftPlan
 			if( fftRepo.getclKernel( program, CLFFT_FORWARD, kernel ) == CLFFT_INVALID_KERNEL )
 			{
 				std::string entryPoint;
-				OPENCL_V( fftRepo.getProgramEntryPoint( gen, fftParams, CLFFT_FORWARD, entryPoint ), _T( "fftRepo.getProgramEntryPoint failed." ) );
+				OPENCL_V( fftRepo.getProgramEntryPoint( gen, fftParams, CLFFT_FORWARD, entryPoint, fftPlan->context ), _T( "fftRepo.getProgramEntryPoint failed." ) );
 
 				kernel = clCreateKernel( program, entryPoint.c_str( ), &status );
 				OPENCL_V( status, _T( "clCreateKernel failed" ) );
@@ -331,7 +331,7 @@ clfftStatus CompileKernels( const cl_command_queue commQueueFFT, const clfftPlan
 			if( fftRepo.getclKernel( program, CLFFT_BACKWARD, kernel ) == CLFFT_INVALID_KERNEL )
 			{
 				std::string entryPoint;
-				OPENCL_V( fftRepo.getProgramEntryPoint( gen, fftParams, CLFFT_BACKWARD, entryPoint ), _T( "fftRepo.getProgramEntryPoint failed." ) );
+				OPENCL_V( fftRepo.getProgramEntryPoint( gen, fftParams, CLFFT_BACKWARD, entryPoint, fftPlan->context ), _T( "fftRepo.getProgramEntryPoint failed." ) );
 
 				kernel = clCreateKernel( program, entryPoint.c_str( ), &status );
 				OPENCL_V( status, _T( "clCreateKernel failed" ) );

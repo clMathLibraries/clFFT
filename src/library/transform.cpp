@@ -1152,7 +1152,7 @@ clfftStatus clfftEnqueueTransform(
 
 	cl_program	prog;
 	cl_kernel	kern;
-	OPENCL_V( fftRepo.getclProgram( fftPlan->gen, fftParams, prog ), _T( "fftRepo.getclProgram failed" ) );
+	OPENCL_V( fftRepo.getclProgram( fftPlan->gen, fftParams, prog, fftPlan->context ), _T( "fftRepo.getclProgram failed" ) );
 	OPENCL_V( fftRepo.getclKernel( prog, dir, kern ), _T( "fftRepo.getclKernels failed" ) );
 
 
