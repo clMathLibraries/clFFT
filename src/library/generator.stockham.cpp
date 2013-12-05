@@ -3240,6 +3240,11 @@ clfftStatus FFTPlan::GenerateKernelPvt<Stockham>(FFTRepo& fftRepo, const cl_comm
 
     OPENCL_V( status, _T( "clGetCommandQueueInfo failed" ) );
 
+    cl_context QueueContext = NULL;
+    status = clGetCommandQueueInfo(commQueueFFT, CL_QUEUE_CONTEXT, sizeof(cl_context), &QueueContext, NULL);
+
+    OPENCL_V( status, _T( "clGetCommandQueueInfo failed" ) );
+
 	std::string programCode;
 	Precision pr = (params.fft_precision == CLFFT_SINGLE) ? P_SINGLE : P_DOUBLE;
 	switch(pr)
@@ -3260,8 +3265,8 @@ clfftStatus FFTPlan::GenerateKernelPvt<Stockham>(FFTRepo& fftRepo, const cl_comm
 	ReadKernelFromFile(programCode);
 #endif
 
-    OPENCL_V( fftRepo.setProgramCode( Stockham, params, programCode ), _T( "fftRepo.setclString() failed!" ) );
-    OPENCL_V( fftRepo.setProgramEntryPoints( Stockham, params, "fft_fwd", "fft_back" ), _T( "fftRepo.setProgramEntryPoint() failed!" ) );
+    OPENCL_V( fftRepo.setProgramCode( Stockham, params, programCode, QueueContext ), _T( "fftRepo.setclString() failed!" ) );
+    OPENCL_V( fftRepo.setProgramEntryPoints( Stockham, params, "fft_fwd", "fft_back", QueueContext ), _T( "fftRepo.setProgramEntryPoint() failed!" ) );
 
     return CLFFT_SUCCESS;
 }

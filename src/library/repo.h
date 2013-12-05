@@ -22,6 +22,7 @@
 #include "private.h"
 #include "plan.h"
 #include "lock.h"
+
 #include "../statTimer/statisticalTimer.GPU.h"
 
 
@@ -48,9 +49,13 @@ class	FFTRepo
 
 	//	Map structure to map parameters that a generator uses to a specific set of kernels that the generator
 	//	has created
-	typedef std::pair< clfftGenerators, FFTKernelGenKeyParams > fftRepoKey;
+	//typedef std::pair< clfftGenerators, FFTKernelGenKeyParams > fftRepoKey;
+
+  typedef std::pair< clfftGenerators, std::pair<FFTKernelGenKeyParams, cl_context> > fftRepoKey;
 	typedef std::map< fftRepoKey, fftRepoValue > fftRepoType;
 	typedef fftRepoType::iterator fftRepo_iterator;
+
+
 
 	fftRepoType	mapFFTs;
 
@@ -134,15 +139,15 @@ public:
 
 	clfftStatus releaseResources( );
 
-	clfftStatus setProgramCode( const clfftGenerators gen, const FFTKernelGenKeyParams&, const std::string& kernel );
-	clfftStatus getProgramCode( const clfftGenerators gen, const FFTKernelGenKeyParams&, std::string& kernel );
+	clfftStatus setProgramCode( const clfftGenerators gen, const FFTKernelGenKeyParams&, const std::string& kernel, const cl_context& context);
+	clfftStatus getProgramCode( const clfftGenerators gen, const FFTKernelGenKeyParams&, std::string& kernel, const cl_context& context );
 
 	clfftStatus setProgramEntryPoints( const clfftGenerators gen, const FFTKernelGenKeyParams& fftParam,
-		const char * kernel_fwd, const char * kernel_back );
-	clfftStatus getProgramEntryPoint( const clfftGenerators gen, const FFTKernelGenKeyParams& fftParam, clfftDirection dir, std::string& kernel );
+		const char * kernel_fwd, const char * kernel_back, const cl_context& context );
+	clfftStatus getProgramEntryPoint( const clfftGenerators gen, const FFTKernelGenKeyParams& fftParam, clfftDirection dir, std::string& kernel , const cl_context& context);
 
 	clfftStatus setclProgram( const clfftGenerators gen, const FFTKernelGenKeyParams& fftParam, const cl_program& kernel );
-	clfftStatus getclProgram( const clfftGenerators gen, const FFTKernelGenKeyParams& fftParam, cl_program& kernel );
+	clfftStatus getclProgram( const clfftGenerators gen, const FFTKernelGenKeyParams& fftParam, cl_program& kernel, const cl_context& PlanContext );
 
 	clfftStatus setclKernel ( cl_program prog, clfftDirection dir, const cl_kernel& kernel );
 	clfftStatus getclKernel ( cl_program prog, clfftDirection dir, cl_kernel& kernel );
@@ -150,9 +155,9 @@ public:
 	clfftStatus createPlan( clfftPlanHandle* plHandle, FFTPlan*& fftPlan );
 	clfftStatus getPlan( clfftPlanHandle plHandle, FFTPlan*& fftPlan, lockRAII*& planLock );
 	clfftStatus deletePlan( clfftPlanHandle* plHandle );
+  
 
 };
-
 
 #endif
 
