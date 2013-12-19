@@ -1515,6 +1515,20 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 					return	CLFFT_SUCCESS;
 				}
 
+                // TODO : Check for a better way to do this.
+                bool isnvidia = false;
+                for (size_t Idx = 0; !isnvidia && Idx < numQueues; Idx++)
+                {
+                    cl_command_queue QIdx = commQueueFFT[Idx];
+                    cl_device_id Device;
+                    clGetCommandQueueInfo(QIdx, CL_QUEUE_DEVICE, sizeof(Device), &Device, NULL);
+                    char Vendor[256];
+                    clGetDeviceInfo(Device, CL_DEVICE_VENDOR, sizeof(Vendor), &Vendor, NULL);
+                    isnvidia |= (strncmp(Vendor, "NVIDIA", 6) == 0);
+                }
+                // nvidia gpus are failing when doing transpose for 2D FFTs
+                if (isnvidia) break;
+
 				if (fftPlan->length.size() != 2) break;
 				if (!(IsPo2(fftPlan->length[0])) || !(IsPo2(fftPlan->length[1])))
 					break;
