@@ -18,7 +18,7 @@
 #include <gtest/gtest.h>
 #include <boost/program_options.hpp>
 #include "clFFT.h"
-#include "version.h"
+#include "clFFT.version.h"
 #include "test_constants.h"
 #include "../client/openCL.misc.h"
 #include "unicode.compatibility.h"

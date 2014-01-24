@@ -225,9 +225,9 @@ message( STATUS "CMAKE_CXX_COMPILER relwithdebinfo flags: " ${CMAKE_CXX_FLAGS_RE
 message( STATUS "CMAKE_EXE_LINKER link flags: " ${CMAKE_EXE_LINKER_FLAGS} )
 
 # configure a header file to pass the CMake version settings to the source, and package the header files in the output archive
-configure_file( "${PROJECT_SOURCE_DIR}/include/version.h.in" "${PROJECT_BINARY_DIR}/include/version.h" )
+configure_file( "${PROJECT_SOURCE_DIR}/include/clFFT.version.h.in" "${PROJECT_BINARY_DIR}/include/clFFT.version.h" )
 install( FILES 
-			"${PROJECT_BINARY_DIR}/include/version.h" 
+			"${PROJECT_BINARY_DIR}/include/clFFT.version.h" 
 			"include/clFFT.h"
 			"include/clAmdFft.h"
 			"include/clAmdFft.version.h" 

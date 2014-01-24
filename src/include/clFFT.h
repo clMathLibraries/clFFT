@@ -33,7 +33,7 @@
 	#include <CL/cl.h>
 #endif
 
-#include "version.h"
+#include "clFFT.version.h"
 
 /*! This preprocessor definition is the standard way of making exporting APIs
  *  from a DLL simpler. All files within this DLL are compiled with the CLFFT_EXPORTS
