@@ -124,22 +124,29 @@ endif( )
 set( SUFFIX_LIB ${SUFFIX_LIB_DEFAULT} CACHE STRING "String to append to 'lib' install path" )
 set( SUFFIX_BIN ${SUFFIX_BIN_DEFAULT} CACHE STRING "String to append to 'bin' install path" )
 
+# Useful variables to configure FindBoost.cake
+# set( Boost_USE_MULTITHREADED ON )
+# set( Boost_DETAILED_FAILURE_MSG   ON )
+# set( Boost_DEBUG ON )
+# set( Boost_NO_SYSTEM_PATHS ON )
+
 # Client is built only if boost is found; on windows, we need vs10 or higher
 # Find Boost on the system, and configure the type of boost build we want
-set( Boost_USE_MULTITHREADED ON )
-set( Boost_USE_STATIC_LIBS   ON )
-set( Boost_DETAILED_FAILURE_MSG   ON )
-set( Boost_DEBUG ON )
-set( Boost_ADDITIONAL_VERSIONS "1.46.1" "1.46" "1.44.0" "1.44" )
+if( NOT DEFINED Boost_USE_STATIC_LIBS )
+   set( Boost_USE_STATIC_LIBS   ON )
+endif( )
 
-# Default Boost_NO_SYSTEM_PATHS to TRUE if the user does not specify themselves
-if( NOT DEFINED Boost_NO_SYSTEM_PATHS AND UNIX )
-	set( Boost_NO_SYSTEM_PATHS ON )
+if( NOT DEFINED Boost_USE_STATIC_RUNTIME )
+   set( Boost_USE_STATIC_RUNTIME OFF )
 endif( )
 
 # This will define Boost_FOUND
 find_package( Boost 1.33.0 COMPONENTS program_options )
-message( STATUS "Boost_PROGRAM_OPTIONS_LIBRARY: ${Boost_PROGRAM_OPTIONS_LIBRARY}" )
+if( Boost_FOUND )
+   message( STATUS "Boost_PROGRAM_OPTIONS_LIBRARY: ${Boost_PROGRAM_OPTIONS_LIBRARY}" )
+else( )
+   message( WARNING "Try setting Boost_DEBUG and Boost_DETAILED_FAILURE_MSG for more information" )
+endif( )
 
 # This will define OPENCL_FOUND
 find_package( OpenCL )
