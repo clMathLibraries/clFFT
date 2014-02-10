@@ -204,6 +204,9 @@ elseif( CMAKE_COMPILER_IS_GNUCXX )
 		# we only want c++0x if we're using gcc 4.5.2
 		set( CMAKE_CXX_FLAGS "-std=c++0x ${CMAKE_CXX_FLAGS}" )
 	endif()
+
+	set( CMAKE_CXX_FLAGS "-pthread ${CMAKE_CXX_FLAGS}" )
+	set( CMAKE_C_FLAGS "-pthread ${CMAKE_C_FLAGS}" )
 	
 	if( BUILD64 )
 		set( CMAKE_CXX_FLAGS "-m64 ${CMAKE_CXX_FLAGS}" )
