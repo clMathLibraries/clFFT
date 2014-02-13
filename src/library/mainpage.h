@@ -538,6 +538,12 @@ In-place transforms:
 	<li> \c CLFFT_HERMITIAN_INTERLEAVED to \c CLFFT_REAL
 </ul>
 
+@subsection ExplicitStrides Setting strides
+
+The library currently <b> requires the user to explicitly set input and output strides for real transforms.</b> See
+the following examples to understand what values to use for input and output strides under different scenarios. The
+examples only show typical usages. The user has flexibility in allocating their buffers and laying out data according
+to their needs.
 
 @subsection RealExamples Examples
 

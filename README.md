@@ -4,7 +4,7 @@ clFFT
 
 clMath is a software library containing FFT and BLAS functions written in OpenCL. In addition to GPU devices, the libraries also support running on CPU devices to facilitate debugging and multicore programming.
 
-<a href="http://developer.amd.com/tools-and-sdks/heterogeneous-computing/amd-accelerated-parallel-processing-math-libraries/">APPML 1.10</a> is the most current generally available version of the library, and pre-built binaries are available for download on both Linux and Windows platforms.
+clMath 2.1 is the latest version and is available as source only. clMath's predecessor <a href="http://developer.amd.com/tools-and-sdks/heterogeneous-computing/amd-accelerated-parallel-processing-math-libraries/">APPML 1.10</a> has pre-built binaries available for download on both Linux and Windows platforms.
 
 ## Introduction to clFFT
 
