@@ -397,6 +397,9 @@ Supported Modes</h2>
 <li>
 <code>CLFFT_HERMITIAN_INTERLEAVED</code> to <code>CLFFT_REAL</code> </li>
 </ul>
+<h2><a class="anchor" id="ExplicitStrides"></a>
+Setting strides</h2>
+<p>The library currently <b> requires the user to explicitly set input and output strides for real transforms.</b> See the following examples to understand what values to use for input and output strides under different scenarios. The examples only show typical usages. The user has flexibility in allocating their buffers and laying out data according to their needs.</p>
 <h2><a class="anchor" id="RealExamples"></a>
 Examples</h2>
 <p>The following pages provide figures and examples to explain in detail the real FFT features of this library.</p>
@@ -437,7 +440,7 @@ Examples</h2>
 <!-- start footer part -->
 <div id="nav-path" class="navpath"><!-- id is needed for treeview function! -->
   <ul>
-    <li class="footer">Generated on Tue Aug 13 2013 11:57:51 for clFFT by
+    <li class="footer">Generated on Thu Feb 13 2014 14:02:35 for clFFT by
     <a href="http://www.doxygen.org/index.html">
     <img class="footer" src="doxygen.png" alt="doxygen"/></a> 1.8.4 </li>
   </ul>
