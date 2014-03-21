@@ -70,6 +70,7 @@ option( BUILD_RUNTIME "Build the FFT runtime library" ON )
 option( BUILD_CLIENT "Build a command line clFFT client program with a variety of configurable parameters (dependency on Boost)" ON )
 option( BUILD_TEST "Build the library testing suite (dependency on google test, Boost, and FFTW)" ON )
 option( BUILD_LOADLIBRARIES "Build the optional dynamic load libraries that the FFT runtime will search for" ON )
+option( BUILD_SHARED_LIBRARY "Build shared libraries." ON)
 
 # If BOOST_ROOT is defined as an environment value, use that value and cache it so it's visible in the cmake-gui.  
 # Otherwise, create a sensible default that the user can change
