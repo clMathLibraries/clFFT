@@ -41,6 +41,14 @@ if( EXISTS "@GTEST_ROOT@" )
     list( APPEND depList "@GTEST_ROOT@/lib@SUFFIX_LIB@" )
 endif( )
 
+if( EXISTS "@OPENCL_LIBRARIES@" )
+    get_filename_component( clLibName "@OPENCL_LIBRARIES@" NAME )
+    string( REPLACE ${clLibName} "" clLibDir "@OPENCL_LIBRARIES@" )
+    string( REGEX REPLACE "/+$" "" clLibDir ${clLibDir} )
+
+    list( APPEND depList "${clLibDir}" )
+endif( )
+
 if( EXISTS "${testDir}" )
     list( APPEND depList "${testDir}" )
 endif( )
