@@ -46,13 +46,15 @@
 #endif
 
 //	Creating a portable defintion of countof
-#if defined( _WIN32 )
+//  This excludes mingw compilers; mingw32 does not have _countof
+#if defined( _MSC_VER )
 	#define countOf _countof
 #else
 	#define countOf( arr ) ( sizeof( arr ) / sizeof( arr[ 0 ] ) )
 #endif
 
-#if defined( _WIN32 )
+// This excludes mingw compilers; mingw32 does not have <intrin.h>
+#if defined( _MSC_VER )
 	#include <intrin.h>
 
 	#if defined( _WIN64 )

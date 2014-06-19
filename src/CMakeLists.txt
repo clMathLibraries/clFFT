@@ -22,19 +22,35 @@ else( )
 	cmake_minimum_required( VERSION 2.6 )
 endif( )
 
+if( CMAKE_GENERATOR MATCHES "NMake" )
+	option( NMAKE_COMPILE_VERBOSE "Print compile and link strings to the console" OFF )
+	if( NMAKE_COMPILE_VERBOSE )
+		set( CMAKE_START_TEMP_FILE "" )
+		set( CMAKE_END_TEMP_FILE "" )
+		set( CMAKE_VERBOSE_MAKEFILE 1 )
+	endif( )
+endif( )
+
 # This becomes the name of the solution file
 project( clFFT )
 
 # Define a version for the code
-set( CLFFT_VERSION_MAJOR 2 )
-set( CLFFT_VERSION_MINOR 0 )
-set( CLFFT_VERSION_PATCH 0 )
+if( NOT DEFINED CLFFT_VERSION_MAJOR )
+    set( CLFFT_VERSION_MAJOR 2 )
+endif( )
+
+if( NOT DEFINED CLFFT_VERSION_MINOR )
+    set( CLFFT_VERSION_MINOR 2 )
+endif( )
+
+if( NOT DEFINED CLFFT_VERSION_PATCH )
+    set( CLFFT_VERSION_PATCH 0 )
+endif( )
+
 set( CLFFT_VERSION "${CLFFT_VERSION_MAJOR}.${CLFFT_VERSION_MINOR}.${CLFFT_VERSION_PATCH}")
 	
-# uncomment these to debug nmake and borland makefiles
-#SET(CMAKE_START_TEMP_FILE "")
-#SET(CMAKE_END_TEMP_FILE "")
-#SET(CMAKE_VERBOSE_MAKEFILE 1)
+# This is incremented when the ABI to the library changes
+set( CLFFT_SOVERSION 2 )
 
 set( CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${PROJECT_SOURCE_DIR} )
 
@@ -54,17 +70,12 @@ option( BUILD_RUNTIME "Build the FFT runtime library" ON )
 option( BUILD_CLIENT "Build a command line clFFT client program with a variety of configurable parameters (dependency on Boost)" ON )
 option( BUILD_TEST "Build the library testing suite (dependency on google test, Boost, and FFTW)" ON )
 option( BUILD_LOADLIBRARIES "Build the optional dynamic load libraries that the FFT runtime will search for" ON )
+option( BUILD_SHARED_LIBRARY "Build shared libraries." ON)
 
 # If BOOST_ROOT is defined as an environment value, use that value and cache it so it's visible in the cmake-gui.  
 # Otherwise, create a sensible default that the user can change
 if( DEFINED ENV{BOOST_ROOT} )
 	set( BOOST_ROOT $ENV{BOOST_ROOT} CACHE PATH "Environment variable defining the root of the Boost installation" )
-else( )
-	if( UNIX )
-		set( BOOST_ROOT "/usr" CACHE PATH "Modify this variable to point to the root of the Boost installation" )
-	else( )
-		set( BOOST_ROOT "/Path/To/boost_x_xx_x" CACHE PATH "Modify this variable to point to the root of the Boost installation" )
-	endif()
 endif( )
 
 # Currently, linux has a problem outputing both narrow and wide characters,
@@ -80,8 +91,9 @@ else()
 endif()
 
 if( MSVC_IDE )
-	set( BUILD64 ${CMAKE_CL_64} )
     set_property( GLOBAL PROPERTY USE_FOLDERS TRUE )
+
+	set( BUILD64 ${CMAKE_CL_64} )
 else()
 	option( BUILD64 "Build a 64-bit product" ON )
 
@@ -93,32 +105,49 @@ else()
 	endif()
 endif()
 
+# These variables are meant to contain string which should be appended to the installation paths 
+# of library and executable binaries, respectively.  They are meant to be user configurable/overridable.  
+set( SUFFIX_LIB_DEFAULT "" )
+set( SUFFIX_BIN_DEFAULT "" )
+
 # Modify the global find property to help us find libraries like Boost in the correct paths for 64-bit
 # Essentially, find_library calls will look for /lib64 instead of /lib; works for windows and linux
 if( BUILD64 )
 	set_property( GLOBAL PROPERTY FIND_LIBRARY_USE_LIB64_PATHS TRUE )
 	message( STATUS "64bit build - FIND_LIBRARY_USE_LIB64_PATHS TRUE" )
-else()
+
+    set( SUFFIX_LIB_DEFAULT "64" )
+else( )
 	set_property( GLOBAL PROPERTY FIND_LIBRARY_USE_LIB64_PATHS FALSE )
 	message( STATUS "32bit build - FIND_LIBRARY_USE_LIB64_PATHS FALSE" )
-endif()
+endif( )
+
+set( SUFFIX_LIB ${SUFFIX_LIB_DEFAULT} CACHE STRING "String to append to 'lib' install path" )
+set( SUFFIX_BIN ${SUFFIX_BIN_DEFAULT} CACHE STRING "String to append to 'bin' install path" )
+
+# Useful variables to configure FindBoost.cake
+# set( Boost_USE_MULTITHREADED ON )
+# set( Boost_DETAILED_FAILURE_MSG   ON )
+# set( Boost_DEBUG ON )
+# set( Boost_NO_SYSTEM_PATHS ON )
 
 # Client is built only if boost is found; on windows, we need vs10 or higher
 # Find Boost on the system, and configure the type of boost build we want
-set( Boost_USE_MULTITHREADED ON )
-set( Boost_USE_STATIC_LIBS   ON )
-set( Boost_DETAILED_FAILURE_MSG   ON )
-set( Boost_DEBUG ON )
-set( Boost_ADDITIONAL_VERSIONS "1.46.1" "1.46" "1.44.0" "1.44" )
+if( NOT DEFINED Boost_USE_STATIC_LIBS )
+   set( Boost_USE_STATIC_LIBS   ON )
+endif( )
 
-# On linux, the boost installed in the system always appears to override any user boost installs
-if( UNIX )
-	set( Boost_NO_SYSTEM_PATHS TRUE )
+if( NOT DEFINED Boost_USE_STATIC_RUNTIME )
+   set( Boost_USE_STATIC_RUNTIME OFF )
 endif( )
 
 # This will define Boost_FOUND
 find_package( Boost 1.33.0 COMPONENTS program_options )
-message( STATUS "Boost_PROGRAM_OPTIONS_LIBRARY: ${Boost_PROGRAM_OPTIONS_LIBRARY}" )
+if( Boost_FOUND )
+   message( STATUS "Boost_PROGRAM_OPTIONS_LIBRARY: ${Boost_PROGRAM_OPTIONS_LIBRARY}" )
+else( )
+   message( WARNING "Try setting Boost_DEBUG and Boost_DETAILED_FAILURE_MSG for more information" )
+endif( )
 
 # This will define OPENCL_FOUND
 find_package( OpenCL )
@@ -159,24 +188,16 @@ get_filename_component( C_COMPILER_NAME ${CMAKE_C_COMPILER} NAME_WE )
 # message( "CMAKE_C_COMPILER: " ${CMAKE_C_COMPILER} )
 
 # Set common compile and link options
-if( C_COMPILER_NAME STREQUAL "cl" )
+if( MSVC )
 	# Following options for nMake
 	message( STATUS "Detected MSVS Ver: " ${MSVC_VERSION} )
-	if( NOT MSVC_IDE )
-		message( STATUS "Using an nMake environment to build" )
 
-		# I can't get nmake to work because of faulty /machine:, not sure that this isn't a cmake bug
-		# if( BUILD64 )
-			# set( CMAKE_EXE_LINKER_FLAGS "/machine:amd64 ${CMAKE_EXE_LINKER_FLAGS}" )
-			# set( CMAKE_SHARED_LINKER_FLAGS "/machine:amd64 ${CMAKE_SHARED_LINKER_FLAGS}" )
-			# set( CMAKE_MODULE_LINKER_FLAGS  "/machine:amd64 ${CMAKE_MODULE_LINKER_FLAGS }" )
-		# else( )
-			# set( CMAKE_EXE_LINKER_FLAGS "/machine:i386 ${CMAKE_EXE_LINKER_FLAGS}" )
-		# endif( )
+	# CMake sets huge stack frames for windows, for whatever reason.  We go with compiler default.
+	string( REGEX REPLACE "/STACK:[0-9]+" "" CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS}" )
+	string( REGEX REPLACE "/STACK:[0-9]+" "" CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS}" )
+	string( REGEX REPLACE "/STACK:[0-9]+" "" CMAKE_MODULE_LINKER_FLAGS "${CMAKE_MODULE_LINKER_FLAGS}" ) 
 
-	endif( )
-
-elseif( C_COMPILER_NAME STREQUAL "gcc" )
+elseif( CMAKE_COMPILER_IS_GNUCXX )
 	message( STATUS "Detected GNU fortran compiler." )
 	EXEC_PROGRAM( ${CMAKE_CXX_COMPILER} ARGS --version OUTPUT_VARIABLE vnum )
 	STRING(REGEX REPLACE ".*([0-9])\\.([0-9])\\.([0-9]).*" "\\1\\2\\3" vnum ${vnum})
@@ -184,6 +205,9 @@ elseif( C_COMPILER_NAME STREQUAL "gcc" )
 		# we only want c++0x if we're using gcc 4.5.2
 		set( CMAKE_CXX_FLAGS "-std=c++0x ${CMAKE_CXX_FLAGS}" )
 	endif()
+	
+	set( CMAKE_CXX_FLAGS "-pthread ${CMAKE_CXX_FLAGS}" )
+	set( CMAKE_C_FLAGS "-pthread ${CMAKE_C_FLAGS}" )
 	
 	if( BUILD64 )
 		set( CMAKE_CXX_FLAGS "-m64 ${CMAKE_CXX_FLAGS}" )
@@ -197,12 +221,10 @@ elseif( C_COMPILER_NAME STREQUAL "gcc" )
         set( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} --coverage")
         set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} --coverage")
     endif()
-else( )
-	message( FATAL_ERROR "Compiler name not detected" )
 endif( )
 
-# If UNICODE is defined, pass extra definitions into 
-if( UNICODE )
+# If UNICODE is defined for microsoft compilers, pass extra definitions
+if( MSVC AND UNICODE )
 	add_definitions( "/DUNICODE /D_UNICODE" )
 endif( )
 
@@ -214,9 +236,9 @@ message( STATUS "CMAKE_CXX_COMPILER relwithdebinfo flags: " ${CMAKE_CXX_FLAGS_RE
 message( STATUS "CMAKE_EXE_LINKER link flags: " ${CMAKE_EXE_LINKER_FLAGS} )
 
 # configure a header file to pass the CMake version settings to the source, and package the header files in the output archive
-configure_file( "${PROJECT_SOURCE_DIR}/include/version.h.in" "${PROJECT_BINARY_DIR}/include/version.h" )
+configure_file( "${PROJECT_SOURCE_DIR}/include/clFFT.version.h.in" "${PROJECT_BINARY_DIR}/include/clFFT.version.h" )
 install( FILES 
-			"${PROJECT_BINARY_DIR}/include/version.h" 
+			"${PROJECT_BINARY_DIR}/include/clFFT.version.h" 
 			"include/clFFT.h"
 			"include/clAmdFft.h"
 			"include/clAmdFft.version.h" 

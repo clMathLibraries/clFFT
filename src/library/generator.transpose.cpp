@@ -822,7 +822,7 @@ clfftStatus FFTPlan::GetWorkSizesPvt<Transpose> (std::vector<size_t> & globalWS,
 //	OpenCL does not take unicode strings as input, so this routine returns only ASCII strings
 //	Feed this generator the FFTPlan, and it returns the generated program as a string
 template<>
-clfftStatus FFTPlan::GenerateKernelPvt<Transpose> ( FFTRepo& fftRepo ) const
+clfftStatus FFTPlan::GenerateKernelPvt<Transpose> ( FFTRepo& fftRepo, const cl_command_queue commQueueFFT ) const
 {
 	FFTKernelGenKeyParams params;
 	OPENCL_V( this->GetKernelGenKeyPvt<Transpose> (params), _T("GetKernelGenKey() failed!") );
@@ -830,8 +830,14 @@ clfftStatus FFTPlan::GenerateKernelPvt<Transpose> ( FFTRepo& fftRepo ) const
 	std::string programCode;
 	OPENCL_V( GenerateTransposeKernel( params, programCode ), _T( "GenerateTransposeKernel() failed!" ) );
 
-	OPENCL_V( fftRepo.setProgramCode( Transpose, params, programCode ), _T( "fftRepo.setclString() failed!" ) );
-	OPENCL_V( fftRepo.setProgramEntryPoints( Transpose, params, "fft_trans", "fft_trans" ), _T( "fftRepo.setProgramEntryPoint() failed!" ) );
+  cl_int status = CL_SUCCESS;
+  cl_context QueueContext = NULL;
+  status = clGetCommandQueueInfo(commQueueFFT, CL_QUEUE_CONTEXT, sizeof(cl_context), &QueueContext, NULL);
+
+  OPENCL_V( status, _T( "clGetCommandQueueInfo failed" ) );
+
+  OPENCL_V( fftRepo.setProgramCode( Transpose, params, programCode, QueueContext ), _T( "fftRepo.setclString() failed!" ) );
+	OPENCL_V( fftRepo.setProgramEntryPoints( Transpose, params, "fft_trans", "fft_trans",QueueContext ), _T( "fftRepo.setProgramEntryPoint() failed!" ) );
 
 	return CLFFT_SUCCESS;
 }

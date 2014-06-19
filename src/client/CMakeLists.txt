@@ -33,10 +33,12 @@ set( Client.Files ${Client.Source} ${Client.Headers} )
 set( DL_LIB "" )
 if( WIN32 )
 	add_definitions( "/D_CONSOLE" )
-else()
+elseif( APPLE )
+	set( CMAKE_CXX_FLAGS "-std=c++11 -stdlib=libc++ ${CMAKE_CXX_FLAGS}" )	
+else( )
 	# To use the dlopen() and dlclose() functions, we should link with libdl
 	set( DL_LIB "-ldl" )
-endif()
+endif( )
 
 # Include standard OpenCL headers
 include_directories( ${Boost_INCLUDE_DIRS} ${OPENCL_INCLUDE_DIRS} ../../../common ${PROJECT_BINARY_DIR}/include ../include )
@@ -48,22 +50,9 @@ target_link_libraries( Client clFFT ${Boost_LIBRARIES} ${OPENCL_LIBRARIES} ${DL_
 set_target_properties( Client PROPERTIES VERSION ${CLFFT_VERSION} )
 set_target_properties( Client PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIR}/staging" )
 
-if( BUILD64 )
-	# CPack configuration; include the executable into the package
-	install( TARGETS Client
-			RUNTIME DESTINATION bin64
-			LIBRARY DESTINATION lib64
-			ARCHIVE DESTINATION lib64/import
-			)
-
-else()
-	# CPack configuration; include the executable into the package
-	install( TARGETS Client
-			RUNTIME DESTINATION bin32
-			LIBRARY DESTINATION lib32
-			ARCHIVE DESTINATION lib32/import
-			)
-endif()
-
-# configure_file( "${PROJECT_SOURCE_DIR}/client/CMakeLists.pack"
-		# "${PROJECT_BINARY_DIR}/samples/CMakeLists.txt" COPYONLY )
+# CPack configuration; include the executable into the package
+install( TARGETS Client
+        RUNTIME DESTINATION bin${SUFFIX_BIN}
+        LIBRARY DESTINATION lib${SUFFIX_LIB}
+        ARCHIVE DESTINATION lib${SUFFIX_LIB}/import
+        )

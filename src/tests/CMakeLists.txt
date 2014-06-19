@@ -49,20 +49,17 @@ set( clFFT.Test.Headers
   
 set( clFFT.Test.Files ${clFFT.Test.Source} ${clFFT.Test.Headers} )
 
-
-
-if( BUILD64 )
-    set( BIN_DIR bin64 )
-	set( LIB_DIR lib64 )
-else()
-    set( BIN_DIR bin32 )
-	set( LIB_DIR lib32 )
-endif()
-
 set( LD_PTHREAD "" )
-if( CMAKE_COMPILER_IS_GNUCXX )
+if( MINGW )
+    # -std=c++0x causes g++ to go into strict ANSI mode, which doesn't declare non-standard functions
+    # Googletest for mingw appears to have a dependency on _stricmp and off64_t
+	set( CMAKE_CXX_FLAGS "-std=gnu++0x ${CMAKE_CXX_FLAGS}" )
+elseif( CMAKE_COMPILER_IS_GNUCXX )
 	set( CMAKE_CXX_FLAGS "-std=c++0x ${CMAKE_CXX_FLAGS}" )
 	set( LD_PTHREAD "-lpthread" )
+elseif( APPLE )
+	set( CMAKE_CXX_FLAGS "-std=c++11 -stdlib=libc++ ${CMAKE_CXX_FLAGS}" )
+	add_definitions( -DGTEST_USE_OWN_TR1_TUPLE )
 endif( )
 
 # Include standard OpenCL headers
@@ -103,7 +100,19 @@ set_target_properties( Test PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${PROJECT_BINAR
 
 # CPack configuration; include the executable into the package
 install( TARGETS Test
-		RUNTIME DESTINATION ${BIN_DIR}
-		LIBRARY DESTINATION ${LIB_DIR}
-		ARCHIVE DESTINATION ${LIB_DIR}/import
-		)
+        RUNTIME DESTINATION bin${SUFFIX_BIN}
+        LIBRARY DESTINATION lib${SUFFIX_LIB}
+        ARCHIVE DESTINATION lib${SUFFIX_LIB}/import
+        )
+
+get_target_property( testLocation Test LOCATION )
+
+configure_file(
+    "${CMAKE_CURRENT_SOURCE_DIR}/copyTestDependencies.cmake.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/copyTestDependencies.cmake"
+    @ONLY
+)
+
+# Register script at run at install time to analyze the executable and copy dependencies into package
+install( SCRIPT "${CMAKE_CURRENT_BINARY_DIR}/copyTestDependencies.cmake")
+ 

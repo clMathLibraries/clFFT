@@ -2348,7 +2348,7 @@ namespace StockhamGenerator
 
 		}
 
-        void GenerateKernel(std::string &str)
+        void GenerateKernel(std::string &str, cl_device_id Dev_ID)
 		{
 			std::string twType = RegBaseType<PR>(2);
 			std::string rType  = RegBaseType<PR>(1);
@@ -2501,8 +2501,19 @@ namespace StockhamGenerator
 				else	str += "fft_back";
 				str += "(";
 
-				// TODO : address this kludge
-				str += "__constant cb_t *cb __attribute__((max_constant_size(32))), ";
+        // TODO : address this kludge
+        size_t SizeParam_ret = 0;
+        clGetDeviceInfo(Dev_ID, CL_DEVICE_VENDOR, 0, NULL, &SizeParam_ret);
+        char* nameVendor = new char[SizeParam_ret];
+        clGetDeviceInfo(Dev_ID, CL_DEVICE_VENDOR, SizeParam_ret, nameVendor, NULL);
+
+        //nv compiler doesn't support __constant kernel argument
+        if (strncmp(nameVendor, "NVIDIA",6)!=0)
+          str += "__constant cb_t *cb __attribute__((max_constant_size(32))), ";
+        else
+          str += "__global cb_t *cb, ";
+
+        delete [] nameVendor;
 
 				// Function attributes
 				if(params.fft_placeness == CLFFT_INPLACE)
@@ -3218,10 +3229,21 @@ clfftStatus FFTPlan::GetMax1DLengthPvt<Stockham> (size_t * longest) const
 }
 
 template<>
-clfftStatus FFTPlan::GenerateKernelPvt<Stockham>(FFTRepo& fftRepo ) const
+clfftStatus FFTPlan::GenerateKernelPvt<Stockham>(FFTRepo& fftRepo, const cl_command_queue commQueueFFT ) const
 {
     FFTKernelGenKeyParams params;
     OPENCL_V( this->GetKernelGenKeyPvt<Stockham> (params), _T("GetKernelGenKey() failed!") );
+
+    cl_int status = CL_SUCCESS;
+    cl_device_id Device = NULL;
+    status = clGetCommandQueueInfo(commQueueFFT, CL_QUEUE_DEVICE, sizeof(cl_device_id), &Device, NULL);
+
+    OPENCL_V( status, _T( "clGetCommandQueueInfo failed" ) );
+
+    cl_context QueueContext = NULL;
+    status = clGetCommandQueueInfo(commQueueFFT, CL_QUEUE_CONTEXT, sizeof(cl_context), &QueueContext, NULL);
+
+    OPENCL_V( status, _T( "clGetCommandQueueInfo failed" ) );
 
 	std::string programCode;
 	Precision pr = (params.fft_precision == CLFFT_SINGLE) ? P_SINGLE : P_DOUBLE;
@@ -3230,12 +3252,12 @@ clfftStatus FFTPlan::GenerateKernelPvt<Stockham>(FFTRepo& fftRepo ) const
 	case P_SINGLE:
 		{
 			Kernel<P_SINGLE> kernel(params);
-			kernel.GenerateKernel(programCode);
+			kernel.GenerateKernel(programCode, Device);
 		} break;
 	case P_DOUBLE:
 		{
 			Kernel<P_DOUBLE> kernel(params);
-			kernel.GenerateKernel(programCode);
+			kernel.GenerateKernel(programCode, Device);
 		} break;
 	}
 
@@ -3243,8 +3265,8 @@ clfftStatus FFTPlan::GenerateKernelPvt<Stockham>(FFTRepo& fftRepo ) const
 	ReadKernelFromFile(programCode);
 #endif
 
-    OPENCL_V( fftRepo.setProgramCode( Stockham, params, programCode ), _T( "fftRepo.setclString() failed!" ) );
-    OPENCL_V( fftRepo.setProgramEntryPoints( Stockham, params, "fft_fwd", "fft_back" ), _T( "fftRepo.setProgramEntryPoint() failed!" ) );
+    OPENCL_V( fftRepo.setProgramCode( Stockham, params, programCode, QueueContext ), _T( "fftRepo.setclString() failed!" ) );
+    OPENCL_V( fftRepo.setProgramEntryPoints( Stockham, params, "fft_fwd", "fft_back", QueueContext ), _T( "fftRepo.setProgramEntryPoint() failed!" ) );
 
     return CLFFT_SUCCESS;
 }

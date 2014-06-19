@@ -18,7 +18,7 @@
 #include <gtest/gtest.h>
 #include <boost/program_options.hpp>
 #include "clFFT.h"
-#include "version.h"
+#include "clFFT.version.h"
 #include "test_constants.h"
 #include "../client/openCL.misc.h"
 #include "unicode.compatibility.h"
@@ -29,8 +29,10 @@ time_t random_test_parameter_seed;
 float tolerance;
 bool verbose;
 
-#if defined( _WIN32 )
-#define NOMINMAX
+#if defined( MSVC_VER )
+#if !defined( NOMINMAX )
+	#define NOMINMAX
+#endif
 #define WIN32_LEAN_AND_MEAN			// Exclude rarely-used stuff from Windows headers
 #include <intrin.h>
 

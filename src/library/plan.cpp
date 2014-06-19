@@ -194,7 +194,7 @@ clfftStatus	clfftCreateDefaultPlan( clfftPlanHandle* plHandle, cl_context contex
 }
 
 //	Read the kernels that this plan uses from file, and store into the plan
-clfftStatus WriteKernel( const clfftPlanHandle plHandle, const clfftGenerators gen, const FFTKernelGenKeyParams& fftParams )
+clfftStatus WriteKernel( const clfftPlanHandle plHandle, const clfftGenerators gen, const FFTKernelGenKeyParams& fftParams, const cl_context& context )
 {
 	FFTRepo& fftRepo	= FFTRepo::getInstance( );
 
@@ -220,7 +220,7 @@ clfftStatus WriteKernel( const clfftPlanHandle plHandle, const clfftGenerators g
 	}
 
 	std::string kernel;
-	OPENCL_V( fftRepo.getProgramCode( gen, fftParams, kernel ), _T( "fftRepo.getProgramCode failed." ) );
+	OPENCL_V( fftRepo.getProgramCode( gen, fftParams, kernel, context ), _T( "fftRepo.getProgramCode failed." ) );
 
 	kernelFile.get( ) << kernel << std::endl;
 
@@ -250,16 +250,16 @@ clfftStatus CompileKernels( const cl_command_queue commQueueFFT, const clfftPlan
 	OPENCL_V( fftPlan->GetKernelGenKey( fftParams ), _T("GetKernelGenKey() failed!") );
 
 	cl_program program;
-	if( fftRepo.getclProgram( gen, fftParams, program ) == CLFFT_INVALID_PROGRAM )
+  if( fftRepo.getclProgram( gen, fftParams, program, fftPlan->context ) == CLFFT_INVALID_PROGRAM )
 	{
 		//	If the user wishes us to write the kernels out to disk, we do so
 		if( fftRepo.setupData.debugFlags & CLFFT_DUMP_PROGRAMS )
 		{
-			OPENCL_V( WriteKernel( plHandle, gen, fftParams ), _T( "WriteKernel failed." ) );
+			OPENCL_V( WriteKernel( plHandle, gen, fftParams, fftPlan->context ), _T( "WriteKernel failed." ) );
 		}
 
 		std::string programCode;
-		OPENCL_V( fftRepo.getProgramCode( gen, fftParams, programCode ), _T( "fftRepo.getProgramCode failed." ) );
+		OPENCL_V( fftRepo.getProgramCode( gen, fftParams, programCode, fftPlan->context  ), _T( "fftRepo.getProgramCode failed." ) );
 
 		const char* source = programCode.c_str();
 		program = clCreateProgramWithSource( fftPlan->context, 1, &source, NULL, &status );
@@ -317,7 +317,7 @@ clfftStatus CompileKernels( const cl_command_queue commQueueFFT, const clfftPlan
 			if( fftRepo.getclKernel( program, CLFFT_FORWARD, kernel ) == CLFFT_INVALID_KERNEL )
 			{
 				std::string entryPoint;
-				OPENCL_V( fftRepo.getProgramEntryPoint( gen, fftParams, CLFFT_FORWARD, entryPoint ), _T( "fftRepo.getProgramEntryPoint failed." ) );
+				OPENCL_V( fftRepo.getProgramEntryPoint( gen, fftParams, CLFFT_FORWARD, entryPoint, fftPlan->context ), _T( "fftRepo.getProgramEntryPoint failed." ) );
 
 				kernel = clCreateKernel( program, entryPoint.c_str( ), &status );
 				OPENCL_V( status, _T( "clCreateKernel failed" ) );
@@ -331,7 +331,7 @@ clfftStatus CompileKernels( const cl_command_queue commQueueFFT, const clfftPlan
 			if( fftRepo.getclKernel( program, CLFFT_BACKWARD, kernel ) == CLFFT_INVALID_KERNEL )
 			{
 				std::string entryPoint;
-				OPENCL_V( fftRepo.getProgramEntryPoint( gen, fftParams, CLFFT_BACKWARD, entryPoint ), _T( "fftRepo.getProgramEntryPoint failed." ) );
+				OPENCL_V( fftRepo.getProgramEntryPoint( gen, fftParams, CLFFT_BACKWARD, entryPoint, fftPlan->context ), _T( "fftRepo.getProgramEntryPoint failed." ) );
 
 				kernel = clCreateKernel( program, entryPoint.c_str( ), &status );
 				OPENCL_V( status, _T( "clCreateKernel failed" ) );
@@ -494,6 +494,9 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 		return CLFFT_SUCCESS;
 	}
 
+	// Store the device for which we are baking
+	clGetCommandQueueInfo(*commQueueFFT, CL_QUEUE_DEVICE, sizeof(cl_device_id), &fftPlan->bakeDevice, NULL);
+
 	//find product of lengths
 	size_t pLength = 1;
 	switch(fftPlan->dim)
@@ -543,7 +546,7 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 
 	if(fftPlan->gen == Copy)
 	{
-		OPENCL_V( fftPlan->GenerateKernel( fftRepo ), _T( "GenerateKernel() failed" ) );
+		OPENCL_V( fftPlan->GenerateKernel( fftRepo, *commQueueFFT ), _T( "GenerateKernel() failed" ) );
 		OPENCL_V( CompileKernels( *commQueueFFT, plHandle, fftPlan->gen, fftPlan ), _T( "CompileKernels() failed" ) );
 		fftPlan->baked		= true;
 		return	CLFFT_SUCCESS;
@@ -1505,12 +1508,26 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 				//break;
 				if (fftPlan->transflag) //Transpose for 2D
 				{
-					OPENCL_V( fftPlan->GenerateKernel( fftRepo ), _T( "GenerateTransposeProgram() failed" ) );
+					OPENCL_V( fftPlan->GenerateKernel( fftRepo, *commQueueFFT ), _T( "GenerateTransposeProgram() failed" ) );
 					OPENCL_V( CompileKernels( *commQueueFFT, plHandle, fftPlan->gen, fftPlan ), _T( "CompileKernels() failed" ) );
 
 					fftPlan->baked		= true;
 					return	CLFFT_SUCCESS;
 				}
+
+                // TODO : Check for a better way to do this.
+                bool isnvidia = false;
+                for (size_t Idx = 0; !isnvidia && Idx < numQueues; Idx++)
+                {
+                    cl_command_queue QIdx = commQueueFFT[Idx];
+                    cl_device_id Device;
+                    clGetCommandQueueInfo(QIdx, CL_QUEUE_DEVICE, sizeof(Device), &Device, NULL);
+                    char Vendor[256];
+                    clGetDeviceInfo(Device, CL_DEVICE_VENDOR, sizeof(Vendor), &Vendor, NULL);
+                    isnvidia |= (strncmp(Vendor, "NVIDIA", 6) == 0);
+                }
+                // nvidia gpus are failing when doing transpose for 2D FFTs
+                if (isnvidia) break;
 
 				if (fftPlan->length.size() != 2) break;
 				if (!(IsPo2(fftPlan->length[0])) || !(IsPo2(fftPlan->length[1])))
@@ -2445,7 +2462,7 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 	}
 
 	//	For the radices that we have factored, we need to load/compile and build the appropriate OpenCL kernels
-	OPENCL_V( fftPlan->GenerateKernel( fftRepo ), _T( "GenerateKernel() failed" ) );
+	OPENCL_V( fftPlan->GenerateKernel( fftRepo, *commQueueFFT ), _T( "GenerateKernel() failed" ) );
 
 	//	For the radices that we have factored, we need to load/compile and build the appropriate OpenCL kernels
 	OPENCL_V( CompileKernels( *commQueueFFT, plHandle, fftPlan->gen, fftPlan ), _T( "CompileKernels() failed" ) );
@@ -3265,13 +3282,13 @@ clfftStatus  FFTPlan::GetKernelGenKey (FFTKernelGenKeyParams & params) const
 	}
 }
 
-clfftStatus  FFTPlan::GenerateKernel (FFTRepo & fftRepo) const
+clfftStatus  FFTPlan::GenerateKernel (FFTRepo & fftRepo, const cl_command_queue commQueueFFT) const
 {
 	switch(gen)
 	{
-	case Stockham:		return GenerateKernelPvt<Stockham>(fftRepo);
-	case Transpose:		return GenerateKernelPvt<Transpose>(fftRepo);
-	case Copy:			return GenerateKernelPvt<Copy>(fftRepo);
+	case Stockham:		return GenerateKernelPvt<Stockham>(fftRepo, commQueueFFT);
+	case Transpose:		return GenerateKernelPvt<Transpose>(fftRepo, commQueueFFT);
+	case Copy:			return GenerateKernelPvt<Copy>(fftRepo, commQueueFFT);
 	default:			assert(false); return CLFFT_NOTIMPLEMENTED;
 	}
 }

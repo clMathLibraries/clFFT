@@ -79,7 +79,7 @@ inline void* LoadFunctionAddr( void* libHandle, std::string funcName )
 #if defined( _WIN32 )
 	HMODULE fileHandle = reinterpret_cast< HMODULE >( libHandle );
 
-	void* pFunc	= ::GetProcAddress( fileHandle, funcName.c_str( ) );
+	void* pFunc	= reinterpret_cast< void* >( ::GetProcAddress( fileHandle, funcName.c_str( ) ) );
 #else
 	void* pFunc = ::dlsym( libHandle, funcName.c_str( ) );
 #endif

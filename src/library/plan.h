@@ -202,7 +202,7 @@ class	FFTPlan
 	clfftStatus GetKernelGenKeyPvt (FFTKernelGenKeyParams & params) const;
 
 	template <clfftGenerators G>
-	clfftStatus GenerateKernelPvt (FFTRepo& fftRepo) const;
+	clfftStatus GenerateKernelPvt (FFTRepo& fftRepo,  const cl_command_queue commQueueFFT ) const;
 
 	template <clfftGenerators G>
 	clfftStatus GetMax1DLengthPvt (size_t *longest ) const;
@@ -222,6 +222,10 @@ public:
 	double                  forwardScale, backwardScale;
 	size_t                  iDist, oDist;
 	size_t                  batchsize;
+
+	// Note the device passed to BakePlan, assuming we are baking for one device
+	// TODO, change this logic for handling multiple GPUs/devices
+	cl_device_id bakeDevice;
 
 	//	Devices that the user specified in the context passed to the create function
 	std::vector< cl_device_id > devices;
@@ -338,7 +342,7 @@ public:
 
 	clfftStatus GetWorkSizes (std::vector<size_t> & globalws, std::vector<size_t> & localws) const;
 	clfftStatus GetKernelGenKey (FFTKernelGenKeyParams & params) const;
-	clfftStatus GenerateKernel (FFTRepo & fftRepo) const;
+	clfftStatus GenerateKernel (FFTRepo & fftRepo, const cl_command_queue commQueueFFT) const;
 	clfftStatus GetMax1DLength (size_t *longest ) const;
 
 	void ResetBinarySizes();

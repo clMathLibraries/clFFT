@@ -34,6 +34,9 @@ size_t FFTRepo::planCount	= 1;
 void* FFTRepo::timerHandle	= NULL;
 GpuStatTimer* FFTRepo::pStatTimer	= NULL;
 
+
+
+
 clfftStatus FFTRepo::releaseResources( )
 {
 	scopedLock sLock( lockRepo, _T( "releaseResources" ) );
@@ -88,16 +91,34 @@ clfftStatus FFTRepo::releaseResources( )
 	return	CLFFT_SUCCESS;
 }
 
-clfftStatus FFTRepo::setProgramCode( const clfftGenerators gen, const FFTKernelGenKeyParams& fftParam, const std::string& kernel )
+clfftStatus FFTRepo::setProgramCode( const clfftGenerators gen, const FFTKernelGenKeyParams& fftParam, const std::string& kernel, const cl_context& context )
 {
 	scopedLock sLock( lockRepo, _T( "setProgramCode" ) );
 
-	std::pair< clfftGenerators, FFTKernelGenKeyParams > key = std::make_pair( gen, fftParam );
+  std::pair<FFTKernelGenKeyParams, cl_context> Params = std::make_pair(fftParam, context);
+	fftRepoKey key = std::make_pair( gen, Params );
+
 
 	// Prefix copyright statement at the top of generated kernels
 	std::stringstream ss;
-	ss << std::endl << std::endl;
-	ss << "// Copyright (C) 2010-2013 Advanced Micro Devices, Inc. All Rights Reserved." << std::endl << std::endl;
+	ss << 
+		"/* ************************************************************************\n"
+		" * Copyright 2013 Advanced Micro Devices, Inc.\n"
+		" *\n"
+		" * Licensed under the Apache License, Version 2.0 (the \"License\");\n"
+		" * you may not use this file except in compliance with the License.\n"
+		" * You may obtain a copy of the License at\n"
+		" *\n"
+		" * http://www.apache.org/licenses/LICENSE-2.0\n"
+		" *\n"
+		" * Unless required by applicable law or agreed to in writing, software\n"
+		" * distributed under the License is distributed on an \"AS IS\" BASIS,\n"
+		" * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.\n"
+		" * See the License for the specific language governing permissions and\n"
+		" * limitations under the License.\n"
+		" * ************************************************************************/"
+	<< std::endl << std::endl;
+
 	std::string prefixCopyright = ss.str();
 
 	mapFFTs[ key ].ProgramString = prefixCopyright + kernel;
@@ -105,26 +126,28 @@ clfftStatus FFTRepo::setProgramCode( const clfftGenerators gen, const FFTKernelG
 	return	CLFFT_SUCCESS;
 }
 
-clfftStatus FFTRepo::getProgramCode( const clfftGenerators gen, const FFTKernelGenKeyParams& fftParam, std::string& kernel )
+clfftStatus FFTRepo::getProgramCode( const clfftGenerators gen, const FFTKernelGenKeyParams& fftParam, std::string& kernel, const cl_context& context )
 {
 	scopedLock sLock( lockRepo, _T( "getProgramCode" ) );
 
-	std::pair< clfftGenerators, FFTKernelGenKeyParams > key = std::make_pair( gen, fftParam );
+  std::pair<FFTKernelGenKeyParams, cl_context> Params = std::make_pair(fftParam, context);
+	fftRepoKey key = std::make_pair( gen, Params );
 
 	fftRepo_iterator pos = mapFFTs.find( key);
 	if( pos == mapFFTs.end( ) )
 		return	CLFFT_FILE_NOT_FOUND;
 
-	kernel = pos->second.ProgramString;
+  kernel = pos->second.ProgramString;
 	return	CLFFT_SUCCESS;
 }
 
 clfftStatus FFTRepo::setProgramEntryPoints( const clfftGenerators gen, const FFTKernelGenKeyParams& fftParam,
-	const char * kernel_fwd, const char * kernel_back )
+	const char * kernel_fwd, const char * kernel_back, const cl_context& context  )
 {
 	scopedLock sLock( lockRepo, _T( "setProgramEntryPoints" ) );
 
-	std::pair< clfftGenerators, FFTKernelGenKeyParams > key = std::make_pair( gen, fftParam );
+  std::pair<FFTKernelGenKeyParams, cl_context> Params = std::make_pair(fftParam, context);
+	fftRepoKey key = std::make_pair( gen, Params );
 
 	fftRepoValue& fft  = mapFFTs[ key ];
 	fft.EntryPoint_fwd  = kernel_fwd;
@@ -134,11 +157,12 @@ clfftStatus FFTRepo::setProgramEntryPoints( const clfftGenerators gen, const FFT
 }
 
 clfftStatus FFTRepo::getProgramEntryPoint( const clfftGenerators gen, const FFTKernelGenKeyParams& fftParam,
-			clfftDirection dir, std::string& kernel )
+			clfftDirection dir, std::string& kernel, const cl_context& context )
 {
 	scopedLock sLock( lockRepo, _T( "getProgramEntryPoint" ) );
 
-	std::pair< clfftGenerators, FFTKernelGenKeyParams > key = std::make_pair( gen, fftParam );
+  std::pair<FFTKernelGenKeyParams, cl_context> Params = std::make_pair(fftParam, context);
+	fftRepoKey key = std::make_pair( gen, Params );
 
 	fftRepo_iterator pos = mapFFTs.find( key );
 	if( pos == mapFFTs.end( ) )
@@ -166,7 +190,14 @@ clfftStatus FFTRepo::setclProgram( const clfftGenerators gen, const FFTKernelGen
 {
 	scopedLock sLock( lockRepo, _T( "setclProgram" ) );
 
-	std::pair< clfftGenerators, FFTKernelGenKeyParams > key = std::make_pair( gen, fftParam );
+  cl_int status = CL_SUCCESS;
+  cl_context ProgramContext = NULL;
+  status = clGetProgramInfo(prog, CL_PROGRAM_CONTEXT, sizeof(cl_context), &ProgramContext, NULL);
+
+  OPENCL_V( status, _T( "clGetCommandQueueInfo failed" ) );
+
+  std::pair<FFTKernelGenKeyParams, cl_context> Params = std::make_pair(fftParam, ProgramContext);
+	fftRepoKey key = std::make_pair( gen, Params );
 
 	fftRepo_iterator pos = mapFFTs.find( key );
 	if( pos == mapFFTs.end( ) )
@@ -182,11 +213,12 @@ clfftStatus FFTRepo::setclProgram( const clfftGenerators gen, const FFTKernelGen
 	return	CLFFT_SUCCESS;
 }
 
-clfftStatus FFTRepo::getclProgram( const clfftGenerators gen, const FFTKernelGenKeyParams& fftParam, cl_program& prog )
+clfftStatus FFTRepo::getclProgram( const clfftGenerators gen, const FFTKernelGenKeyParams& fftParam, cl_program& prog, const cl_context& PlanContext  )
 {
 	scopedLock sLock( lockRepo, _T( "getclProgram" ) );
 
-	std::pair< clfftGenerators, FFTKernelGenKeyParams > key = std::make_pair( gen, fftParam );
+  std::pair<FFTKernelGenKeyParams, cl_context> Params = std::make_pair(fftParam, PlanContext);
+	fftRepoKey key = std::make_pair( gen, Params );
 
 	fftRepo_iterator pos = mapFFTs.find( key );
 	if( pos == mapFFTs.end( ) )
@@ -194,6 +226,11 @@ clfftStatus FFTRepo::getclProgram( const clfftGenerators gen, const FFTKernelGen
 	prog = pos->second.clProgram;
 	if (NULL == prog)
 		return	CLFFT_INVALID_PROGRAM;
+  
+  cl_context ProgContext;
+  clGetProgramInfo(prog, CL_PROGRAM_CONTEXT, sizeof(cl_context), &ProgContext, NULL);
+  if (PlanContext!=ProgContext)
+    return	CLFFT_INVALID_PROGRAM;
 
 	return	CLFFT_SUCCESS;
 }

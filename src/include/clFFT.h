@@ -33,7 +33,7 @@
 	#include <CL/cl.h>
 #endif
 
-#include "version.h"
+#include "clFFT.version.h"
 
 /*! This preprocessor definition is the standard way of making exporting APIs
  *  from a DLL simpler. All files within this DLL are compiled with the CLFFT_EXPORTS
@@ -127,6 +127,7 @@ enum clfftStatus_
 	CLFFT_VERSION_MISMATCH,		/*!< Version conflict between client and library. */
 	CLFFT_INVALID_PLAN,			/*!< Requested plan could not be found. */
 	CLFFT_DEVICE_NO_DOUBLE,		/*!< Double precision not supported on this device. */
+	CLFFT_DEVICE_MISMATCH,		/*!< Attempt to run on a device using a plan baked for a different device. */
 	CLFFT_ENDSTATUS				/* This value will always be last, and marks the length of clfftStatus. */
 };
 typedef enum clfftStatus_ clfftStatus;
