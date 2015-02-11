@@ -2,14 +2,12 @@ clFFT
 =====
 [![Build Status](https://travis-ci.org/clMathLibraries/clFFT.png)](https://travis-ci.org/clMathLibraries/clFFT)
 
-clMath is a software library containing FFT and BLAS functions written
+clFFT is a software library containing FFT functions written
 in OpenCL. In addition to GPU devices, the libraries also support
-running on CPU devices to facilitate debugging and multicore
+running on CPU devices to facilitate debugging and heterogeneous
 programming.
 
-clMath 2.1 is the latest version and is available as source only.
-clMath's predecessor APPML 1.10 has pre-built binaries available for
-download on both Linux and Windows platforms.
+Pre-built binaries are available [here][binary_release].
 
 ## Introduction to clFFT
 
@@ -210,3 +208,4 @@ int main( void )
   [clmath-developers@googlegroups.com]: https://github.com/clMathLibraries/clFFT/wiki/Build
   [Contributing]: CONTRIBUTING.md
   [Apache License, Version 2.0]: http://www.apache.org/licenses/LICENSE-2.0
+  [binary_release]: https://github.com/clMathLibraries/clFFT/releases

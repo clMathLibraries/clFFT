@@ -151,7 +151,6 @@ private:
 	//	OpenCL resources that need to be carefully managed
 	std::unique_ptr< _cl_context, clContext_deleter > context;
 	std::unique_ptr< _cl_command_queue, clCommQueue_deleter > queue;
-	std::unique_ptr< _cl_event, clEvent_deleter > an_event;
 	std::vector< std::unique_ptr< _cl_mem, clMem_deleter > > cl_mem_input;
 	std::vector< std::unique_ptr< _cl_mem, clMem_deleter > > cl_mem_output;
 	std::vector< cl_device_id >	device_id;
@@ -630,7 +629,6 @@ public:
 
 		// In order to call clfftEnqueueTransform, we need to pass naked pointers
 		cl_command_queue tempQueue = queue.get( );
-		cl_event tempEvent = an_event.get( );
 		size_t buffer_size = 0;
 
 		EXPECT_EQ( CLFFT_SUCCESS, clfftBakePlan(*plan_handle, 1, &tempQueue, NULL, NULL ));
@@ -683,7 +681,7 @@ public:
 
 		// In order to call clfftEnqueueTransform, we need to pass naked pointers
 		cl_command_queue tempQueue = queue.get( );
-		cl_event tempEvent = an_event.get( );
+		std::unique_ptr< _cl_event, clEvent_deleter > tempEvent;
 		std::unique_ptr< _cl_mem, clMem_deleter > intermediate_buffer;
 
 		throw_if_total_memory_footprint_is_too_large_for_device();
@@ -726,6 +724,7 @@ public:
 			for( cl_uint i = 0; i < cl_mem_output.size( ); ++i )
 				tempOutput[ i ] = cl_mem_output[ i ].get( );
 
+			cl_event tevent = NULL;
 			if( buffer_size )
 			{
 				status = clfftEnqueueTransform(*plan_handle,
@@ -734,7 +733,7 @@ public:
 								  &tempQueue,
 								  0,
 								  NULL,
-								  &tempEvent,
+								  &tevent,
 								  &tempInput[ 0 ],
 								  &tempOutput[ 0 ],
 								  intermediate_buffer.get() );
@@ -747,12 +746,13 @@ public:
 								  &tempQueue,
 								  0,
 								  NULL,
-								  &tempEvent,
+								  &tevent,
 								  &tempInput[ 0 ],
 								  &tempOutput[ 0 ],
 								  NULL );
 			}
             clFinish(tempQueue);
+			tempEvent.reset(tevent); tevent = NULL;
 
 			if( status != CLFFT_SUCCESS )
 			{
@@ -760,11 +760,12 @@ public:
 			}
 
 			// wait for the kernel call to finish execution
-            cl_int wait_status = clWaitForEvents(1, &tempEvent);
+			const cl_event revent = tempEvent.get();
+            cl_int wait_status = clWaitForEvents(1, &revent);
 			if( wait_status == CL_EXEC_STATUS_ERROR_FOR_EVENTS_IN_WAIT_LIST )
 			{
 				cl_int error_code;
-				clGetEventInfo( tempEvent, CL_EVENT_COMMAND_EXECUTION_STATUS, sizeof(cl_int), &error_code, NULL );
+				clGetEventInfo( revent, CL_EVENT_COMMAND_EXECUTION_STATUS, sizeof(cl_int), &error_code, NULL );
 				throw std::runtime_error(prettyPrintclFFTStatus(error_code).c_str());
 			}
             else if( wait_status != CL_SUCCESS )

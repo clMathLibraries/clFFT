@@ -1,12 +1,12 @@
 # ########################################################################
 # Copyright 2013 Advanced Micro Devices, Inc.
-# 
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# 
+#
 # http://www.apache.org/licenses/LICENSE-2.0
-# 
+#
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -40,7 +40,7 @@ if( NOT DEFINED CLFFT_VERSION_MAJOR )
 endif( )
 
 if( NOT DEFINED CLFFT_VERSION_MINOR )
-    set( CLFFT_VERSION_MINOR 2 )
+    set( CLFFT_VERSION_MINOR 4 )
 endif( )
 
 if( NOT DEFINED CLFFT_VERSION_PATCH )
@@ -72,7 +72,7 @@ option( BUILD_TEST "Build the library testing suite (dependency on google test, 
 option( BUILD_LOADLIBRARIES "Build the optional dynamic load libraries that the FFT runtime will search for" ON )
 option( BUILD_SHARED_LIBRARY "Build shared libraries." ON)
 
-# If BOOST_ROOT is defined as an environment value, use that value and cache it so it's visible in the cmake-gui.  
+# If BOOST_ROOT is defined as an environment value, use that value and cache it so it's visible in the cmake-gui.
 # Otherwise, create a sensible default that the user can change
 if( DEFINED ENV{BOOST_ROOT} )
 	set( BOOST_ROOT $ENV{BOOST_ROOT} CACHE PATH "Environment variable defining the root of the Boost installation" )
@@ -105,8 +105,8 @@ else()
 	endif()
 endif()
 
-# These variables are meant to contain string which should be appended to the installation paths 
-# of library and executable binaries, respectively.  They are meant to be user configurable/overridable.  
+# These variables are meant to contain string which should be appended to the installation paths
+# of library and executable binaries, respectively.  They are meant to be user configurable/overridable.
 set( SUFFIX_LIB_DEFAULT "" )
 set( SUFFIX_BIN_DEFAULT "" )
 
@@ -155,7 +155,7 @@ find_package( OpenCL )
 # This will define FFTW_FOUND
 find_package( FFTW )
 
-if( (${CMAKE_MAJOR_VERSION}.${CMAKE_MINOR_VERSION} VERSION_LESS 2.8) ) 
+if( (${CMAKE_MAJOR_VERSION}.${CMAKE_MINOR_VERSION} VERSION_LESS 2.8) )
 	message( STATUS "Cmake version 2.8 or greater needed to use GTest" )
 else()
 	# This will define GTEST_FOUND
@@ -195,7 +195,7 @@ if( MSVC )
 	# CMake sets huge stack frames for windows, for whatever reason.  We go with compiler default.
 	string( REGEX REPLACE "/STACK:[0-9]+" "" CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS}" )
 	string( REGEX REPLACE "/STACK:[0-9]+" "" CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS}" )
-	string( REGEX REPLACE "/STACK:[0-9]+" "" CMAKE_MODULE_LINKER_FLAGS "${CMAKE_MODULE_LINKER_FLAGS}" ) 
+	string( REGEX REPLACE "/STACK:[0-9]+" "" CMAKE_MODULE_LINKER_FLAGS "${CMAKE_MODULE_LINKER_FLAGS}" )
 
 elseif( CMAKE_COMPILER_IS_GNUCXX )
 	message( STATUS "Detected GNU fortran compiler." )
@@ -208,7 +208,12 @@ elseif( CMAKE_COMPILER_IS_GNUCXX )
 	
 	set( CMAKE_CXX_FLAGS "-pthread ${CMAKE_CXX_FLAGS}" )
 	set( CMAKE_C_FLAGS "-pthread ${CMAKE_C_FLAGS}" )
-	
+
+	# For linux debug builds, define the same preprocessing symbols as win to keep it simple
+	if( CMAKE_BUILD_TYPE MATCHES "Debug" )
+		add_definitions( "/D_DEBUG" )
+	endif( )
+
 	if( BUILD64 )
 		set( CMAKE_CXX_FLAGS "-m64 ${CMAKE_CXX_FLAGS}" )
 		set( CMAKE_C_FLAGS "-m64 ${CMAKE_C_FLAGS}" )
@@ -237,12 +242,12 @@ message( STATUS "CMAKE_EXE_LINKER link flags: " ${CMAKE_EXE_LINKER_FLAGS} )
 
 # configure a header file to pass the CMake version settings to the source, and package the header files in the output archive
 configure_file( "${PROJECT_SOURCE_DIR}/include/clFFT.version.h.in" "${PROJECT_BINARY_DIR}/include/clFFT.version.h" )
-install( FILES 
-			"${PROJECT_BINARY_DIR}/include/clFFT.version.h" 
+install( FILES
+			"${PROJECT_BINARY_DIR}/include/clFFT.version.h"
 			"include/clFFT.h"
 			"include/clAmdFft.h"
-			"include/clAmdFft.version.h" 
-		DESTINATION 
+			"include/clAmdFft.version.h"
+		DESTINATION
 			"./include" )
 
 
@@ -278,7 +283,7 @@ else( )
 	message( "GoogleTest unit tests will NOT be built" )
 endif( )
 
-# The following code is setting variables to control the behavior of CPack to generate our 
+# The following code is setting variables to control the behavior of CPack to generate our
 if( WIN32 )
 	set( CPACK_SOURCE_GENERATOR "ZIP" )
 	set( CPACK_GENERATOR "ZIP" )

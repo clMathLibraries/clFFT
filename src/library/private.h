@@ -270,6 +270,8 @@ inline tstring clfftErrorStatusAsString( const cl_int& status )
 
 //	This is used to either wrap an OpenCL function call, or to explicitly check a variable for an OpenCL error condition.
 //	If an error occurs, we issue a return statement to exit the calling function.
+#if defined( _DEBUG )
+
 #define OPENCL_V( fn, msg ) \
 { \
 	clfftStatus vclStatus = static_cast< clfftStatus >( fn ); \
@@ -287,6 +289,23 @@ inline tstring clfftErrorStatusAsString( const cl_int& status )
 		} \
 	} \
 }
+
+#else
+
+#define OPENCL_V( fn, msg ) \
+{ \
+	clfftStatus vclStatus = static_cast< clfftStatus >( fn ); \
+	switch( vclStatus ) \
+	{ \
+		case	CL_SUCCESS:		/**< No error */ \
+			break; \
+		default: \
+		{ \
+			return	vclStatus; \
+		} \
+	} \
+}
+#endif
 
 static inline bool IsPo2 (size_t u) {
 	return (u != 0) &&  (0 == (u & (u-1)));
