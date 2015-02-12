@@ -18,8 +18,8 @@
 
 // clfft.plan.cpp : Defines the entry point for the console application.
 //
-
 #include "stdafx.h"
+#include <stdio.h>
 #include <math.h>
 #include "private.h"
 #include "repo.h"
@@ -208,6 +208,11 @@ clfftStatus WriteKernel( const clfftPlanHandle plHandle, const clfftGenerators g
 		case Stockham:		generatorName = "Stockham"; break;
 		case Transpose:		generatorName = "Transpose"; break;
 	}
+
+#ifdef HAVE_UNIX
+    // In case of UNIX-like systems prepend tmp dir path
+    kernelPath << P_tmpdir << "/";
+#endif
 
 	kernelPath << kernelPrefix << generatorName << plHandle << ".cl";
 
