@@ -47,6 +47,7 @@ add_executable( Client ${Client.Files} )
 
 target_link_libraries( Client clFFT ${Boost_LIBRARIES} ${OPENCL_LIBRARIES} ${DL_LIB} )
 
+set_target_properties( Client PROPERTIES OUTPUT_NAME "clfft" )
 set_target_properties( Client PROPERTIES VERSION ${CLFFT_VERSION} )
 set_target_properties( Client PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIR}/staging" )
 
