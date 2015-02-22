@@ -187,6 +187,11 @@ get_filename_component( C_COMPILER_NAME ${CMAKE_C_COMPILER} NAME_WE )
 # message( "C_COMPILER_NAME: " ${C_COMPILER_NAME} )
 # message( "CMAKE_C_COMPILER: " ${CMAKE_C_COMPILER} )
 
+if(APPLE)
+    # properly deal with RPATH on mac
+    set(CMAKE_MACOSX_RPATH 1)
+endif()
+
 # Set common compile and link options
 if( MSVC )
 	# Following options for nMake
