@@ -91,11 +91,12 @@ clfftStatus FFTRepo::releaseResources( )
 	return	CLFFT_SUCCESS;
 }
 
-clfftStatus FFTRepo::setProgramCode( const clfftGenerators gen, const FFTKernelGenKeyParams& fftParam, const std::string& kernel, const cl_context& context )
+clfftStatus FFTRepo::setProgramCode( const clfftGenerators gen, const FFTKernelGenKeyParams& fftParam, const std::string& kernel, const cl_device_id &device, const cl_context& planContext )
 {
 	scopedLock sLock( lockRepo, _T( "setProgramCode" ) );
 
-  std::pair<FFTKernelGenKeyParams, cl_context> Params = std::make_pair(fftParam, context);
+	ClPair clPair = std::make_pair(planContext, device);
+	std::pair<FFTKernelGenKeyParams, ClPair> Params = std::make_pair(fftParam, clPair);
 	fftRepoKey key = std::make_pair( gen, Params );
 
 
@@ -126,11 +127,12 @@ clfftStatus FFTRepo::setProgramCode( const clfftGenerators gen, const FFTKernelG
 	return	CLFFT_SUCCESS;
 }
 
-clfftStatus FFTRepo::getProgramCode( const clfftGenerators gen, const FFTKernelGenKeyParams& fftParam, std::string& kernel, const cl_context& context )
+clfftStatus FFTRepo::getProgramCode( const clfftGenerators gen, const FFTKernelGenKeyParams& fftParam, std::string& kernel, const cl_device_id &device, const cl_context& planContext )
 {
 	scopedLock sLock( lockRepo, _T( "getProgramCode" ) );
 
-  std::pair<FFTKernelGenKeyParams, cl_context> Params = std::make_pair(fftParam, context);
+	ClPair clPair = std::make_pair(planContext, device);
+	std::pair<FFTKernelGenKeyParams, ClPair> Params = std::make_pair(fftParam, clPair);
 	fftRepoKey key = std::make_pair( gen, Params );
 
 	fftRepo_iterator pos = mapFFTs.find( key);
@@ -142,11 +144,12 @@ clfftStatus FFTRepo::getProgramCode( const clfftGenerators gen, const FFTKernelG
 }
 
 clfftStatus FFTRepo::setProgramEntryPoints( const clfftGenerators gen, const FFTKernelGenKeyParams& fftParam,
-	const char * kernel_fwd, const char * kernel_back, const cl_context& context  )
+	const char * kernel_fwd, const char * kernel_back, const cl_device_id &device, const cl_context& planContext  )
 {
 	scopedLock sLock( lockRepo, _T( "setProgramEntryPoints" ) );
 
-  std::pair<FFTKernelGenKeyParams, cl_context> Params = std::make_pair(fftParam, context);
+	ClPair clPair = std::make_pair(planContext, device);
+	std::pair<FFTKernelGenKeyParams, ClPair> Params = std::make_pair(fftParam, clPair);
 	fftRepoKey key = std::make_pair( gen, Params );
 
 	fftRepoValue& fft  = mapFFTs[ key ];
@@ -157,11 +160,12 @@ clfftStatus FFTRepo::setProgramEntryPoints( const clfftGenerators gen, const FFT
 }
 
 clfftStatus FFTRepo::getProgramEntryPoint( const clfftGenerators gen, const FFTKernelGenKeyParams& fftParam,
-			clfftDirection dir, std::string& kernel, const cl_context& context )
+			clfftDirection dir, std::string& kernel, const cl_device_id &device, const cl_context& planContext )
 {
 	scopedLock sLock( lockRepo, _T( "getProgramEntryPoint" ) );
 
-  std::pair<FFTKernelGenKeyParams, cl_context> Params = std::make_pair(fftParam, context);
+	ClPair clPair = std::make_pair(planContext, device);
+	std::pair<FFTKernelGenKeyParams, ClPair> Params = std::make_pair(fftParam, clPair);
 	fftRepoKey key = std::make_pair( gen, Params );
 
 	fftRepo_iterator pos = mapFFTs.find( key );
@@ -186,7 +190,7 @@ clfftStatus FFTRepo::getProgramEntryPoint( const clfftGenerators gen, const FFTK
 	return	CLFFT_SUCCESS;
 }
 
-clfftStatus FFTRepo::setclProgram( const clfftGenerators gen, const FFTKernelGenKeyParams& fftParam, const cl_program& prog )
+clfftStatus FFTRepo::setclProgram( const clfftGenerators gen, const FFTKernelGenKeyParams& fftParam, const cl_program& prog, const cl_device_id &device, const cl_context& planContext )
 {
 	scopedLock sLock( lockRepo, _T( "setclProgram" ) );
 
@@ -196,7 +200,8 @@ clfftStatus FFTRepo::setclProgram( const clfftGenerators gen, const FFTKernelGen
 
   OPENCL_V( status, _T( "clGetCommandQueueInfo failed" ) );
 
-  std::pair<FFTKernelGenKeyParams, cl_context> Params = std::make_pair(fftParam, ProgramContext);
+	ClPair clPair = std::make_pair(planContext, device);
+	std::pair<FFTKernelGenKeyParams, ClPair> Params = std::make_pair(fftParam, clPair);
 	fftRepoKey key = std::make_pair( gen, Params );
 
 	fftRepo_iterator pos = mapFFTs.find( key );
@@ -213,11 +218,12 @@ clfftStatus FFTRepo::setclProgram( const clfftGenerators gen, const FFTKernelGen
 	return	CLFFT_SUCCESS;
 }
 
-clfftStatus FFTRepo::getclProgram( const clfftGenerators gen, const FFTKernelGenKeyParams& fftParam, cl_program& prog, const cl_context& PlanContext  )
+clfftStatus FFTRepo::getclProgram( const clfftGenerators gen, const FFTKernelGenKeyParams& fftParam, cl_program& prog, const cl_device_id &device, const cl_context& planContext  )
 {
 	scopedLock sLock( lockRepo, _T( "getclProgram" ) );
 
-  std::pair<FFTKernelGenKeyParams, cl_context> Params = std::make_pair(fftParam, PlanContext);
+	ClPair clPair = std::make_pair(planContext, device);
+	std::pair<FFTKernelGenKeyParams, ClPair> Params = std::make_pair(fftParam, clPair);
 	fftRepoKey key = std::make_pair( gen, Params );
 
 	fftRepo_iterator pos = mapFFTs.find( key );
@@ -227,9 +233,9 @@ clfftStatus FFTRepo::getclProgram( const clfftGenerators gen, const FFTKernelGen
 	if (NULL == prog)
 		return	CLFFT_INVALID_PROGRAM;
   
-  cl_context ProgContext;
-  clGetProgramInfo(prog, CL_PROGRAM_CONTEXT, sizeof(cl_context), &ProgContext, NULL);
-  if (PlanContext!=ProgContext)
+  cl_context progContext;
+  clGetProgramInfo(prog, CL_PROGRAM_CONTEXT, sizeof(cl_context), &progContext, NULL);
+  if (planContext!=progContext)
     return	CLFFT_INVALID_PROGRAM;
 
 	return	CLFFT_SUCCESS;

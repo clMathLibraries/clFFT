@@ -79,6 +79,7 @@ namespace StockhamGenerator
 		return ss.str();
 	}
 
+
 	//	Find the smallest power of 2 that is >= n; return its power of 2 factor
 	//	e.g., CeilPo2 (7) returns 3 : (2^3 >= 7)
 	inline size_t CeilPo2 (size_t n)
@@ -130,6 +131,7 @@ namespace StockhamGenerator
 		result.second += ".y))";
 		return result;
 	}
+
 
 	// Register data base types
 	template <Precision PR>
@@ -208,6 +210,123 @@ namespace StockhamGenerator
 	{
 		return "TW3step";
 	}
+
+
+
+	// Twiddle factors table for large N
+	// used in 3-step algorithm
+    class TwiddleTableLarge
+    {
+        size_t N; // length
+		size_t X, Y;
+		size_t tableSize;
+		double *wc, *ws; // cosine, sine arrays
+
+	public:
+		TwiddleTableLarge(size_t length) : N(length)
+		{
+			X = size_t(1) << ARBITRARY::TWIDDLE_DEE;
+			Y = DivRoundingUp<size_t> (CeilPo2(N), ARBITRARY::TWIDDLE_DEE);
+			tableSize = X * Y;
+
+			// Allocate memory for the tables
+			wc = new double[tableSize];
+			ws = new double[tableSize];
+		}
+
+		~TwiddleTableLarge()
+		{
+			// Free
+			delete[] wc;
+			delete[] ws;
+		}
+
+		template <Precision PR>
+		void GenerateTwiddleTable(std::string &twStr)
+		{
+			const double TWO_PI = -6.283185307179586476925286766559;
+
+			// Generate the table
+			size_t nt = 0;
+			double phi = TWO_PI / double (N);
+			for (size_t iY = 0; iY < Y; ++iY)
+			{
+				size_t i = size_t(1) << (iY * ARBITRARY::TWIDDLE_DEE);
+				for (size_t iX = 0; iX < X; ++iX)
+				{
+					size_t j = i * iX;
+
+					double c = cos(phi * (double)j);
+					double s = sin(phi * (double)j);
+
+					//if (fabs(c) < 1.0E-12)	c = 0.0;
+					//if (fabs(s) < 1.0E-12)	s = 0.0;
+
+					wc[nt]   = c;
+					ws[nt++] = s;
+				}
+			}
+
+			std::string sfx = FloatSuffix<PR>();
+
+			// Stringize the table
+			std::stringstream ss;
+			nt = 0;
+
+			ss << "\n __constant ";
+			ss << RegBaseType<PR>(2);
+			ss << " " << TwTableLargeName();
+			ss << "[" << Y << "][" << X << "] = {\n";
+			for (size_t iY = 0; iY < Y; ++iY)
+			{
+				ss << "{ ";
+				for (size_t iX = 0; iX < X; ++iX)
+				{
+					char cv[64], sv[64];
+					sprintf(cv, "%036.34lf", wc[nt]);
+					sprintf(sv, "%036.34lf", ws[nt++]);
+					ss << "("; ss << RegBaseType<PR>(2); ss << ")(";
+					ss << cv; ss << sfx; ss << ", ";
+					ss << sv; ss << sfx; ss << ")";
+					ss << ", ";
+				}
+				ss << " },\n";
+			}
+			ss << "};\n\n";
+
+
+			// Twiddle calc function
+			ss << "__attribute__((always_inline)) ";
+			ss << RegBaseType<PR>(2);
+			ss << "\n" << TwTableLargeFunc() << "(uint u)\n{\n";
+
+			ss << "\t" "uint j = u & " << unsigned(X-1) << ";\n";
+			ss << "\t" ; ss << RegBaseType<PR>(2); ss << " result = ";
+			ss << TwTableLargeName();
+			ss << "[0][j];\n";
+
+			for (size_t iY = 1; iY < Y; ++iY)
+			{
+				std::string phasor = TwTableLargeName();
+				phasor += "[";
+				phasor += SztToStr(iY);
+				phasor += "][j]";
+
+				stringpair product = ComplexMul((RegBaseType<PR>(2)).c_str(), "result", phasor.c_str());
+
+				ss << "\t" "u >>= " << unsigned (ARBITRARY::TWIDDLE_DEE) << ";\n";
+				ss << "\t" "j = u & " << unsigned(X-1) << ";\n";
+				ss << "\t" "result = " << product.first << "\n";
+				ss << "\t" "\t" << product.second <<";\n";
+			}
+			ss << "\t" "return result;\n}\n\n";
+
+			twStr += ss.str();
+		}
+    };
+
+
+
 
 	// FFT butterfly
     template <Precision PR>
@@ -1179,165 +1298,6 @@ namespace StockhamGenerator
 							"(*I8) = TI6 - ( C5QB*TR7 - C5QA*TI7);\n\t"
 							"(*I9) = TI8 - ( C5QD*TR9 - C5QE*TI9);\n\t";
 						}
-					}
-				} break;
-			case 16:
-				{
-					if(fwd)
-					{
-						if(cReg)
-						{
-							bflyStr +=
-
-							"(*R1) = (*R0) - (*R1);\n\t"
-							"(*R0) = 2.0f * (*R0) - (*R1);\n\t"
-							"(*R3) = (*R2) - (*R3);\n\t"
-							"(*R2) = 2.0f * (*R2) - (*R3);\n\t"
-							"(*R5) = (*R4) - (*R5);\n\t"
-							"(*R4) = 2.0f * (*R4) - (*R5);\n\t"
-							"(*R7) = (*R6) - (*R7);\n\t"
-							"(*R6) = 2.0f * (*R6) - (*R7);\n\t"
-							"(*R9) = (*R8) - (*R9);\n\t"
-							"(*R8) = 2.0f * (*R8) - (*R9);\n\t"
-							"(*R11) = (*R10) - (*R11);\n\t"
-							"(*R10) = 2.0f * (*R10) - (*R11);\n\t"
-							"(*R13) = (*R12) - (*R13);\n\t"
-							"(*R12) = 2.0f * (*R12) - (*R13);\n\t"
-							"(*R15) = (*R14) - (*R15);\n\t"
-							"(*R14) = 2.0f * (*R14) - (*R15);\n\t"
-							"\n\t"
-							"(*R2) = (*R0) - (*R2);\n\t"
-							"(*R0) = 2.0f * (*R0) - (*R2);\n\t"
-							"(*R3) = (*R1) + (fvect2)(-(*R3).y, (*R3).x);\n\t"
-							"(*R1) = 2.0f * (*R1) - (*R3);\n\t"
-							"(*R6) = (*R4) - (*R6);\n\t"
-							"(*R4) = 2.0f * (*R4) - (*R6);\n\t"
-							"(*R7) = (*R5) + (fvect2)(-(*R7).y, (*R7).x);\n\t"
-							"(*R5) = 2.0f * (*R5) - (*R7);\n\t"
-							"(*R10) = (*R8) - (*R10);\n\t"
-							"(*R8) = 2.0f * (*R8) - (*R10);\n\t"
-							"(*R11) = (*R9) + (fvect2)(-(*R11).y, (*R11).x);\n\t"
-							"(*R9) = 2.0f * (*R9) - (*R11);\n\t"
-							"(*R14) = (*R12) - (*R14);\n\t"
-							"(*R12) = 2.0f * (*R12) - (*R14);\n\t"
-							"(*R15) = (*R13) + (fvect2)(-(*R15).y, (*R15).x);\n\t"
-							"(*R13) = 2.0f * (*R13) - (*R15);\n\t"
-							"\n\t"
-							"(*R4) = (*R0) - (*R4);\n\t"
-							"(*R0) = 2.0f * (*R0) - (*R4);\n\t"
-							"(*R5) = ((*R1) - C8Q * (*R5)) - C8Q * (fvect2)((*R5).y, -(*R5).x);\n\t"
-							"(*R1) = 2.0f * (*R1) - (*R5);\n\t"
-							"(*R6) = (*R2) + (fvect2)(-(*R6).y, (*R6).x);\n\t"
-							"(*R2) = 2.0f * (*R2) - (*R6);\n\t"
-							"(*R7) = ((*R3) + C8Q * (*R7)) - C8Q * (fvect2)((*R7).y, -(*R7).x);\n\t"
-							"(*R3) = 2.0f * (*R3) - (*R7);\n\t"
-							"(*R12) = (*R8) - (*R12);\n\t"
-							"(*R8) = 2.0f * (*R8) - (*R12);\n\t"
-							"(*R13) = ((*R9) - C8Q * (*R13)) - C8Q * (fvect2)((*R13).y, -(*R13).x);\n\t"
-							"(*R9) = 2.0f * (*R9) - (*R13);\n\t"
-							"(*R14) = (*R10) + (fvect2)(-(*R14).y, (*R14).x);\n\t"
-							"(*R10) = 2.0f * (*R10) - (*R14);\n\t"
-							"(*R15) = ((*R11) + C8Q * (*R15)) - C8Q * (fvect2)((*R15).y, -(*R15).x);\n\t"
-							"(*R11) = 2.0f * (*R11) - (*R15);\n\t"
-							"\n\t"
-							"(*R8) = (*R0) - (*R8);\n\t"
-							"(*R0) = 2.0f * (*R0) - (*R8);\n\t"
-							"(*R9) = ((*R1) - 0.92387953251128675612818318939679 * (*R9)) - 0.3826834323650897717284599840304 * (fvect2)((*R9).y, -(*R9).x);\n\t"
-							"(*R1) = 2.0f * (*R1) - (*R9);\n\t"
-							"(*R10) = ((*R2) - C8Q * (*R10)) - C8Q * (fvect2)((*R10).y, -(*R10).x);\n\t"
-							"(*R2) = 2.0f * (*R2) - (*R10);\n\t"
-							"(*R11) = ((*R3) - 0.3826834323650897717284599840304 * (*R11)) - 0.92387953251128675612818318939679 * (fvect2)((*R11).y, -(*R11).x);\n\t"
-							"(*R3) = 2.0f * (*R3) - (*R11);\n\t"
-							"(*R12) = (*R4) + (fvect2)(-(*R12).y, (*R12).x);\n\t"
-							"(*R4) = 2.0f * (*R4) - (*R12);\n\t"
-							"(*R13) = ((*R5) + 0.3826834323650897717284599840304 * (*R13)) - 0.92387953251128675612818318939679 * (fvect2)((*R13).y, -(*R13).x);\n\t"
-							"(*R5) = 2.0f * (*R5) - (*R13);\n\t"
-							"(*R14) = ((*R6) + C8Q * (*R14)) - C8Q * (fvect2)((*R14).y, -(*R14).x);\n\t"
-							"(*R6) = 2.0f * (*R6) - (*R14);\n\t"
-							"(*R15) = ((*R7) + 0.92387953251128675612818318939679 * (*R15)) - 0.3826834323650897717284599840304 * (fvect2)((*R15).y, -(*R15).x);\n\t"
-							"(*R7) = 2.0f * (*R7) - (*R15);\n\t";
-
-						}
-						else
-							assert(false);
-					}
-					else
-					{
-						if(cReg)
-						{
-							bflyStr +=
-
-							"(*R1) = (*R0) - (*R1);\n\t"
-							"(*R0) = 2.0f * (*R0) - (*R1);\n\t"
-							"(*R3) = (*R2) - (*R3);\n\t"
-							"(*R2) = 2.0f * (*R2) - (*R3);\n\t"
-							"(*R5) = (*R4) - (*R5);\n\t"
-							"(*R4) = 2.0f * (*R4) - (*R5);\n\t"
-							"(*R7) = (*R6) - (*R7);\n\t"
-							"(*R6) = 2.0f * (*R6) - (*R7);\n\t"
-							"(*R9) = (*R8) - (*R9);\n\t"
-							"(*R8) = 2.0f * (*R8) - (*R9);\n\t"
-							"(*R11) = (*R10) - (*R11);\n\t"
-							"(*R10) = 2.0f * (*R10) - (*R11);\n\t"
-							"(*R13) = (*R12) - (*R13);\n\t"
-							"(*R12) = 2.0f * (*R12) - (*R13);\n\t"
-							"(*R15) = (*R14) - (*R15);\n\t"
-							"(*R14) = 2.0f * (*R14) - (*R15);\n\t"
-							"\n\t"
-							"(*R2) = (*R0) - (*R2);\n\t"
-							"(*R0) = 2.0f * (*R0) - (*R2);\n\t"
-							"(*R3) = (*R1) + (fvect2)((*R3).y, -(*R3).x);\n\t"
-							"(*R1) = 2.0f * (*R1) - (*R3);\n\t"
-							"(*R6) = (*R4) - (*R6);\n\t"
-							"(*R4) = 2.0f * (*R4) - (*R6);\n\t"
-							"(*R7) = (*R5) + (fvect2)((*R7).y, -(*R7).x);\n\t"
-							"(*R5) = 2.0f * (*R5) - (*R7);\n\t"
-							"(*R10) = (*R8) - (*R10);\n\t"
-							"(*R8) = 2.0f * (*R8) - (*R10);\n\t"
-							"(*R11) = (*R9) + (fvect2)((*R11).y, -(*R11).x);\n\t"
-							"(*R9) = 2.0f * (*R9) - (*R11);\n\t"
-							"(*R14) = (*R12) - (*R14);\n\t"
-							"(*R12) = 2.0f * (*R12) - (*R14);\n\t"
-							"(*R15) = (*R13) + (fvect2)((*R15).y, -(*R15).x);\n\t"
-							"(*R13) = 2.0f * (*R13) - (*R15);\n\t"
-							"\n\t"
-							"(*R4) = (*R0) - (*R4);\n\t"
-							"(*R0) = 2.0f * (*R0) - (*R4);\n\t"
-							"(*R5) = ((*R1) - C8Q * (*R5)) + C8Q * (fvect2)((*R5).y, -(*R5).x);\n\t"
-							"(*R1) = 2.0f * (*R1) - (*R5);\n\t"
-							"(*R6) = (*R2) + (fvect2)((*R6).y, -(*R6).x);\n\t"
-							"(*R2) = 2.0f * (*R2) - (*R6);\n\t"
-							"(*R7) = ((*R3) + C8Q * (*R7)) + C8Q * (fvect2)((*R7).y, -(*R7).x);\n\t"
-							"(*R3) = 2.0f * (*R3) - (*R7);\n\t"
-							"(*R12) = (*R8) - (*R12);\n\t"
-							"(*R8) = 2.0f * (*R8) - (*R12);\n\t"
-							"(*R13) = ((*R9) - C8Q * (*R13)) + C8Q * (fvect2)((*R13).y, -(*R13).x);\n\t"
-							"(*R9) = 2.0f * (*R9) - (*R13);\n\t"
-							"(*R14) = (*R10) + (fvect2)((*R14).y, -(*R14).x);\n\t"
-							"(*R10) = 2.0f * (*R10) - (*R14);\n\t"
-							"(*R15) = ((*R11) + C8Q * (*R15)) + C8Q * (fvect2)((*R15).y, -(*R15).x);\n\t"
-							"(*R11) = 2.0f * (*R11) - (*R15);\n\t"
- 							"\n\t"
-							"(*R8) = (*R0) - (*R8);\n\t"
-							"(*R0) = 2.0f * (*R0) - (*R8);\n\t"
-							"(*R9) = ((*R1) - 0.92387953251128675612818318939679 * (*R9)) + 0.3826834323650897717284599840304 * (fvect2)((*R9).y, -(*R9).x);\n\t"
-							"(*R1) = 2.0f * (*R1) - (*R9);\n\t"
-							"(*R10) = ((*R2) - C8Q * (*R10)) + C8Q * (fvect2)((*R10).y, -(*R10).x);\n\t"
-							"(*R2) = 2.0f * (*R2) - (*R10);\n\t"
-							"(*R11) = ((*R3) - 0.3826834323650897717284599840304 * (*R11)) + 0.92387953251128675612818318939679 * (fvect2)((*R11).y, -(*R11).x);\n\t"
-							"(*R3) = 2.0f * (*R3) - (*R11);\n\t"
-							"(*R12) = (*R4) + (fvect2)((*R12).y, -(*R12).x);\n\t"
-							"(*R4) = 2.0f * (*R4) - (*R12);\n\t"
-							"(*R13) = ((*R5) + 0.3826834323650897717284599840304 * (*R13)) + 0.92387953251128675612818318939679 * (fvect2)((*R13).y, -(*R13).x);\n\t"
-							"(*R5) = 2.0f * (*R5) - (*R13);\n\t"
-							"(*R14) = ((*R6) + C8Q * (*R14)) + C8Q * (fvect2)((*R14).y, -(*R14).x);\n\t"
-							"(*R6) = 2.0f * (*R6) - (*R14);\n\t"
-							"(*R15) = ((*R7) + 0.92387953251128675612818318939679 * (*R15)) + 0.3826834323650897717284599840304 * (fvect2)((*R15).y, -(*R15).x);\n\t"
-							"(*R7) = 2.0f * (*R7) - (*R15);\n\t";
-
-						}
-						else
-							assert(false);
 					}
 				} break;
 			default:

@@ -51,7 +51,8 @@ class	FFTRepo
 	//	has created
 	//typedef std::pair< clfftGenerators, FFTKernelGenKeyParams > fftRepoKey;
 
-  typedef std::pair< clfftGenerators, std::pair<FFTKernelGenKeyParams, cl_context> > fftRepoKey;
+	typedef std::pair< cl_context, cl_device_id > ClPair;
+	typedef std::pair< clfftGenerators, std::pair<FFTKernelGenKeyParams, ClPair> > fftRepoKey;
 	typedef std::map< fftRepoKey, fftRepoValue > fftRepoType;
 	typedef fftRepoType::iterator fftRepo_iterator;
 
@@ -139,15 +140,14 @@ public:
 
 	clfftStatus releaseResources( );
 
-	clfftStatus setProgramCode( const clfftGenerators gen, const FFTKernelGenKeyParams&, const std::string& kernel, const cl_context& context);
-	clfftStatus getProgramCode( const clfftGenerators gen, const FFTKernelGenKeyParams&, std::string& kernel, const cl_context& context );
+	clfftStatus setProgramCode( const clfftGenerators gen, const FFTKernelGenKeyParams&, const std::string& kernel, const cl_device_id &device, const cl_context& planContext );
+	clfftStatus getProgramCode( const clfftGenerators gen, const FFTKernelGenKeyParams&, std::string& kernel, const cl_device_id &device, const cl_context& planContext );
 
-	clfftStatus setProgramEntryPoints( const clfftGenerators gen, const FFTKernelGenKeyParams& fftParam,
-		const char * kernel_fwd, const char * kernel_back, const cl_context& context );
-	clfftStatus getProgramEntryPoint( const clfftGenerators gen, const FFTKernelGenKeyParams& fftParam, clfftDirection dir, std::string& kernel , const cl_context& context);
+	clfftStatus setProgramEntryPoints( const clfftGenerators gen, const FFTKernelGenKeyParams& fftParam, const char * kernel_fwd, const char * kernel_back, const cl_device_id &device, const cl_context& planContext );
+	clfftStatus getProgramEntryPoint( const clfftGenerators gen, const FFTKernelGenKeyParams& fftParam, clfftDirection dir, std::string& kernel , const cl_device_id &device, const cl_context& planContext );
 
-	clfftStatus setclProgram( const clfftGenerators gen, const FFTKernelGenKeyParams& fftParam, const cl_program& kernel );
-	clfftStatus getclProgram( const clfftGenerators gen, const FFTKernelGenKeyParams& fftParam, cl_program& kernel, const cl_context& PlanContext );
+	clfftStatus setclProgram( const clfftGenerators gen, const FFTKernelGenKeyParams& fftParam, const cl_program& prog, const cl_device_id &device, const cl_context& planContext );
+	clfftStatus getclProgram( const clfftGenerators gen, const FFTKernelGenKeyParams& fftParam, cl_program& prog, const cl_device_id &device, const cl_context& planContext );
 
 	clfftStatus setclKernel ( cl_program prog, clfftDirection dir, const cl_kernel& kernel );
 	clfftStatus getclKernel ( cl_program prog, clfftDirection dir, cl_kernel& kernel );

@@ -20,7 +20,8 @@ set( clFFT.Source	transform.cpp
 								plan.cpp 
 								repo.cpp 
 								generator.stockham.cpp 
-								generator.transpose.cpp 
+								generator.transpose.vliw.cpp 
+								generator.transpose.gcn.cpp 
 								generator.copy.cpp
 								lifetime.cpp 
 								stdafx.cpp )
@@ -37,7 +38,8 @@ set( clFFT.Headers	private.h
 					mainpage.h  
 					generator.h 
 					generator.stockham.h 
-					generator.transpose.h 
+					generator.transpose.vliw.h 
+					generator.transpose.gcn.h 
 					../include/stdafx.h 
 					../include/unicode.compatibility.h 
 					../include/targetver.h 

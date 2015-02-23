@@ -22,7 +22,7 @@
 
 #include "stdafx.h"
 #include <math.h>
-#include "generator.transpose.h"
+#include "generator.transpose.vliw.h"
 
 #define QUOTEMARK(x) #x
 
@@ -737,7 +737,7 @@ static clfftStatus GenerateTransposeKernel (FFTKernelGenKeyParams & params,
 }
 
 template<>
-clfftStatus FFTPlan::GetKernelGenKeyPvt<Transpose> (FFTKernelGenKeyParams & params) const
+clfftStatus FFTPlan::GetKernelGenKeyPvt<Transpose_VLIW> (FFTKernelGenKeyParams & params) const
 {
 
 	//	Query the devices in this context for their local memory sizes
@@ -797,12 +797,12 @@ clfftStatus FFTPlan::GetKernelGenKeyPvt<Transpose> (FFTKernelGenKeyParams & para
 }
 
 template<>
-clfftStatus FFTPlan::GetWorkSizesPvt<Transpose> (std::vector<size_t> & globalWS, std::vector<size_t> & localWS) const
+clfftStatus FFTPlan::GetWorkSizesPvt<Transpose_VLIW> (std::vector<size_t> & globalWS, std::vector<size_t> & localWS) const
 {
 	//	How many numbers per workitem in the generated kernel?
 	FFTKernelGenKeyParams fftParams;
 	//	Translate the user plan into the structure that we use to map plans to clPrograms
-	OPENCL_V( this->GetKernelGenKeyPvt<Transpose>( fftParams ), _T("GetKernelGenKey() failed!") );
+	OPENCL_V( this->GetKernelGenKeyPvt<Transpose_VLIW>( fftParams ), _T("GetKernelGenKey() failed!") );
 
 	unsigned long long count, count0, count1;
 	count0 = DivRoundingUp<unsigned long long> (this->length[0], fftParams.fft_R);
@@ -822,22 +822,25 @@ clfftStatus FFTPlan::GetWorkSizesPvt<Transpose> (std::vector<size_t> & globalWS,
 //	OpenCL does not take unicode strings as input, so this routine returns only ASCII strings
 //	Feed this generator the FFTPlan, and it returns the generated program as a string
 template<>
-clfftStatus FFTPlan::GenerateKernelPvt<Transpose> ( FFTRepo& fftRepo, const cl_command_queue commQueueFFT ) const
+clfftStatus FFTPlan::GenerateKernelPvt<Transpose_VLIW> ( FFTRepo& fftRepo, const cl_command_queue& commQueueFFT ) const
 {
 	FFTKernelGenKeyParams params;
-	OPENCL_V( this->GetKernelGenKeyPvt<Transpose> (params), _T("GetKernelGenKey() failed!") );
+	OPENCL_V( this->GetKernelGenKeyPvt<Transpose_VLIW> (params), _T("GetKernelGenKey() failed!") );
 
 	std::string programCode;
 	OPENCL_V( GenerateTransposeKernel( params, programCode ), _T( "GenerateTransposeKernel() failed!" ) );
 
-  cl_int status = CL_SUCCESS;
-  cl_context QueueContext = NULL;
-  status = clGetCommandQueueInfo(commQueueFFT, CL_QUEUE_CONTEXT, sizeof(cl_context), &QueueContext, NULL);
+    cl_int status = CL_SUCCESS;
+    cl_device_id Device = NULL;
+    status = clGetCommandQueueInfo(commQueueFFT, CL_QUEUE_DEVICE, sizeof(cl_device_id), &Device, NULL);
+    OPENCL_V( status, _T( "clGetCommandQueueInfo failed" ) );
 
-  OPENCL_V( status, _T( "clGetCommandQueueInfo failed" ) );
+    cl_context QueueContext = NULL;
+    status = clGetCommandQueueInfo(commQueueFFT, CL_QUEUE_CONTEXT, sizeof(cl_context), &QueueContext, NULL);
+    OPENCL_V( status, _T( "clGetCommandQueueInfo failed" ) );
 
-  OPENCL_V( fftRepo.setProgramCode( Transpose, params, programCode, QueueContext ), _T( "fftRepo.setclString() failed!" ) );
-	OPENCL_V( fftRepo.setProgramEntryPoints( Transpose, params, "fft_trans", "fft_trans",QueueContext ), _T( "fftRepo.setProgramEntryPoint() failed!" ) );
+	OPENCL_V( fftRepo.setProgramCode( Transpose_VLIW, params, programCode, Device, QueueContext ), _T( "fftRepo.setclString() failed!" ) );
+	OPENCL_V( fftRepo.setProgramEntryPoints( Transpose_VLIW, params, "fft_trans", "fft_trans", Device, QueueContext ), _T( "fftRepo.setProgramEntryPoint() failed!" ) );
 
 	return CLFFT_SUCCESS;
 }

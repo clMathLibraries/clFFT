@@ -32,6 +32,7 @@ namespace CopyGenerator
 		size_t Nt;
 		const FFTKernelGenKeyParams params;
 		bool h2c, c2h;
+		bool general;
 
 		inline std::string OffsetCalc(const std::string &off, bool input = true)
 		{
@@ -39,71 +40,20 @@ namespace CopyGenerator
 
 			const size_t *pStride = input ? params.fft_inStride : params.fft_outStride;
 
-			std::string batch = "batch";
-
-			switch(params.fft_DataDim)
+			str += "\t"; str += off; str += " = ";
+			std::string nextBatch = "batch";
+			for(size_t i=(params.fft_DataDim - 1); i>1; i--)
 			{
-			case 5:
-				{
-					str += "\t{\n\tuint ocalc1 = ";
-					str += batch; str += "%"; str += SztToStr(params.fft_N[1] * params.fft_N[2] * params.fft_N[3]);
-					str += ";\n";
+				size_t currentLength = 1;
+				for(int j=1; j<i; j++) currentLength *= params.fft_N[j];
 
-					str += "\tuint ocalc0 = ";
-					str += "ocalc1"; str += "%"; str += SztToStr(params.fft_N[1] * params.fft_N[2]);
-					str += ";\n";
+				str += "("; str += nextBatch; str += "/"; str += SztToStr(currentLength);
+				str += ")*"; str += SztToStr(pStride[i]); str += " + ";
 
-					str += "\t"; str += off; str += " = ";
-					str += "("; str += batch; str += "/"; str += SztToStr(params.fft_N[1] * params.fft_N[2] * params.fft_N[3]);
-					str += ")*"; str += SztToStr(pStride[4]); str += " + ";
-
-					str += "(ocalc1"; str += "/"; str += SztToStr(params.fft_N[1] * params.fft_N[2]); str += ")*";
-					str += SztToStr(pStride[3]); str += " + ";
-
-					str += "(ocalc0"; str += "/"; str += SztToStr(params.fft_N[1]); str += ")*";
-					str += SztToStr(pStride[2]); str += " + ";
-					str += "(ocalc0"; str += "%"; str += SztToStr(params.fft_N[1]); str += ")*";
-					str += SztToStr(pStride[1]); str += ";\n";
-
-					str += "\t}\n";
-				}
-				break;
-			case 4:
-				{
-					str += "\t{\n\tuint ocalc0 = ";
-					str += batch; str += "%"; str += SztToStr(params.fft_N[1] * params.fft_N[2]);
-					str += ";\n";
-
-					str += "\t"; str += off; str += " = ";
-					str += "("; str += batch; str += "/"; str += SztToStr(params.fft_N[1] * params.fft_N[2]); str += ")*";
-					str += SztToStr(pStride[3]); str += " + ";
-
-					str += "(ocalc0"; str += "/"; str += SztToStr(params.fft_N[1]); str += ")*";
-					str += SztToStr(pStride[2]); str += " + ";
-					str += "(ocalc0"; str += "%"; str += SztToStr(params.fft_N[1]); str += ")*";
-					str += SztToStr(pStride[1]); str += ";\n";
-
-					str += "\t}\n";
-				}
-				break;
-			case 3:
-				{
-					str += "\t"; str += off; str += " = ";
-					str += "("; str += batch; str += "/"; str += SztToStr(params.fft_N[1]); str += ")*";
-					str += SztToStr(pStride[2]); str += " + ";
-					str += "("; str += batch; str += "%"; str += SztToStr(params.fft_N[1]); str += ")*";
-					str += SztToStr(pStride[1]); str += ";\n";
-				}
-				break;
-			case 2:
-				{
-					str += "\t"; str += off; str += " = ";
-					str += batch; str += "*"; str += SztToStr(pStride[1]); str += ";\n";
-				}
-				break;
-			default:
-				assert(false);
+				nextBatch = "(" + nextBatch + "%" + SztToStr(currentLength) + ")";
 			}
+
+			str += nextBatch; str += "*"; str += SztToStr(pStride[1]); str += ";\n";
 
 			return str;
 		}
@@ -120,6 +70,8 @@ namespace CopyGenerator
 					(params.fft_inputLayout == CLFFT_HERMITIAN_INTERLEAVED) ) ? true : false;
 			c2h = (	(params.fft_outputLayout == CLFFT_HERMITIAN_PLANAR) ||
 					(params.fft_outputLayout == CLFFT_HERMITIAN_INTERLEAVED) ) ? true : false;
+
+			general = !(h2c || c2h);
 
 			// We only do out-of-place copies at this point
 			assert(params.fft_placeness == CLFFT_OUTOFPLACE);
@@ -148,8 +100,13 @@ namespace CopyGenerator
 			str += "__kernel void ";
 
 			// Function name
-			if(h2c)	str += "copy_h2c";
-			else	str += "copy_c2h";
+			if(general)
+					str += "copy_general";
+			else
+			{
+				if(h2c)	str += "copy_h2c";
+				else	str += "copy_c2h";
+			}
 
 			str += "(";
 
@@ -177,7 +134,15 @@ namespace CopyGenerator
 			str += "{\n";
 
 			// Initialize
-			str += "\tuint me = get_global_id(0);\n\t";
+			if(general)
+			{
+				str += "\tuint me = get_local_id(0);\n\t";
+				str += "uint batch = get_group_id(0);\n\t";
+			}
+			else
+			{
+				str += "\tuint me = get_global_id(0);\n\t";
+			}
 
 			// Declare memory pointers
 			str += "\n\t";
@@ -222,11 +187,14 @@ namespace CopyGenerator
 			// Setup registers
 			str += "\t"; str += RegBaseType<PR>(2); str += " R;\n\n";
 
-			// Setup variables
-			str += "\tuint batch, mel, mel2;\n\t";
-			str += "batch = me/"; str += SztToStr(Nt); str += ";\n\t";
-			str += "mel = me%"; str += SztToStr(Nt); str += ";\n\t";
-			str += "mel2 = ("; str += SztToStr(N); str += " - mel)%"; str += SztToStr(N); str += ";\n\n";
+			if(!general)
+			{
+				// Setup variables
+				str += "\tuint batch, mel, mel2;\n\t";
+				str += "batch = me/"; str += SztToStr(Nt); str += ";\n\t";
+				str += "mel = me%"; str += SztToStr(Nt); str += ";\n\t";
+				str += "mel2 = ("; str += SztToStr(N); str += " - mel)%"; str += SztToStr(N); str += ";\n\n";
+			}
 
 
 			// Setup memory pointers
@@ -235,96 +203,132 @@ namespace CopyGenerator
 
 			// offset strings
 			std::string inF, inF2, outF, outF2;
-			inF   = "(mel*";  inF   += SztToStr(params.fft_inStride[0]);  inF   += ")";
-			inF2  = "(mel2*"; inF2  += SztToStr(params.fft_inStride[0]);  inF2  += ")";
-			outF  = "(mel*";  outF  += SztToStr(params.fft_outStride[0]); outF  += ")";
-			outF2 = "(mel2*"; outF2 += SztToStr(params.fft_outStride[0]); outF2 += ")";
+			if(general)
+			{
+				inF = inF2 = outF = outF2 = "";
+			}
+			else
+			{
+				inF   = " + (mel*";  inF   += SztToStr(params.fft_inStride[0]);  inF   += ")";
+				inF2  = " + (mel2*"; inF2  += SztToStr(params.fft_inStride[0]);  inF2  += ")";
+				outF  = " + (mel*";  outF  += SztToStr(params.fft_outStride[0]); outF  += ")";
+				outF2 = " + (mel2*"; outF2 += SztToStr(params.fft_outStride[0]); outF2 += ")";
+			}
 
 			str += "\n\t";
 
 			// inputs
 			if(inIlvd)
 			{
-				str += "lwbIn = gbIn + iOffset + "; str += inF; str += ";\n\t";
+				str += "lwbIn = gbIn + iOffset"; str += inF; str += ";\n\t";
 			}
 			else
 			{
-				str += "lwbInRe = gbInRe + iOffset + "; str += inF; str += ";\n\t";
-				str += "lwbInIm = gbInIm + iOffset + "; str += inF; str += ";\n\t";
+				str += "lwbInRe = gbInRe + iOffset"; str += inF; str += ";\n\t";
+				str += "lwbInIm = gbInIm + iOffset"; str += inF; str += ";\n\t";
 			}
 
 			// outputs
 			if(outIlvd)
 			{
-					str += "lwbOut = gbOut + oOffset + "; str += outF; str += ";\n";
+					str += "lwbOut = gbOut + oOffset"; str += outF; str += ";\n";
 				if(h2c)
 				{
 					str += "\t";
-					str += "lwbOut2 = gbOut + oOffset + "; str += outF2; str += ";\n";
+					str += "lwbOut2 = gbOut + oOffset"; str += outF2; str += ";\n";
 				}
 			}
 			else
 			{
-					str += "lwbOutRe = gbOutRe + oOffset + "; str += outF; str += ";\n\t";
-					str += "lwbOutIm = gbOutIm + oOffset + "; str += outF; str += ";\n";
+					str += "lwbOutRe = gbOutRe + oOffset"; str += outF; str += ";\n\t";
+					str += "lwbOutIm = gbOutIm + oOffset"; str += outF; str += ";\n";
 				if(h2c)
 				{
 					str += "\t";
-					str += "lwbOutRe2 = gbOutRe + oOffset + "; str += outF2; str += ";\n\t";
-					str += "lwbOutIm2 = gbOutIm + oOffset + "; str += outF2; str += ";\n";
+					str += "lwbOutRe2 = gbOutRe + oOffset"; str += outF2; str += ";\n\t";
+					str += "lwbOutIm2 = gbOutIm + oOffset"; str += outF2; str += ";\n";
 				}
 			}
 
 			str += "\n\t";
 
 			// Do the copy
-			if(c2h)
+			if(general)
 			{
+				str += "for(uint t=0; t<"; str += SztToStr(N/64); str += "; t++)\n\t{\n\t\t";
+				
 				if(inIlvd)
 				{
-					str += "R = lwbIn[0];\n\t";
+					str += "R = lwbIn[me + t*64];\n\t\t";
 				}
 				else
 				{
-					str += "R.x = lwbInRe[0];\n\t";
-					str += "R.y = lwbInIm[0];\n\t";
+					str += "R.x = lwbInRe[me + t*64];\n\t\t";
+					str += "R.y = lwbInIm[me + t*64];\n\t\t";
 				}
 
 				if(outIlvd)
 				{
-					str += "lwbOut[0] = R;\n\n";
+					str += "lwbOut[me + t*64] = R;\n";
 				}
 				else
 				{
-					str += "lwbOutRe[0] = R.x;\n\t";
-					str += "lwbOutIm[0] = R.y;\n\t";
+					str += "lwbOutRe[me + t*64] = R.x;\n\t\t";
+					str += "lwbOutIm[me + t*64] = R.y;\n";
 				}
+
+				str += "\t}\n\n";
 			}
 			else
 			{
-				if(inIlvd)
+				if(c2h)
 				{
-					str += "R = lwbIn[0];\n\t";
-				}
-				else
-				{
-					str += "R.x = lwbInRe[0];\n\t";
-					str += "R.y = lwbInIm[0];\n\t";
-				}
+					if(inIlvd)
+					{
+						str += "R = lwbIn[0];\n\t";
+					}
+					else
+					{
+						str += "R.x = lwbInRe[0];\n\t";
+						str += "R.y = lwbInIm[0];\n\t";
+					}
 
-				if(outIlvd)
-				{
-					str += "lwbOut[0] = R;\n\t";
-					str += "R.y = -R.y;\n\t";
-					str += "lwbOut2[0] = R;\n\n";
+					if(outIlvd)
+					{
+						str += "lwbOut[0] = R;\n\n";
+					}
+					else
+					{
+						str += "lwbOutRe[0] = R.x;\n\t";
+						str += "lwbOutIm[0] = R.y;\n\t";
+					}
 				}
 				else
 				{
-					str += "lwbOutRe[0] = R.x;\n\t";
-					str += "lwbOutIm[0] = R.y;\n\t";
-					str += "R.y = -R.y;\n\t";
-					str += "lwbOutRe2[0] = R.x;\n\t";
-					str += "lwbOutIm2[0] = R.y;\n\n";
+					if(inIlvd)
+					{
+						str += "R = lwbIn[0];\n\t";
+					}
+					else
+					{
+						str += "R.x = lwbInRe[0];\n\t";
+						str += "R.y = lwbInIm[0];\n\t";
+					}
+
+					if(outIlvd)
+					{
+						str += "lwbOut[0] = R;\n\t";
+						str += "R.y = -R.y;\n\t";
+						str += "lwbOut2[0] = R;\n\n";
+					}
+					else
+					{
+						str += "lwbOutRe[0] = R.x;\n\t";
+						str += "lwbOutIm[0] = R.y;\n\t";
+						str += "R.y = -R.y;\n\t";
+						str += "lwbOutRe2[0] = R.x;\n\t";
+						str += "lwbOutIm2[0] = R.y;\n\n";
+					}
 				}
 			}
 
@@ -355,58 +359,17 @@ clfftStatus FFTPlan::GetKernelGenKeyPvt<Copy> (FFTKernelGenKeyParams & params) c
 
     params.fft_outputLayout = this->outputLayout;
 
-    switch (this->inStride.size()) {
-        //    1-D array is a 2-D data structure.
-        //    1-D unit is a special case of 1-D array.
-    case 1:
-        ARG_CHECK(this->length   .size() > 0);
-        ARG_CHECK(this->outStride.size() > 0);
-        params.fft_DataDim      = 2;
-        params.fft_N[0]         = this->length[0];
-        params.fft_inStride[0]  = this->inStride[0];
-        params.fft_inStride[1]  = this->iDist;
-        params.fft_outStride[0] = this->outStride[0];
-        params.fft_outStride[1] = this->oDist;
-        break;
+	params.fft_DataDim = this->length.size() + 1;
+	int i = 0;
+	for(i = 0; i < (params.fft_DataDim - 1); i++)
+	{
+        params.fft_N[i]         = this->length[i];
+        params.fft_inStride[i]  = this->inStride[i];
+        params.fft_outStride[i] = this->outStride[i];
 
-        //    2-D array is a 3-D data structure
-        //    2-D unit is a speical case of 2-D array.
-    case 2:
-        ARG_CHECK(this->length   .size() > 1);
-        ARG_CHECK(this->outStride.size() > 1);
-        params.fft_DataDim      = 3;
-        params.fft_N[0]         = this->length[0];
-        params.fft_N[1]         = this->length[1];
-        params.fft_inStride[0]  = this->inStride[0];
-        params.fft_inStride[1]  = this->inStride[1];
-        params.fft_inStride[2]  = this->iDist;
-        params.fft_outStride[0] = this->outStride[0];
-        params.fft_outStride[1] = this->outStride[1];
-        params.fft_outStride[2] = this->oDist;
-        break;
-
-        //    3-D array is a 4-D data structure
-        //    3-D unit is a special case of 3-D array.
-    case 3:
-        ARG_CHECK(this->length   .size() > 2);
-        ARG_CHECK(this->outStride.size() > 2);
-        params.fft_DataDim      = 4;
-        params.fft_N[0]         = this->length[0];
-        params.fft_N[1]         = this->length[1];
-        params.fft_N[2]         = this->length[2];
-        params.fft_inStride[0]  = this->inStride[0];
-        params.fft_inStride[1]  = this->inStride[1];
-        params.fft_inStride[2]  = this->inStride[2];
-        params.fft_inStride[3]  = this->iDist;
-        params.fft_outStride[0] = this->outStride[0];
-        params.fft_outStride[1] = this->outStride[1];
-        params.fft_outStride[2] = this->outStride[2];
-        params.fft_outStride[3] = this->oDist;
-        break;
-
-    default:
-        ARG_CHECK (false);
-    }
+	}
+    params.fft_inStride[i]  = this->iDist;
+    params.fft_outStride[i] = this->oDist;
 
     params.fft_fwdScale  = this->forwardScale;
     params.fft_backScale = this->backwardScale;
@@ -420,13 +383,33 @@ clfftStatus FFTPlan::GetWorkSizesPvt<Copy> (std::vector<size_t> & globalWS, std:
     FFTKernelGenKeyParams fftParams;
 	OPENCL_V( this->GetKernelGenKeyPvt<Copy>( fftParams ), _T("GetKernelGenKey() failed!") );
 
+	bool h2c, c2h;
+	h2c = (	(fftParams.fft_inputLayout == CLFFT_HERMITIAN_PLANAR) ||
+			(fftParams.fft_inputLayout == CLFFT_HERMITIAN_INTERLEAVED) ) ? true : false;
+	c2h = (	(fftParams.fft_outputLayout == CLFFT_HERMITIAN_PLANAR) ||
+			(fftParams.fft_outputLayout == CLFFT_HERMITIAN_INTERLEAVED) ) ? true : false;
+
+	bool general = !(h2c || c2h);
+
 	size_t count = this->batchsize;
+
 	switch(fftParams.fft_DataDim)
 	{
 	case 5: assert(false);
 	case 4: count *= fftParams.fft_N[2];
 	case 3: count *= fftParams.fft_N[1];
-	case 2: count *= (1 + fftParams.fft_N[0]/2); break;
+	case 2:
+			{
+				if(general)
+				{
+					count *= 64;
+				}
+				else
+				{
+					count *= (1 + fftParams.fft_N[0]/2); 
+				}
+			}
+			break;
 	case 1: assert(false);
 	}
 
@@ -445,10 +428,18 @@ clfftStatus FFTPlan::GetMax1DLengthPvt<Copy> (size_t * longest) const
 using namespace CopyGenerator;
 
 template<>
-clfftStatus FFTPlan::GenerateKernelPvt<Copy>(FFTRepo& fftRepo, const cl_command_queue commQueueFFT ) const
+clfftStatus FFTPlan::GenerateKernelPvt<Copy>(FFTRepo& fftRepo, const cl_command_queue& commQueueFFT ) const
 {
   FFTKernelGenKeyParams params;
   OPENCL_V( this->GetKernelGenKeyPvt<Copy> (params), _T("GetKernelGenKey() failed!") );
+
+  bool h2c, c2h;
+  h2c = (	(params.fft_inputLayout == CLFFT_HERMITIAN_PLANAR) ||
+  			(params.fft_inputLayout == CLFFT_HERMITIAN_INTERLEAVED) ) ? true : false;
+  c2h = (	(params.fft_outputLayout == CLFFT_HERMITIAN_PLANAR) ||
+  			(params.fft_outputLayout == CLFFT_HERMITIAN_INTERLEAVED) ) ? true : false;
+  
+  bool general = !(h2c || c2h);
 
   std::string programCode;
   Precision pr = (params.fft_precision == CLFFT_SINGLE) ? P_SINGLE : P_DOUBLE;
@@ -466,14 +457,25 @@ clfftStatus FFTPlan::GenerateKernelPvt<Copy>(FFTRepo& fftRepo, const cl_command_
     } break;
   }
 
-  cl_int status = CL_SUCCESS;
-  cl_context QueueContext = NULL;
-  status = clGetCommandQueueInfo(commQueueFFT, CL_QUEUE_CONTEXT, sizeof(cl_context), &QueueContext, NULL);
+	cl_int status = CL_SUCCESS;
+	cl_device_id Device = NULL;
+	status = clGetCommandQueueInfo(commQueueFFT, CL_QUEUE_DEVICE, sizeof(cl_device_id), &Device, NULL);
+	OPENCL_V( status, _T( "clGetCommandQueueInfo failed" ) );
 
-  OPENCL_V( status, _T( "clGetCommandQueueInfo failed" ) );
+    cl_context QueueContext = NULL;
+    status = clGetCommandQueueInfo(commQueueFFT, CL_QUEUE_CONTEXT, sizeof(cl_context), &QueueContext, NULL);
+    OPENCL_V( status, _T( "clGetCommandQueueInfo failed" ) );
 
-  OPENCL_V( fftRepo.setProgramCode( Copy, params, programCode, QueueContext ), _T( "fftRepo.setclString() failed!" ) );
-  OPENCL_V( fftRepo.setProgramEntryPoints( Copy, params, "copy_c2h", "copy_h2c", QueueContext ), _T( "fftRepo.setProgramEntryPoint() failed!" ) );
+  OPENCL_V( fftRepo.setProgramCode( Copy, params, programCode, Device, QueueContext ), _T( "fftRepo.setclString() failed!" ) );
+
+  if(general)
+  {
+  OPENCL_V( fftRepo.setProgramEntryPoints( Copy, params, "copy_general", "copy_general", Device, QueueContext ), _T( "fftRepo.setProgramEntryPoint() failed!" ) );
+  }
+  else
+  {
+  OPENCL_V( fftRepo.setProgramEntryPoints( Copy, params, "copy_c2h", "copy_h2c", Device, QueueContext ), _T( "fftRepo.setProgramEntryPoint() failed!" ) );
+  }
 
   return CLFFT_SUCCESS;
 }

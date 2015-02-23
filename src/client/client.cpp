@@ -515,6 +515,9 @@ int transform( size_t* lengths, const size_t *inStrides, const size_t *outStride
 	//
 	cl_mem * BuffersOut = ( place == CLFFT_INPLACE ) ? NULL : &output_cl_mem_buffers[ 0 ];
 
+	Timer tr;
+	tr.Start();
+
 	for( cl_uint i = 0; i < profile_count; ++i )
 	{
 		if( timer ) timer->Start( clFFTID );
@@ -526,6 +529,18 @@ int transform( size_t* lengths, const size_t *inStrides, const size_t *outStride
 		if( timer ) timer->Stop( clFFTID );
 	}
 	OPENCL_V_THROW( clFinish( queue ), "clFinish failed" );
+	if(clMedBuffer) clReleaseMemObject(clMedBuffer);
+
+	double wtime = tr.Sample()/((double)profile_count);
+	size_t totalLen = 1;
+	for(int i=0; i<dim; i++) totalLen *= lengths[i];
+	double opsconst = 5.0 * (double)totalLen * log((double)totalLen) / log(2.0);
+
+	if(profile_count > 1)
+	{
+		tout << "\nExecution wall time: " << 1000.0*wtime << " ms" << std::endl;
+		tout << "Execution gflops: " << ((double)batch_size * opsconst)/(1000000000.0*wtime) << std::endl;
+	}
 
 	if( timer && (command_queue_flags & CL_QUEUE_PROFILING_ENABLE) )
 	{
