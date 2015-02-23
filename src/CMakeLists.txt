@@ -156,17 +156,7 @@ find_package( OpenCL )
 # This will define FFTW_FOUND
 find_package( FFTW )
 
-if( (${CMAKE_MAJOR_VERSION}.${CMAKE_MINOR_VERSION} VERSION_LESS 2.8) )
-	message( STATUS "Cmake version 2.8 or greater needed to use GTest" )
-else()
-	# This will define GTEST_FOUND
-	find_package( GTest )
-
-	# Hack to get googletest v1.6 to work with vs2012
-	if( MSVC11 )
-		add_definitions( "/D_VARIADIC_MAX=10" )
-	endif( )
-endif()
+include(gtest.cmake)
 
 # Enable building of the clACML client if both requested and all dependencies are found
 if( BUILD_CLIENT AND Boost_FOUND )
