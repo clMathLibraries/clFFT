@@ -35,8 +35,10 @@ components as a pair contiguous in memory) formats.
 @section InstallFFT Installation of clFFT library
 
 @subsection DownBinaries Downloadable Binaries
+clFFT library pre-compiled packages for recent versions of Microsoft Windows operating systems
+and several flavors of Linux are available.
 
-The downloadable binary packages are available at
+The downloadable binary packages are freely available at
 https://github.com/clMathLibraries/clFFT/releases
 
 Once the appropriate package for the respective OS has finished downloading,
