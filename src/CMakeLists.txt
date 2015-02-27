@@ -115,8 +115,9 @@ set( SUFFIX_BIN_DEFAULT "" )
 if( BUILD64 )
 	set_property( GLOBAL PROPERTY FIND_LIBRARY_USE_LIB64_PATHS TRUE )
 	message( STATUS "64bit build - FIND_LIBRARY_USE_LIB64_PATHS TRUE" )
-
-    set( SUFFIX_LIB_DEFAULT "64" )
+    if( NOT APPLE )
+      set( SUFFIX_LIB_DEFAULT "64" )
+    endif()
 else( )
 	set_property( GLOBAL PROPERTY FIND_LIBRARY_USE_LIB64_PATHS FALSE )
 	message( STATUS "32bit build - FIND_LIBRARY_USE_LIB64_PATHS FALSE" )
@@ -155,17 +156,7 @@ find_package( OpenCL )
 # This will define FFTW_FOUND
 find_package( FFTW )
 
-if( (${CMAKE_MAJOR_VERSION}.${CMAKE_MINOR_VERSION} VERSION_LESS 2.8) )
-	message( STATUS "Cmake version 2.8 or greater needed to use GTest" )
-else()
-	# This will define GTEST_FOUND
-	find_package( GTest )
-
-	# Hack to get googletest v1.6 to work with vs2012
-	if( MSVC11 )
-		add_definitions( "/D_VARIADIC_MAX=10" )
-	endif( )
-endif()
+include(gtest.cmake)
 
 # Enable building of the clACML client if both requested and all dependencies are found
 if( BUILD_CLIENT AND Boost_FOUND )
@@ -186,6 +177,11 @@ endif( )
 get_filename_component( C_COMPILER_NAME ${CMAKE_C_COMPILER} NAME_WE )
 # message( "C_COMPILER_NAME: " ${C_COMPILER_NAME} )
 # message( "CMAKE_C_COMPILER: " ${CMAKE_C_COMPILER} )
+
+if(APPLE)
+    # avoid warning on newer cmake versions
+    set(CMAKE_MACOSX_RPATH 0)
+endif()
 
 # Set common compile and link options
 if( MSVC )
