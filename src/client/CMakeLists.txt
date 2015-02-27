@@ -49,10 +49,6 @@ target_link_libraries( clFFT-client clFFT ${Boost_LIBRARIES} ${OPENCL_LIBRARIES}
 
 set_target_properties( clFFT-client PROPERTIES VERSION ${CLFFT_VERSION} )
 set_target_properties( clFFT-client PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIR}/staging" )
-if( APPLE )
-    # properly deal with RPATH on mac
-    set_target_properties( clFFT-client PROPERTIES INSTALL_RPATH "@loader_path/../lib${SUFFIX_LIB}")
-endif()
 
 # CPack configuration; include the executable into the package
 install( TARGETS clFFT-client
