@@ -14,7 +14,7 @@
  * limitations under the License.
  * ************************************************************************/
 
-/*! @file mainpage.h
+/*! @file clFFT.mainpage.h
 
 This file contains all documentation, no code, in the form of comment text.  It's purpose is to provide
 chapter 1 of the documentation we produce with doxygen.  This included the title page, installation instructions
@@ -35,11 +35,11 @@ components as a pair contiguous in memory) formats.
 @section InstallFFT Installation of clFFT library
 
 @subsection DownBinaries Downloadable Binaries
-clFFT library pre-compiled packages for recent versions of Microsoft Windows operating systems
-and several flavors of Linux are available.
+AMD provides clFFT library pre-compiled packages for recent versions of Microsoft Windows operating systems
+and several flavors of Linux.
 
-The downloadable binary packages are freely available at
-https://github.com/clMathLibraries/clFFT/releases
+The downloadable binary packages are freely available from AMD at
+http://developer.amd.com/tools-and-sdks/heterogeneous-computing/amd-accelerated-parallel-processing-math-libraries/
 
 Once the appropriate package for the respective OS has finished downloading,
 uncompress the package using the native tools available on the platform in a
