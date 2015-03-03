@@ -95,6 +95,7 @@ endif( )
 
 # CPack configuration; include the executable into the package
 install( TARGETS clFFT
+        EXPORT Library
         RUNTIME DESTINATION bin${SUFFIX_BIN}
         LIBRARY DESTINATION lib${SUFFIX_LIB}
         ARCHIVE DESTINATION lib${SUFFIX_LIB}/import
