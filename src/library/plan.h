@@ -23,6 +23,8 @@
 #include "lock.h"
 #include "generator.h"
 
+std::string getKernelName(const clfftGenerators gen, const clfftPlanHandle plHandle, bool withPlHandle);
+
 namespace ARBITRARY {
 	// TODO:  These arbitrary parameters should be tuned for the type of GPU
 	//	being used.  These values are probably OK for Radeon 58xx and 68xx.
@@ -168,6 +170,130 @@ struct FFTKernelGenKeyParams {
 //	Sorting operator for struct FFTKernelGenKeyParams, such that it can be used in a map
 bool operator<( const FFTKernelGenKeyParams& lhs, const FFTKernelGenKeyParams& rhs);
 
+class	FFTPlan;
+class   FFTRepo;
+
+// Action ID
+enum FFTActionImplID
+{
+    FFT_DEFAULT_STOCKHAM_ACTION,
+    FFT_DEFAULT_TRANSPOSE_ACTION,
+    FFT_DEFAULT_COPY_ACTION,
+    FFT_STATIC_STOCKHAM_ACTION
+};
+
+// 
+// FFTKernelSignatureHeader
+// 
+// This structure is a wrapper for the FFTKernelSignature.  
+// It stores the signature size and the action ID. This ensure that every 
+// FFTKernelSignature (even with an empty DATA) is unique
+// 
+// This class is used as the return type of FFTAction::getSignatureData()
+// 
+struct FFTKernelSignatureHeader
+{
+    int datasize;
+    FFTActionImplID id;
+
+    //clfftLayout           fft_inputLayout;
+    //clfftLayout           fft_outputLayout;
+
+    FFTKernelSignatureHeader(int size_, FFTActionImplID id_)
+    {
+        // Set to 0 the whole signature structure
+        ::memset(this, 0, size_);
+        datasize = size_;
+        id = id_;
+    }
+};
+
+// 
+// FFTKernelSignature
+// 
+// This struct represents the signature of an action. An action signature 
+// stores (by inheritage):
+//  - the action ID
+//  - its signature data size
+//  - a set of bytes caracterizes a FFT action
+// 
+// This template class FFTKernelSignature provides a simple mechanism to
+// build a proper signature (see also in src/library/repo.h) from any POD type.
+//  
+// It is used as a key in the different cache mecanisms (binary cache and
+// dynamic cache managed by FFTRepo)
+// 
+template <typename DATA, FFTActionImplID ID>
+struct FFTKernelSignature : public FFTKernelSignatureHeader, public DATA
+{
+    FFTKernelSignature()
+        : FFTKernelSignatureHeader(sizeof(FFTKernelSignature<DATA, ID>), ID)
+    {
+    }
+};
+
+
+
+// 
+// FFTAction is the base class for all actions used to implement FFT computes
+// 
+// An action basically implements some OpenCL related actions, for instance:
+//  - Generating a kernel source code from kernel characteristics
+//  - Computing the work-group local sizes according to a kernel
+//  - Enqueuing arguments to the kernel call
+// 
+// Kernels generated and compiled by an action are stored in the different
+// cache mechanism (see repo.h for the dynamic cache and fft_binary_lookup.h
+// for disk cache for more information). Each cache entry can be obtained from
+// the action signature which is set of byte characterizing the action itself.
+// 
+// At the moment, FFTAction only implements the enqueue method which is
+// inherited by every action subclasses. But it may change in the time. There
+// are no clear rules and the choices made until now are still subject to
+// change.
+// 
+class FFTAction
+{
+public:
+    FFTAction(FFTPlan * plan, clfftStatus & err);
+
+    virtual clfftStatus enqueue(clfftPlanHandle plHandle,
+                                clfftDirection dir,
+                                cl_uint numQueuesAndEvents,
+                                cl_command_queue* commQueues,
+                                cl_uint numWaitEvents,
+                                const cl_event* waitEvents,
+                                cl_event* outEvents,
+                                cl_mem* clInputBuffers,
+                                cl_mem* clOutputBuffers);
+
+protected:
+
+    virtual clfftGenerators                getGenerator() = 0;
+
+    clfftStatus                            compileKernels  ( const cl_command_queue commQueueFFT, const clfftPlanHandle plHandle, FFTPlan* fftPlan);
+    clfftStatus                            writeKernel     ( const clfftPlanHandle plHandle, const clfftGenerators gen, const FFTKernelSignatureHeader* data, const cl_context& context, const cl_device_id &device);
+
+    virtual clfftStatus                    generateKernel  ( FFTRepo & fftRepo, const cl_command_queue commQueueFFT) = 0;
+    virtual clfftStatus                    getWorkSizes    ( std::vector<size_t> & globalws, std::vector<size_t> & localws) = 0;
+
+    virtual const FFTKernelSignatureHeader * getSignatureData() = 0;
+
+    FFTPlan * plan;
+
+private:
+
+    clfftStatus selectBufferArguments(FFTPlan * plan,
+                                      cl_mem* clInputBuffers,
+                                      cl_mem* clOutputBuffers,
+                                      std::vector< cl_mem > &inputBuff,
+                                      std::vector< cl_mem > &outputBuff);
+
+    virtual bool buildForwardKernel() = 0;
+    virtual bool buildBackwardKernel() = 0;
+};
+
+
 //	The "envelope" is a set of limits imposed by the hardware
 //	This will depend on the GPU(s) in the OpenCL context.
 //	If there are multiple devices, this should be the least
@@ -194,23 +320,11 @@ struct FFTEnvelope {
 	}
 };
 
-class FFTRepo;
 
 //	This class contains objects that are specific to a particular FFT transform, and the data herein is useful
 //	for us to know ahead of transform time such that we can optimize for these settings
 class	FFTPlan
 {
-	template <clfftGenerators G>
-	clfftStatus GetWorkSizesPvt (std::vector<size_t> & globalws, std::vector<size_t> & localws) const;
-
-	template <clfftGenerators G>
-	clfftStatus GetKernelGenKeyPvt (FFTKernelGenKeyParams & params) const;
-
-	template <clfftGenerators G>
-	clfftStatus GenerateKernelPvt (FFTRepo& fftRepo,  const cl_command_queue& commQueueFFT ) const;
-
-	template <clfftGenerators G>
-	clfftStatus GetMax1DLengthPvt (size_t *longest ) const;
 
 public:
 
@@ -301,6 +415,12 @@ public:
 	BlockComputeType blockComputeType;
 
 
+    clfftPlanHandle plHandle;
+
+    // The action
+    FFTAction * action;
+
+
 	FFTPlan ()
 	:	baked (false)
 	,	dim (CLFFT_1D)
@@ -340,6 +460,8 @@ public:
 	,	planCopy(0)
 	,	const_buffer( NULL )
 	,	gen(Stockham)
+    ,   action(0)
+    ,   plHandle(0)
 	{};
 
 
@@ -348,9 +470,6 @@ public:
 	clfftStatus AllocateBuffers ();
 	clfftStatus ReleaseBuffers ();
 
-	clfftStatus GetWorkSizes (std::vector<size_t> & globalws, std::vector<size_t> & localws) const;
-	clfftStatus GetKernelGenKey (FFTKernelGenKeyParams & params) const;
-	clfftStatus GenerateKernel (FFTRepo & fftRepo, const cl_command_queue commQueueFFT) const;
 	clfftStatus GetMax1DLength (size_t *longest ) const;
 
 	void ResetBinarySizes();
@@ -361,6 +480,8 @@ public:
 
 	clfftStatus GetEnvelope (const FFTEnvelope **) const;
 	clfftStatus SetEnvelope ();
+
+	clfftStatus GetMax1DLengthStockham (size_t *longest ) const;
 
 	~FFTPlan ()
 	{

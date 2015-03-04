@@ -19,6 +19,73 @@
 #include <math.h>
 #include "generator.stockham.h"
 #include <list>
+#include "action.h"
+
+
+FFTGeneratedStockhamAction::FFTGeneratedStockhamAction(clfftPlanHandle plHandle, FFTPlan * plan, cl_command_queue queue, clfftStatus & err)
+    : FFTStockhamAction(plHandle, plan, queue, err)
+{
+    if (err != CLFFT_SUCCESS)
+    {
+        // FFTAction() failed, exit
+        fprintf(stderr, "FFTStockhamAction() failed!\n");
+        return;
+    }
+
+    // Initialize the FFTAction::FFTKernelGenKeyParams member
+    err = this->initParams();
+
+    if (err != CLFFT_SUCCESS)
+    {
+        fprintf(stderr, "FFTGeneratedStockhamAction::initParams() failed!\n");
+        return;
+    }
+
+    FFTRepo &fftRepo = FFTRepo::getInstance();
+
+    err = this->generateKernel(fftRepo, queue);
+
+    if (err != CLFFT_SUCCESS)
+    {
+        fprintf(stderr, "FFTGeneratedStockhamAction::generateKernel failed\n");
+        return;
+    }
+
+    err = compileKernels( queue, plHandle, plan);
+
+    if (err != CLFFT_SUCCESS)
+    {
+        fprintf(stderr, "FFTGeneratedStockhamAction::compileKernels failed\n");
+        return;
+    }
+
+    err = CLFFT_SUCCESS;
+}
+
+bool FFTGeneratedStockhamAction::buildForwardKernel()
+{
+    clfftLayout inputLayout = this->getSignatureData()->fft_inputLayout;
+    clfftLayout outputLayout = this->getSignatureData()->fft_outputLayout;
+
+    bool r2c_transform = (inputLayout == CLFFT_REAL);
+    bool c2r_transform = (outputLayout == CLFFT_REAL);
+    bool real_transform = (r2c_transform || c2r_transform);
+
+    return (!real_transform) || r2c_transform;
+}
+
+bool FFTGeneratedStockhamAction::buildBackwardKernel()
+{
+    clfftLayout inputLayout = this->getSignatureData()->fft_inputLayout;
+    clfftLayout outputLayout = this->getSignatureData()->fft_outputLayout;
+
+    bool r2c_transform = (inputLayout == CLFFT_REAL);
+    bool c2r_transform = (outputLayout == CLFFT_REAL);
+    bool real_transform = (r2c_transform || c2r_transform);
+
+    return (!real_transform) || c2r_transform;
+}
+
 
 // FFT Stockham Autosort Method
 //
@@ -3182,64 +3249,64 @@ namespace StockhamGenerator
 
 using namespace StockhamGenerator;
 
-template<>
-clfftStatus FFTPlan::GetKernelGenKeyPvt<Stockham> (FFTKernelGenKeyParams & params) const
+clfftStatus FFTGeneratedStockhamAction::initParams ()
 {
 
     //    Query the devices in this context for their local memory sizes
     //    How we generate a kernel depends on the *minimum* LDS size for all devices.
     //
     const FFTEnvelope * pEnvelope = NULL;
-    OPENCL_V(const_cast<FFTPlan*>(this)->GetEnvelope (& pEnvelope), _T("GetEnvelope failed"));
+    OPENCL_V(this->plan->GetEnvelope (& pEnvelope), _T("GetEnvelope failed"));
     BUG_CHECK (NULL != pEnvelope);
 
-    ::memset( &params, 0, sizeof( params ) );
-    params.fft_precision    = this->precision;
-    params.fft_placeness    = this->placeness;
-    params.fft_inputLayout  = this->inputLayout;
-	params.fft_MaxWorkGroupSize = this->envelope.limit_WorkGroupSize;
+    // Remainder: params was properly cleared by its constructor
+    //            clearing it again would destroy datasize and id!!
+    this->signature.fft_precision    = this->plan->precision;
+    this->signature.fft_placeness    = this->plan->placeness;
+    this->signature.fft_inputLayout  = this->plan->inputLayout;
+	this->signature.fft_MaxWorkGroupSize = this->plan->envelope.limit_WorkGroupSize;
 
-    ARG_CHECK(this->length.size()    > 0);
-	ARG_CHECK(this->inStride.size()  > 0);
-    ARG_CHECK(this->outStride.size() > 0);
+    ARG_CHECK(this->plan->length.size()    > 0);
+	ARG_CHECK(this->plan->inStride.size()  > 0);
+    ARG_CHECK(this->plan->outStride.size() > 0);
 
-    ARG_CHECK (this->inStride.size() == this->outStride.size())
+    ARG_CHECK (this->plan->inStride.size() == this->plan->outStride.size())
 
-	bool real_transform = ((this->inputLayout == CLFFT_REAL) || (this->outputLayout == CLFFT_REAL));
+	bool real_transform = ((this->plan->inputLayout == CLFFT_REAL) || (this->plan->outputLayout == CLFFT_REAL));
 
-    if ( (CLFFT_INPLACE == this->placeness) && (!real_transform) ) {
+    if ( (CLFFT_INPLACE == this->plan->placeness) && (!real_transform) ) {
         //    If this is an in-place transform the
         //    input and output layout, dimensions and strides
         //    *MUST* be the same.
         //
-        ARG_CHECK (this->inputLayout == this->outputLayout)
-        params.fft_outputLayout = this->inputLayout;
-        for (size_t u = this->inStride.size(); u-- > 0; ) {
-            ARG_CHECK (this->inStride[u] == this->outStride[u]);
+        ARG_CHECK (this->plan->inputLayout == this->plan->outputLayout)
+        this->signature.fft_outputLayout = this->plan->inputLayout;
+        for (size_t u = this->plan->inStride.size(); u-- > 0; ) {
+            ARG_CHECK (this->plan->inStride[u] == this->plan->outStride[u]);
         }
     } else {
-        params.fft_outputLayout = this->outputLayout;
+        this->signature.fft_outputLayout = this->plan->outputLayout;
     }
 
-	params.fft_DataDim = this->length.size() + 1;
+	this->signature.fft_DataDim = this->plan->length.size() + 1;
 	int i = 0;
-	for(i = 0; i < (params.fft_DataDim - 1); i++)
+	for(i = 0; i < (this->signature.fft_DataDim - 1); i++)
 	{
-        params.fft_N[i]         = this->length[i];
-        params.fft_inStride[i]  = this->inStride[i];
-        params.fft_outStride[i] = this->outStride[i];
+        this->signature.fft_N[i]         = this->plan->length[i];
+        this->signature.fft_inStride[i]  = this->plan->inStride[i];
+        this->signature.fft_outStride[i] = this->plan->outStride[i];
 
 	}
-    params.fft_inStride[i]  = this->iDist;
-    params.fft_outStride[i] = this->oDist;
+    this->signature.fft_inStride[i]  = this->plan->iDist;
+    this->signature.fft_outStride[i] = this->plan->oDist;
 
 
-	params.fft_RCsimple = this->RCsimple;
+	this->signature.fft_RCsimple = this->plan->RCsimple;
 
-	params.blockCompute = this->blockCompute;
-	params.blockComputeType = this->blockComputeType;
+	this->signature.blockCompute = this->plan->blockCompute;
+	this->signature.blockComputeType = this->plan->blockComputeType;
 
-	params.fft_twiddleFront = this->twiddleFront;
+	this->signature.fft_twiddleFront = this->plan->twiddleFront;
 
 	size_t wgs, nt;
 #ifdef PARMETERS_TO_BE_READ
@@ -3249,106 +3316,101 @@ clfftStatus FFTPlan::GetKernelGenKeyPvt<Stockham> (FFTKernelGenKeyParams & param
 	nt = pr.numTransformsPerWg;
 #else
 	size_t t_wgs, t_nt;
-	Precision pr = (params.fft_precision == CLFFT_SINGLE) ? P_SINGLE : P_DOUBLE;
+	Precision pr = (this->signature.fft_precision == CLFFT_SINGLE) ? P_SINGLE : P_DOUBLE;
 	switch(pr)
 	{
 	case P_SINGLE:
 		{
 			KernelCoreSpecs<P_SINGLE> kcs;
-			kcs.GetWGSAndNT(params.fft_N[0], t_wgs, t_nt);
-			if(params.blockCompute)
+			kcs.GetWGSAndNT(this->signature.fft_N[0], t_wgs, t_nt);
+			if(this->signature.blockCompute)
 			{
-				params.blockSIMD = Kernel<P_SINGLE>::BlockSizes::BlockWorkGroupSize(params.fft_N[0]);
-				params.blockLDS  = Kernel<P_SINGLE>::BlockSizes::BlockLdsSize(params.fft_N[0]);
+				this->signature.blockSIMD = Kernel<P_SINGLE>::BlockSizes::BlockWorkGroupSize(this->signature.fft_N[0]);
+				this->signature.blockLDS  = Kernel<P_SINGLE>::BlockSizes::BlockLdsSize(this->signature.fft_N[0]);
 			}
 		} break;
 	case P_DOUBLE:
 		{
 			KernelCoreSpecs<P_DOUBLE> kcs;
-			kcs.GetWGSAndNT(params.fft_N[0], t_wgs, t_nt);
-			if(params.blockCompute)
+			kcs.GetWGSAndNT(this->signature.fft_N[0], t_wgs, t_nt);
+			if(this->signature.blockCompute)
 			{
-				params.blockSIMD = Kernel<P_DOUBLE>::BlockSizes::BlockWorkGroupSize(params.fft_N[0]);
-				params.blockLDS  = Kernel<P_DOUBLE>::BlockSizes::BlockLdsSize(params.fft_N[0]);
+				this->signature.blockSIMD = Kernel<P_DOUBLE>::BlockSizes::BlockWorkGroupSize(this->signature.fft_N[0]);
+				this->signature.blockLDS  = Kernel<P_DOUBLE>::BlockSizes::BlockLdsSize(this->signature.fft_N[0]);
 			}
 		} break;
 	}
 
-	if((t_wgs != 0) && (t_nt != 0) && (this->envelope.limit_WorkGroupSize >= 256))
+	if((t_wgs != 0) && (t_nt != 0) && (this->plan->envelope.limit_WorkGroupSize >= 256))
 	{
 		wgs = t_wgs;
 		nt = t_nt;
 	}
 	else
-		DetermineSizes(this->envelope.limit_WorkGroupSize, params.fft_N[0], wgs, nt);
+		DetermineSizes(this->plan->envelope.limit_WorkGroupSize, this->signature.fft_N[0], wgs, nt);
 #endif
 
-	assert((nt * params.fft_N[0]) >= wgs);
-	assert((nt * params.fft_N[0])%wgs == 0);
+	assert((nt * this->signature.fft_N[0]) >= wgs);
+	assert((nt * this->signature.fft_N[0])%wgs == 0);
 
-	params.fft_R = (nt * params.fft_N[0])/wgs;
-	params.fft_SIMD = wgs;
+	this->signature.fft_R = (nt * this->signature.fft_N[0])/wgs;
+	this->signature.fft_SIMD = wgs;
 
 
-    if (this->large1D != 0) {
-        ARG_CHECK (params.fft_N[0] != 0)
-        ARG_CHECK ((this->large1D % params.fft_N[0]) == 0)
-        params.fft_3StepTwiddle = true;
-		ARG_CHECK ( this->large1D  == (params.fft_N[1] * params.fft_N[0]) );
+    if (this->plan->large1D != 0) {
+        ARG_CHECK (this->signature.fft_N[0] != 0)
+        ARG_CHECK ((this->plan->large1D % this->signature.fft_N[0]) == 0)
+        this->signature.fft_3StepTwiddle = true;
+		ARG_CHECK ( this->plan->large1D  == (this->signature.fft_N[1] * this->signature.fft_N[0]) );
     }
 
-    params.fft_fwdScale  = this->forwardScale;
-    params.fft_backScale = this->backwardScale;
+    this->signature.fft_fwdScale  = this->plan->forwardScale;
+    this->signature.fft_backScale = this->plan->backwardScale;
 
     return CLFFT_SUCCESS;
 }
 
-template<>
-clfftStatus FFTPlan::GetWorkSizesPvt<Stockham> (std::vector<size_t> & globalWS, std::vector<size_t> & localWS) const
+clfftStatus FFTGeneratedStockhamAction::getWorkSizes (std::vector<size_t> & globalWS, std::vector<size_t> & localWS)
 {
     //    How many complex numbers in the input mutl-dimensional array?
     //
     unsigned long long count = 1;
-    for (unsigned u = 0; u < length.size(); ++u) {
-        count *= std::max<size_t> (1, this->length[ u ]);
+    for (unsigned u = 0; u < this->plan->length.size(); ++u) {
+        count *= std::max<size_t> (1, this->plan->length[ u ]);
     }
-    count *= this->batchsize;
+    count *= this->plan->batchsize;
 
-    FFTKernelGenKeyParams fftParams;
-    //    Translate the user plan into the structure that we use to map plans to clPrograms
-    OPENCL_V( this->GetKernelGenKeyPvt<Stockham>( fftParams ), _T("GetKernelGenKey() failed!") );
 
-	if(fftParams.blockCompute)
+	if(this->signature.blockCompute)
 	{
-		count = DivRoundingUp<unsigned long long> (count, fftParams.blockLDS); 
-		count = count * fftParams.blockSIMD; 
+		count = DivRoundingUp<unsigned long long> (count, this->signature.blockLDS); 
+		count = count * this->signature.blockSIMD; 
 
 		globalWS.push_back( static_cast< size_t >( count ) );
-		localWS.push_back( fftParams.blockSIMD );
+		localWS.push_back( this->signature.blockSIMD );
 
 		return    CLFFT_SUCCESS;
 	}
 
-    count = DivRoundingUp<unsigned long long> (count, fftParams.fft_R);      // count of WorkItems
-    count = DivRoundingUp<unsigned long long> (count, fftParams.fft_SIMD);   // count of WorkGroups
+    count = DivRoundingUp<unsigned long long> (count, this->signature.fft_R);      // count of WorkItems
+    count = DivRoundingUp<unsigned long long> (count, this->signature.fft_SIMD);   // count of WorkGroups
 
 	// for real transforms we only need half the work groups since we do twice the work in 1 work group
-	if( !(fftParams.fft_RCsimple) && ((fftParams.fft_inputLayout == CLFFT_REAL) || (fftParams.fft_outputLayout == CLFFT_REAL)) )
+	if( !(this->signature.fft_RCsimple) && ((this->signature.fft_inputLayout == CLFFT_REAL) || (this->signature.fft_outputLayout == CLFFT_REAL)) )
 		count = DivRoundingUp<unsigned long long> (count, 2);
 
-    count = std::max<unsigned long long> (count, 1) * fftParams.fft_SIMD;
+    count = std::max<unsigned long long> (count, 1) * this->signature.fft_SIMD;
         // .. count of WorkItems, rounded up to next multiple of fft_SIMD.
 
 	// 1 dimension work group size
 	globalWS.push_back( static_cast< size_t >( count ) );
 
-    localWS.push_back( fftParams.fft_SIMD );
+    localWS.push_back( this->signature.fft_SIMD );
 
     return    CLFFT_SUCCESS;
 }
 
-template<>
-clfftStatus FFTPlan::GetMax1DLengthPvt<Stockham> (size_t * longest) const
+clfftStatus FFTPlan::GetMax1DLengthStockham (size_t * longest) const
 {
 	// TODO  The caller has already acquired the lock on *this
 	//	However, we shouldn't depend on it.
@@ -3370,12 +3432,8 @@ clfftStatus FFTPlan::GetMax1DLengthPvt<Stockham> (size_t * longest) const
 	return CLFFT_SUCCESS;
 }
 
-template<>
-clfftStatus FFTPlan::GenerateKernelPvt<Stockham>(FFTRepo& fftRepo, const cl_command_queue& commQueueFFT ) const
+clfftStatus FFTGeneratedStockhamAction::generateKernel(FFTRepo& fftRepo, const cl_command_queue commQueueFFT )
 {
-    FFTKernelGenKeyParams params;
-    OPENCL_V( this->GetKernelGenKeyPvt<Stockham> (params), _T("GetKernelGenKey() failed!") );
-
     cl_int status = CL_SUCCESS;
     cl_device_id Device = NULL;
     status = clGetCommandQueueInfo(commQueueFFT, CL_QUEUE_DEVICE, sizeof(cl_device_id), &Device, NULL);
@@ -3386,17 +3444,17 @@ clfftStatus FFTPlan::GenerateKernelPvt<Stockham>(FFTRepo& fftRepo, const cl_comm
     OPENCL_V( status, _T( "clGetCommandQueueInfo failed" ) );
 
 	std::string programCode;
-	Precision pr = (params.fft_precision == CLFFT_SINGLE) ? P_SINGLE : P_DOUBLE;
+	Precision pr = (this->signature.fft_precision == CLFFT_SINGLE) ? P_SINGLE : P_DOUBLE;
 	switch(pr)
 	{
 	case P_SINGLE:
 		{
-			Kernel<P_SINGLE> kernel(params);
+			Kernel<P_SINGLE> kernel(this->signature);
 			kernel.GenerateKernel(programCode, Device);
 		} break;
 	case P_DOUBLE:
 		{
-			Kernel<P_DOUBLE> kernel(params);
+			Kernel<P_DOUBLE> kernel(this->signature);
 			kernel.GenerateKernel(programCode, Device);
 		} break;
 	}
@@ -3405,8 +3463,8 @@ clfftStatus FFTPlan::GenerateKernelPvt<Stockham>(FFTRepo& fftRepo, const cl_comm
 	ReadKernelFromFile(programCode);
 #endif
 
-    OPENCL_V( fftRepo.setProgramCode( Stockham, params, programCode, Device, QueueContext ), _T( "fftRepo.setclString() failed!" ) );
-    OPENCL_V( fftRepo.setProgramEntryPoints( Stockham, params, "fft_fwd", "fft_back", Device, QueueContext ), _T( "fftRepo.setProgramEntryPoint() failed!" ) );
+    OPENCL_V( fftRepo.setProgramCode( this->getGenerator(), this->getSignatureData(), programCode, Device, QueueContext ), _T( "fftRepo.setclString() failed!" ) );
+    OPENCL_V( fftRepo.setProgramEntryPoints( this->getGenerator(), this->getSignatureData(), "fft_fwd", "fft_back", Device, QueueContext ), _T( "fftRepo.setProgramEntryPoint() failed!" ) );
 
     return CLFFT_SUCCESS;
 }

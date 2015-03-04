@@ -27,6 +27,8 @@
 
 
 
+
+
 //	This class contains objects that we wish to retain between individual calls into the FFT interface.
 //	These objects will be shared across different individual FFT plans, and we wish to keep only one
 //	copy of these programs, objects and events.  When the client decides that they either want to reset
@@ -34,6 +36,61 @@
 //	up as much as it can.  It is implemented as a Singleton object.
 class	FFTRepo
 {
+
+    struct FFTRepoKey
+    {
+        clfftGenerators gen;
+        const FFTKernelSignatureHeader * data;
+        cl_context context;
+		cl_device_id device;
+
+        FFTRepoKey(clfftGenerators gen_, const FFTKernelSignatureHeader * data_, cl_context context_, cl_device_id device_)
+            : gen(gen_), data(data_), context(context_), device(device_)
+        {
+
+        }
+
+        void privatizeData()
+        {
+            char * tmp = new char[data->datasize];
+            ::memcpy(tmp, data, data->datasize);
+            this->data = (FFTKernelSignatureHeader*) tmp;
+        }
+
+        void deleteData()
+        {
+            if (this->data)
+            {
+                delete this->data;
+            }
+
+            this->data = NULL;
+        }
+
+        bool operator<(const FFTRepoKey & b) const
+        {
+            const FFTRepoKey & a = *this;
+
+            if (a.gen != b.gen)
+            {
+                return a.gen < b.gen;
+            }
+            else if (a.data->datasize != b.data->datasize)
+            {
+                return a.data->datasize < b.data->datasize;
+            }
+            else if (a.context != b.context)
+            {
+                return a.context < b.context;
+            }
+            else
+            {
+                return ::memcmp(a.data, b.data, a.data->datasize) < 0;
+            }
+        }
+    };
+
+
 	//	Structure containing all the data we need to remember for a specific invokation of a kernel
 	//	generator
 	struct fftRepoValue {
@@ -51,9 +108,7 @@ class	FFTRepo
 	//	has created
 	//typedef std::pair< clfftGenerators, FFTKernelGenKeyParams > fftRepoKey;
 
-	typedef std::pair< cl_context, cl_device_id > ClPair;
-	typedef std::pair< clfftGenerators, std::pair<FFTKernelGenKeyParams, ClPair> > fftRepoKey;
-	typedef std::map< fftRepoKey, fftRepoValue > fftRepoType;
+	typedef std::map< FFTRepoKey, fftRepoValue > fftRepoType;
 	typedef fftRepoType::iterator fftRepo_iterator;
 
 
@@ -140,14 +195,14 @@ public:
 
 	clfftStatus releaseResources( );
 
-	clfftStatus setProgramCode( const clfftGenerators gen, const FFTKernelGenKeyParams&, const std::string& kernel, const cl_device_id &device, const cl_context& planContext );
-	clfftStatus getProgramCode( const clfftGenerators gen, const FFTKernelGenKeyParams&, std::string& kernel, const cl_device_id &device, const cl_context& planContext );
+	clfftStatus setProgramCode( const clfftGenerators gen, const FFTKernelSignatureHeader * data, const std::string& kernel, const cl_device_id &device, const cl_context& planContext );
+	clfftStatus getProgramCode( const clfftGenerators gen, const FFTKernelSignatureHeader * data, std::string& kernel, const cl_device_id &device, const cl_context& planContext );
 
-	clfftStatus setProgramEntryPoints( const clfftGenerators gen, const FFTKernelGenKeyParams& fftParam, const char * kernel_fwd, const char * kernel_back, const cl_device_id &device, const cl_context& planContext );
-	clfftStatus getProgramEntryPoint( const clfftGenerators gen, const FFTKernelGenKeyParams& fftParam, clfftDirection dir, std::string& kernel , const cl_device_id &device, const cl_context& planContext );
+	clfftStatus setProgramEntryPoints( const clfftGenerators gen, const FFTKernelSignatureHeader * data, const char * kernel_fwd, const char * kernel_back, const cl_device_id &device, const cl_context& planContext );
+	clfftStatus getProgramEntryPoint( const clfftGenerators gen, const FFTKernelSignatureHeader * data, clfftDirection dir, std::string& kernel , const cl_device_id &device, const cl_context& planContext );
 
-	clfftStatus setclProgram( const clfftGenerators gen, const FFTKernelGenKeyParams& fftParam, const cl_program& prog, const cl_device_id &device, const cl_context& planContext );
-	clfftStatus getclProgram( const clfftGenerators gen, const FFTKernelGenKeyParams& fftParam, cl_program& prog, const cl_device_id &device, const cl_context& planContext );
+	clfftStatus setclProgram( const clfftGenerators gen, const FFTKernelSignatureHeader * data, const cl_program& prog, const cl_device_id &device, const cl_context& planContext );
+	clfftStatus getclProgram( const clfftGenerators gen, const FFTKernelSignatureHeader * data, cl_program& prog, const cl_device_id &device, const cl_context& planContext );
 
 	clfftStatus setclKernel ( cl_program prog, clfftDirection dir, const cl_kernel& kernel );
 	clfftStatus getclKernel ( cl_program prog, clfftDirection dir, cl_kernel& kernel );

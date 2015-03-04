@@ -60,6 +60,11 @@ clfftStatus FFTRepo::releaseResources( )
 	//
 	for (fftRepo_iterator iProg = mapFFTs.begin( ); iProg != mapFFTs.end( ); ++iProg )
 	{
+        if (iProg->first.data != NULL)
+        {
+            const_cast<FFTRepoKey*>(&iProg->first)->deleteData();
+        }
+
 		cl_program p = iProg->second.clProgram;
 		iProg->second.clProgram = NULL;
 		if (NULL != p)
@@ -91,14 +96,13 @@ clfftStatus FFTRepo::releaseResources( )
 	return	CLFFT_SUCCESS;
 }
 
-clfftStatus FFTRepo::setProgramCode( const clfftGenerators gen, const FFTKernelGenKeyParams& fftParam, const std::string& kernel, const cl_device_id &device, const cl_context& planContext )
+clfftStatus FFTRepo::setProgramCode( const clfftGenerators gen, const FFTKernelSignatureHeader * data, const std::string& kernel, const cl_device_id &device, const cl_context& planContext )
 {
 	scopedLock sLock( lockRepo, _T( "setProgramCode" ) );
 
-	ClPair clPair = std::make_pair(planContext, device);
-	std::pair<FFTKernelGenKeyParams, ClPair> Params = std::make_pair(fftParam, clPair);
-	fftRepoKey key = std::make_pair( gen, Params );
+	FFTRepoKey key(gen, data, planContext, device);
 
+    key.privatizeData();
 
 	// Prefix copyright statement at the top of generated kernels
 	std::stringstream ss;
@@ -127,13 +131,11 @@ clfftStatus FFTRepo::setProgramCode( const clfftGenerators gen, const FFTKernelG
 	return	CLFFT_SUCCESS;
 }
 
-clfftStatus FFTRepo::getProgramCode( const clfftGenerators gen, const FFTKernelGenKeyParams& fftParam, std::string& kernel, const cl_device_id &device, const cl_context& planContext )
+clfftStatus FFTRepo::getProgramCode( const clfftGenerators gen, const FFTKernelSignatureHeader * data, std::string& kernel, const cl_device_id &device, const cl_context& planContext )
 {
 	scopedLock sLock( lockRepo, _T( "getProgramCode" ) );
 
-	ClPair clPair = std::make_pair(planContext, device);
-	std::pair<FFTKernelGenKeyParams, ClPair> Params = std::make_pair(fftParam, clPair);
-	fftRepoKey key = std::make_pair( gen, Params );
+	FFTRepoKey key(gen, data, planContext, device);
 
 	fftRepo_iterator pos = mapFFTs.find( key);
 	if( pos == mapFFTs.end( ) )
@@ -143,14 +145,12 @@ clfftStatus FFTRepo::getProgramCode( const clfftGenerators gen, const FFTKernelG
 	return	CLFFT_SUCCESS;
 }
 
-clfftStatus FFTRepo::setProgramEntryPoints( const clfftGenerators gen, const FFTKernelGenKeyParams& fftParam,
+clfftStatus FFTRepo::setProgramEntryPoints( const clfftGenerators gen, const FFTKernelSignatureHeader * data,
 	const char * kernel_fwd, const char * kernel_back, const cl_device_id &device, const cl_context& planContext  )
 {
 	scopedLock sLock( lockRepo, _T( "setProgramEntryPoints" ) );
 
-	ClPair clPair = std::make_pair(planContext, device);
-	std::pair<FFTKernelGenKeyParams, ClPair> Params = std::make_pair(fftParam, clPair);
-	fftRepoKey key = std::make_pair( gen, Params );
+	FFTRepoKey key(gen, data, planContext, device);
 
 	fftRepoValue& fft  = mapFFTs[ key ];
 	fft.EntryPoint_fwd  = kernel_fwd;
@@ -159,14 +159,12 @@ clfftStatus FFTRepo::setProgramEntryPoints( const clfftGenerators gen, const FFT
 	return	CLFFT_SUCCESS;
 }
 
-clfftStatus FFTRepo::getProgramEntryPoint( const clfftGenerators gen, const FFTKernelGenKeyParams& fftParam,
+clfftStatus FFTRepo::getProgramEntryPoint( const clfftGenerators gen, const FFTKernelSignatureHeader * data,
 			clfftDirection dir, std::string& kernel, const cl_device_id &device, const cl_context& planContext )
 {
 	scopedLock sLock( lockRepo, _T( "getProgramEntryPoint" ) );
 
-	ClPair clPair = std::make_pair(planContext, device);
-	std::pair<FFTKernelGenKeyParams, ClPair> Params = std::make_pair(fftParam, clPair);
-	fftRepoKey key = std::make_pair( gen, Params );
+	FFTRepoKey key(gen, data, planContext, device);
 
 	fftRepo_iterator pos = mapFFTs.find( key );
 	if( pos == mapFFTs.end( ) )
@@ -190,23 +188,18 @@ clfftStatus FFTRepo::getProgramEntryPoint( const clfftGenerators gen, const FFTK
 	return	CLFFT_SUCCESS;
 }
 
-clfftStatus FFTRepo::setclProgram( const clfftGenerators gen, const FFTKernelGenKeyParams& fftParam, const cl_program& prog, const cl_device_id &device, const cl_context& planContext )
+clfftStatus FFTRepo::setclProgram( const clfftGenerators gen, const FFTKernelSignatureHeader * data, const cl_program& prog, const cl_device_id &device, const cl_context& planContext )
 {
 	scopedLock sLock( lockRepo, _T( "setclProgram" ) );
 
-  cl_int status = CL_SUCCESS;
-  cl_context ProgramContext = NULL;
-  status = clGetProgramInfo(prog, CL_PROGRAM_CONTEXT, sizeof(cl_context), &ProgramContext, NULL);
-
-  OPENCL_V( status, _T( "clGetCommandQueueInfo failed" ) );
-
-	ClPair clPair = std::make_pair(planContext, device);
-	std::pair<FFTKernelGenKeyParams, ClPair> Params = std::make_pair(fftParam, clPair);
-	fftRepoKey key = std::make_pair( gen, Params );
+ 	FFTRepoKey key(gen, data, planContext, device);
 
 	fftRepo_iterator pos = mapFFTs.find( key );
 	if( pos == mapFFTs.end( ) )
+	{
+		key.privatizeData(); // the key owns the data
 		mapFFTs[ key ].clProgram = prog;
+	}
 	else {
 		cl_program p = pos->second.clProgram;
 		assert (NULL == p);
@@ -218,13 +211,11 @@ clfftStatus FFTRepo::setclProgram( const clfftGenerators gen, const FFTKernelGen
 	return	CLFFT_SUCCESS;
 }
 
-clfftStatus FFTRepo::getclProgram( const clfftGenerators gen, const FFTKernelGenKeyParams& fftParam, cl_program& prog, const cl_device_id &device, const cl_context& planContext  )
+clfftStatus FFTRepo::getclProgram( const clfftGenerators gen, const FFTKernelSignatureHeader * data, cl_program& prog, const cl_device_id &device, const cl_context& planContext  )
 {
 	scopedLock sLock( lockRepo, _T( "getclProgram" ) );
 
-	ClPair clPair = std::make_pair(planContext, device);
-	std::pair<FFTKernelGenKeyParams, ClPair> Params = std::make_pair(fftParam, clPair);
-	fftRepoKey key = std::make_pair( gen, Params );
+	FFTRepoKey key(gen, data, planContext, device);
 
 	fftRepo_iterator pos = mapFFTs.find( key );
 	if( pos == mapFFTs.end( ) )

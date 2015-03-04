@@ -35,11 +35,11 @@ components as a pair contiguous in memory) formats.
 @section InstallFFT Installation of clFFT library
 
 @subsection DownBinaries Downloadable Binaries
-AMD provides clFFT library pre-compiled packages for recent versions of Microsoft Windows operating systems
-and several flavors of Linux.
+clFFT library pre-compiled packages for recent versions of Microsoft Windows operating systems
+and several flavors of Linux are available.
 
-The downloadable binary packages are freely available from AMD at
-http://developer.amd.com/tools-and-sdks/heterogeneous-computing/amd-accelerated-parallel-processing-math-libraries/
+The downloadable binary packages are freely available at
+https://github.com/clMathLibraries/clFFT/releases
 
 Once the appropriate package for the respective OS has finished downloading,
 uncompress the package using the native tools available on the platform in a

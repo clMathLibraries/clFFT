@@ -26,6 +26,8 @@
 #include "plan.h"
 #include "generator.stockham.h"
 #include "../include/convenienceFunctions.h"
+#include "action.h"
+#include "fft_binary_lookup.h"
 
 using std::vector;
 
@@ -33,16 +35,6 @@ const std::string beginning_of_binary( "<[£_beginning_of_binary_£]>" );
 const std::string end_of_binary( "<[£_I_may_be_a_sorry_case,_but_I_don't_write_jokes_in_base_13_£]>" );
 const std::string end_of_file( "<[£_You're_off_the_edge_of_the_map,_mate._Here_there_be_monsters_£]>" );
 
-//	This operator is used to sort FFTKernelGenKeyParams structs inside of a std::map
-bool operator<( const FFTKernelGenKeyParams& lhs, const FFTKernelGenKeyParams& rhs)
-{
-	int ret = ::memcmp( &lhs, &rhs, sizeof( FFTKernelGenKeyParams ) );
-
-	if( ret < 0 )
-		return true;
-
-	return false;
-}
 
 // Returns CLFFT_SUCCESS if the fp64 is present, CLFFT_DEVICE_NO_DOUBLE if it is not found.  
 clfftStatus checkDevExt( std::string ext, const cl_device_id &device )
@@ -213,126 +205,82 @@ clfftStatus	clfftCreateDefaultPlan( clfftPlanHandle* plHandle, cl_context contex
 			break;
 	}
 
+	fftPlan->plHandle = *plHandle;
+
 	return	CLFFT_SUCCESS;
 }
 
 
-
-// **************** TODO TODO TODO ***********************
-// Making CompileKernels function take in command queue parameter so we can build for 1 particular device only;
-// this may not be desirable for persistent plans, where we may have to compile for all devices in the context;
-// make changes appropriately before enabling persistent plans and then remove this comment
-
-//	Compile the kernels that this plan uses, and store into the plan
-clfftStatus CompileKernels( const cl_command_queue commQueueFFT, const clfftPlanHandle plHandle, const clfftGenerators gen, FFTPlan* fftPlan )
+std::string getKernelName(const clfftGenerators gen, const clfftPlanHandle plHandle, bool withPlHandle)
 {
-	cl_int status = 0;
-	size_t deviceListSize = 0;
+    //	Logic to define a sensible filename
+    const std::string kernelPrefix( "clfft.kernel." );
+    std::string generatorName;
+    std::stringstream kernelPath;
 
-	FFTRepo& fftRepo	= FFTRepo::getInstance( );
+    switch( gen )
+    {
+    case Stockham:			generatorName = "Stockham"; break;
+	case Transpose_GCN:		generatorName = "Transpose"; break;
+    case Transpose_VLIW:	generatorName = "Transpose"; break;
+	case Copy:				generatorName = "Copy"; break;
+    }
 
+    kernelPath << kernelPrefix << generatorName ;
 
-	// create a cl program executable for the device associated with command queue
-	// Get the device
-	cl_device_id &q_device = fftPlan->bakeDevice;
-	//clGetCommandQueueInfo(commQueueFFT, CL_QUEUE_DEVICE, sizeof(cl_device_id), &q_device, NULL);
+    if (withPlHandle)
+        kernelPath << plHandle;
 
-	FFTKernelGenKeyParams fftParams;
-	OPENCL_V( fftPlan->GetKernelGenKey( fftParams ), _T("GetKernelGenKey() failed!") );
+    kernelPath << ".cl";
 
-	cl_program program;
-	if( fftRepo.getclProgram( gen, fftParams, program, q_device, fftPlan->context ) == CLFFT_INVALID_PROGRAM )
-	{
-
-		std::string programCode;
-		OPENCL_V( fftRepo.getProgramCode( gen, fftParams, programCode, q_device, fftPlan->context  ), _T( "fftRepo.getProgramCode failed." ) );
-
-		const char* source = programCode.c_str();
-		program = clCreateProgramWithSource( fftPlan->context, 1, &source, NULL, &status );
-		OPENCL_V( status, _T( "clCreateProgramWithSource failed." ) );
-
-		// create a cl program executable for the device associated with command queue
-
-#if defined(DEBUGGING)
-		status = clBuildProgram( program, 1, &q_device, "-g -cl-opt-disable", NULL, NULL); // good for debugging kernels
-
-// if you have trouble creating smbols that GDB can pick up to set a breakpoint after kernels are loaded into memory
-// this can be used to stop execution to allow you to set a breakpoint in a kernel after kernel symbols are in memory.
-#ifdef DEBUG_BREAK_GDB
-		__debugbreak();
-#endif
-#else
-		status = clBuildProgram( program, 1, &q_device, NULL, NULL, NULL);
-#endif
-		if( status != CL_SUCCESS )
-		{
-			if( status == CL_BUILD_PROGRAM_FAILURE )
-			{
-				size_t buildLogSize = 0;
-				OPENCL_V( clGetProgramBuildInfo( program, q_device, CL_PROGRAM_BUILD_LOG, 0, NULL, &buildLogSize ),
-						_T( "clGetProgramBuildInfo failed" ) );
-
-				vector< char > buildLog( buildLogSize );
-				::memset( &buildLog[ 0 ], 0x0, buildLogSize );
-
-				OPENCL_V( clGetProgramBuildInfo( program, q_device, CL_PROGRAM_BUILD_LOG, buildLogSize, &buildLog[ 0 ], NULL ),
-						_T( "clGetProgramBuildInfo failed" ) );
-
-				std::cerr << "\n\t\t\tBUILD LOG\n";
-				std::cerr << "************************************************\n";
-				std::cerr << &buildLog[ 0 ] << std::endl;
-				std::cerr << "************************************************\n";
-			}
-
-			OPENCL_V( status, _T( "clBuildProgram failed" ) );
-		}
-
-		fftRepo.setclProgram( gen, fftParams, program, q_device, fftPlan->context );
-
-		// For real transforms we comppile either forward or backward kernel
-		bool r2c_transform = (fftParams.fft_inputLayout == CLFFT_REAL);
-		bool c2r_transform = (fftParams.fft_outputLayout == CLFFT_REAL);
-		bool h2c = (gen == Copy) && ((fftParams.fft_inputLayout == CLFFT_HERMITIAN_PLANAR) || (fftParams.fft_inputLayout == CLFFT_HERMITIAN_INTERLEAVED));
-		bool c2h = (gen == Copy) && ((fftParams.fft_outputLayout == CLFFT_HERMITIAN_PLANAR) || (fftParams.fft_outputLayout == CLFFT_HERMITIAN_INTERLEAVED));
-		bool generalCopy = !(h2c || c2h) && (gen == Copy);
-		bool complexTransform = ( !(r2c_transform || c2r_transform) && (gen != Copy) );
-
-		// get a kernel object handle for a kernel with the given name
-		cl_kernel kernel;
-		if( complexTransform || r2c_transform || c2h || generalCopy)
-		{
-			if( fftRepo.getclKernel( program, CLFFT_FORWARD, kernel ) == CLFFT_INVALID_KERNEL )
-			{
-				std::string entryPoint;
-				OPENCL_V( fftRepo.getProgramEntryPoint( gen, fftParams, CLFFT_FORWARD, entryPoint, q_device, fftPlan->context ), _T( "fftRepo.getProgramEntryPoint failed." ) );
-
-				kernel = clCreateKernel( program, entryPoint.c_str( ), &status );
-				OPENCL_V( status, _T( "clCreateKernel failed" ) );
-
-				fftRepo.setclKernel( program, CLFFT_FORWARD, kernel );
-			}
-		}
-
-		if( complexTransform || c2r_transform || h2c || generalCopy)
-		{
-			if( fftRepo.getclKernel( program, CLFFT_BACKWARD, kernel ) == CLFFT_INVALID_KERNEL )
-			{
-				std::string entryPoint;
-				OPENCL_V( fftRepo.getProgramEntryPoint( gen, fftParams, CLFFT_BACKWARD, entryPoint, q_device, fftPlan->context ), _T( "fftRepo.getProgramEntryPoint failed." ) );
-
-				kernel = clCreateKernel( program, entryPoint.c_str( ), &status );
-				OPENCL_V( status, _T( "clCreateKernel failed" ) );
-
-				fftRepo.setclKernel( program, CLFFT_BACKWARD, kernel );
-			}
-		}
-	}
-
-
-	return	CLFFT_SUCCESS;
+    return kernelPath.str();
 }
 
 
+clfftStatus selectAction(FFTPlan * fftPlan, FFTAction *& action, cl_command_queue* commQueueFFT)
+{
+    // set the action we are baking a leaf
+    clfftStatus err;
+    switch (fftPlan->gen)
+    {
+    case Stockham:  
+		{
+			// Instantiate the default stockham generator
+			action = new FFTGeneratedStockhamAction (fftPlan->plHandle, fftPlan, *commQueueFFT, err);
+			OPENCL_V( err, "FFTGeneratedStockhamAction() failed");
+		}
+		break;
+
+    case Transpose_GCN: 
+		{
+			action = new FFTGeneratedTransposeGCNAction(fftPlan->plHandle, fftPlan, *commQueueFFT, err);
+			OPENCL_V( err, "FFTGeneratedTransposeGCNAction() failed");
+		}
+		break;
+
+    case Transpose_VLIW: 
+		{
+			action = new FFTGeneratedTransposeVLIWAction(fftPlan->plHandle, fftPlan, *commQueueFFT, err);
+			OPENCL_V( err, "FFTGeneratedTransposeVLIWAction() failed");
+		}
+		break;
+
+    case Copy:
+		{
+			action = new FFTGeneratedCopyAction     (fftPlan->plHandle, fftPlan, *commQueueFFT, err);
+			OPENCL_V( err, "FFTGeneratedCopyAction() failed");
+		}
+		break;
+
+    default:
+		{
+			assert(false);
+			OPENCL_V( CLFFT_NOTIMPLEMENTED, "selectAction() failed");
+		}
+    }
+
+	return CLFFT_SUCCESS;
+}
 
 
 inline size_t PrecisionWidth(clfftPrecision pr)
@@ -344,6 +292,8 @@ inline size_t PrecisionWidth(clfftPrecision pr)
 	default:		assert(false); return 1;
 	}
 }
+
+
 
 clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_command_queue* commQueueFFT,
 							void (CL_CALLBACK *pfn_notify)( clfftPlanHandle plHandle, void *user_data ), void* user_data )
@@ -427,8 +377,9 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 
 	if(fftPlan->gen == Copy)
 	{
-		OPENCL_V( fftPlan->GenerateKernel( fftRepo, *commQueueFFT ), _T( "GenerateKernel() failed" ) );
-		OPENCL_V( CompileKernels( *commQueueFFT, plHandle, fftPlan->gen, fftPlan ), _T( "CompileKernels() failed" ) );
+        clfftStatus err;
+        fftPlan->action = new FFTGeneratedCopyAction(plHandle, fftPlan, *commQueueFFT, err);
+        OPENCL_V( err, _T( "FFTGeneratedCopyAction() failed" ) );
 		fftPlan->baked		= true;
 		return	CLFFT_SUCCESS;
 	}
@@ -1559,8 +1510,9 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 				//break;
 				if (fftPlan->transflag) //Transpose for 2D
 				{
-					OPENCL_V( fftPlan->GenerateKernel( fftRepo, *commQueueFFT ), _T( "GenerateTransposeProgram() failed" ) );
-					OPENCL_V( CompileKernels( *commQueueFFT, plHandle, fftPlan->gen, fftPlan ), _T( "CompileKernels() failed" ) );
+                    clfftStatus err;
+                    fftPlan->action = new FFTGeneratedTransposeVLIWAction(plHandle, fftPlan, *commQueueFFT, err);
+                    OPENCL_V( err, "FFTGeneratedTransposeVLIWAction failed");
 
 					fftPlan->baked		= true;
 					return	CLFFT_SUCCESS;
@@ -2484,11 +2436,8 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 		}
 	}
 
-	//	For the radices that we have factored, we need to load/compile and build the appropriate OpenCL kernels
-	OPENCL_V( fftPlan->GenerateKernel( fftRepo, *commQueueFFT ), _T( "GenerateKernel() failed" ) );
-
-	//	For the radices that we have factored, we need to load/compile and build the appropriate OpenCL kernels
-	OPENCL_V( CompileKernels( *commQueueFFT, plHandle, fftPlan->gen, fftPlan ), _T( "CompileKernels() failed" ) );
+	
+	clfftStatus err = selectAction(fftPlan, fftPlan->action, commQueueFFT);
 
 	//	Allocate resources
 	OPENCL_V( fftPlan->AllocateBuffers (), _T("AllocateBuffers() failed"));
@@ -2560,428 +2509,6 @@ clfftStatus FFTPlan::ConstructAndEnqueueConstantBuffers( cl_command_queue* commQ
 	return CLFFT_SUCCESS;
 }
 
-//TODO caching kernel binaries for later reload
-#if 0
-typedef std::pair<std::string, clfftPlanHandle> plan_tree_node_t;
-typedef std::vector< std::pair<std::string, clfftPlanHandle> > plan_tree_t;
-
-void make_plan_tree( plan_tree_t & tree, std::string name, clfftPlanHandle handle )
-{
-	tree.push_back( plan_tree_node_t(name, handle) );
-
-	FFTPlan* plan = NULL;
-	FFTRepo& repo = FFTRepo::getInstance();
-	lockRAII* lock = NULL;
-	clfftStatus status = repo.getPlan( handle, plan, lock );
-	if( status != CLFFT_SUCCESS )
-	{
-		throw( "make_plan_tree failure: repo.getPlan" );
-	}
-
-	if( plan->planX )
-	{
-		std::string subplan(name);
-		subplan += "X";
-		make_plan_tree(tree, subplan, plan->planX );
-	}
-
-	if( plan->planY )
-	{
-		std::string subplan(name);
-		subplan += "Y";
-		make_plan_tree(tree, subplan, plan->planY );
-	}
-
-	if( plan->planZ )
-	{
-		std::string subplan(name);
-		subplan += "Z";
-		make_plan_tree(tree, subplan, plan->planZ );
-	}
-}
-
-clfftStatus clfftWritePlanToDisk( clfftPlanHandle plan_handle, const char* filename )
-{
-	plan_tree_t plan_tree;
-	make_plan_tree( plan_tree, "plan", plan_handle );
-
-	std::ofstream planfile;
-	planfile.open(filename, std::ios::binary);
-
-	while( !plan_tree.empty() )
-	{
-		plan_tree_node_t node( *plan_tree.begin() );
-		plan_tree.erase( plan_tree.begin() );
-
-		FFTPlan* plan = NULL;
-		FFTRepo& repo = FFTRepo::getInstance();
-		lockRAII* lock = NULL;
-		OPENCL_V(repo.getPlan( node.second, plan, lock ), _T("getPlan failure"));
-
-		// print the name of the node (plan, planX, planXX, planY, plan XY, etc)
-		planfile << node.first << " ";
-
-		planfile << "dimensions " << plan->dim << " " << plan->length.size();
-		// dimensions must be listed first because clfftReadPlanFromDisk
-		// will need to use dimensions for reading in strides and such
-
-		for( int i = 0; i < plan->length.size(); ++i )
-		{
-			planfile << " " << plan->length[i];
-		}
-
-		planfile << " batch " << plan->batchsize;
-
-		planfile << " instride " << plan->inStride.size();
-		for( int i = 0; i < plan->inStride.size(); ++i )
-		{
-			planfile << " " << plan->inStride[i];
-		}
-
-		planfile << " outstride " << plan->outStride.size();
-		for( int i = 0; i < plan->outStride.size(); ++i )
-		{
-			planfile << " " << plan->outStride[i];
-		}
-
-		planfile << " in-out-distances " << plan->iDist << " " << plan->oDist;
-		planfile << " in-out-layouts " << plan->inputLayout << " " << plan->outputLayout;
-		planfile << " resultlocation " << plan->placeness;
-		planfile << " precision " << plan->precision;
-		planfile << " forwardscale " << float_as_hex<double>(plan->forwardScale);
-		planfile << " backwardscale " << float_as_hex<double>(plan->backwardScale);
-		// we need to stash scales as hex so that we don't have any roundoff error
-		// clfftReadPlanFromDisk will read the hex back in as float
-
-		planfile << " gen " << plan->gen;
-		planfile << " tmpBufSize " << plan->tmpBufSize;
-		planfile << " large1D " << plan->large1D;
-		planfile << " large2D " << plan->large2D;
-
-		if( plan->baked == true )
-		{
-			planfile << " number-of-devices " << plan->number_of_devices;
-
-			if( plan->number_of_devices > 0 )
-			{
-				planfile << " binary-sizes";
-				for( int i = 0; i < plan->number_of_devices; i++ )
-				{
-					planfile << " " << *(plan->binary_sizes.get() + i);
-				}
-
-				planfile << " binaries ";
-				for( int i = 0; i < plan->number_of_devices; i++ )
-				{
-					planfile << beginning_of_binary;
-					planfile.write( plan->binaries[i].get(), plan->binary_sizes[i] );
-					planfile << end_of_binary;
-				}
-			}
-			else
-			{
-				planfile << " ";
-			}
-		}
-	}
-
-	planfile << " " << end_of_file;
-	planfile.close();
-	return CLFFT_SUCCESS;
-}
-
-void FFTPlan::ResetBinarySizes()
-{
-	binary_sizes.reset(new size_t[number_of_devices]);
-}
-
-void FFTPlan::ResetBinaries()
-{
-	binaries.clear();
-	for( int i = 0; i < number_of_devices; i++ )
-	{
-		binaries.push_back( std::unique_ptr<char[]>(new char[binary_sizes[i]] ) );
-	}
-}
-
-std::string pop_next_word( std::string & str )
-{
-	size_t next_space = str.find_first_of(' ');
-
-	std::string next_word( str.substr( 0, next_space ) );
-	str.erase( 0, next_space+1 ); // we need the extra +1 to munch off the space
-
-	return next_word;
-}
-
-int my_string_to_int( std::string str )
-{
-	int i;
-	std::stringstream string_to_int( str );
-	string_to_int >> i;
-	return i;
-}
-
-bool start_of_a_plan( std::string word )
-{
-	if( word.substr(0,4) == "plan" )
-		return true;
-	else
-		return false;
-}
-
-clfftStatus clfftReadPlanFromDisk( clfftPlanHandle plan_handle, const char* filename )
-{
-	plan_tree_t tree;
-
-	FFTPlan* plan = NULL;
-	FFTRepo& repo = FFTRepo::getInstance();
-	lockRAII* lock = NULL;
-	OPENCL_V(repo.getPlan( plan_handle, plan, lock ), _T("getPlan failure"));
-
-	std::ifstream planfile;
-	planfile.open(filename, std::ios::in | std::ios::binary);
-
-	unsigned int dimensions = 0;
-	std::string next_word;
-
-	while( planfile >> next_word )
-	{
-		if( start_of_a_plan( next_word ) )
-		{
-			if( next_word.length() > 4 )
-			// if true, this is not a base plan
-			{
-				clfftDim temp_dimension = CLFFT_1D;
-				size_t temp_lengths[3] = {1,1,1};
-
-				// let's create the plan to represent the child plan
-				clfftPlanHandle child_plan;
-				OPENCL_V(clfftCreateDefaultPlan( &child_plan, plan->context, temp_dimension, temp_lengths ),
-					"clfftReadPlanFromDisk(): error calling clfftCreateDefaultPlan()");
-
-				tree.push_back( plan_tree_node_t( next_word, child_plan ) );
-
-				// we need to update the planX, Y, or Z pointer to point at the child plan
-				char child_plan_name = next_word.rbegin()[0]; // this tells us if this is planX, Y, or Z
-				next_word.erase( next_word.end()-1 ); // this tells us the parent plan
-				std::string parent_plan_name = next_word;
-
-				clfftPlanHandle parent_plan = 0;
-
-				for( int i = 0; i < tree.size(); i++ )
-				{
-					if( tree[i].first == parent_plan_name )
-					{
-						parent_plan = tree[i].second;
-					}
-				}
-
-				plan = NULL;
-				OPENCL_V(repo.getPlan( parent_plan, plan, lock ), _T("getPlan failure"));
-
-				if( child_plan_name == 'X' )
-					plan->planX = child_plan;
-				else if( child_plan_name == 'Y' )
-					plan->planY = child_plan;
-				else if( child_plan_name == 'Z' )
-					plan->planZ = child_plan;
-				else
-					OPENCL_V(CLFFT_INVALID_PLAN, "clfftReadPlanFromDisk(): could not identify child plan" );
-
-				// our child plan is now the active plan
-				plan = NULL;
-				OPENCL_V(repo.getPlan( child_plan, plan, lock ), _T("getPlan failure"));
-				plan_handle = child_plan;
-			}
-			else
-			// if this is a base plan, we don't need to do anything fancy.
-			// just add the node to the tree
-			{
-				tree.push_back( plan_tree_node_t( next_word, plan_handle ) );
-			}
-
-			plan->readFromFile = true;
-		}
-		else if( next_word == "dimensions" )
-		{
-			size_t lengths[3];
-
-			// read number of dimensions
-			planfile >> dimensions;
-
-			// number of length values that follow (subplans have some really strange things going on,
-			// so this might not always match the dimension of the transform)
-			size_t number_of_lengths = 0;
-			planfile >> number_of_lengths;
-
-			OPENCL_V( clfftSetPlanDim(plan_handle, static_cast<clfftDim>(dimensions)), _T("clfftReadPlanFromDisk: clfftSetPlanDim") );
-
-			for( unsigned int i = 0; i < number_of_lengths; ++i )
-			{
-				planfile >> lengths[i]; // read one dimension
-
-				// We have to explicitly set the lengths instead of using clfftSetPlanLength here.
-				// Because the number of values to add might be greater than the number of dimensions in plan->dimension,
-				// we don't want to miss out on any super awesome numbers getting added to plan->length with clfftSetPlanLength
-				if( i >= plan->length.size() ) plan->length.push_back(1);
-				plan->length[i] = lengths[i];
-			}
-		}
-		else if( next_word == "batch" )
-		{
-			unsigned int batch;
-			planfile >> batch;
-
-			OPENCL_V( clfftSetPlanBatchSize(plan_handle, batch), _T("clfftReadPlanFromDisk: clfftSetPlanBatchSize") );
-		}
-		else if( next_word == "instride" )
-		{
-			size_t strides[3];
-
-			// number of stride values that follow (subplans have some really strange things going on,
-			// so this might not always match the dimension of the transform)
-			size_t number_of_strides = 0;
-			planfile >> number_of_strides;
-
-			for( unsigned int i = 0; i < number_of_strides; ++i )
-			{
-				planfile >> strides[i]; // read one dimension
-
-				// We have to explicitly set inStride instead of using clfftSetPlanInStride here.
-				// Because the number of values to add might be greater than the number of dimensions in plan->dimension,
-				// we don't want to miss out on any super awesome numbers getting added to plan->inStride with clfftSetPlanInStride
-				if( i >= plan->inStride.size() ) plan->inStride.push_back(1);
-				plan->inStride[i] = strides[i];
-			}
-		}
-		else if( next_word == "outstride" )
-		{
-			size_t strides[3];
-
-			// number of stride values that follow (subplans have some really strange things going on,
-			// so this might not always match the dimension of the transform)
-			size_t number_of_strides = 0;
-			planfile >> number_of_strides;
-
-			for( unsigned int i = 0; i < number_of_strides; ++i )
-			{
-				planfile >> strides[i]; // read one dimension
-
-				// We have to explicitly set outStride instead of using clfftSetPlanOutStride here.
-				// Because the number of values to add might be greater than the number of dimensions in plan->dimension,
-				// we don't want to miss out on any super awesome numbers getting added to plan->outStride with clfftSetPlanOutStride
-				if( i >= plan->outStride.size() ) plan->outStride.push_back(1);
-				plan->outStride[i] = strides[i];
-			}
-		}
-		else if( next_word == "in-out-distances" )
-		{
-			size_t indistance, outdistance;
-			planfile >> indistance >> outdistance;
-
-			OPENCL_V( clfftSetPlanDistance( plan_handle, indistance, outdistance ), _T("clfftReadPlanFromDisk: clfftSetPlanDistance" ) );
-		}
-		else if( next_word == "in-out-layouts" )
-		{
-			size_t inlayout, outlayout;
-			planfile >> inlayout >> outlayout;
-
-			OPENCL_V( clfftSetLayout( plan_handle, static_cast<clfftLayout>(inlayout), static_cast<clfftLayout>(outlayout) ), _T("clfftReadPlanFromDisk: clfftSetLayout") );
-		}
-		else if( next_word == "resultlocation" )
-		{
-			size_t location;
-			planfile >> location;
-
-			OPENCL_V( clfftSetResultLocation( plan_handle, static_cast<clfftResultLocation>(location) ), _T("clfftReadPlanFromDisk: clfftSetResultLocation") );
-		}
-		else if( next_word == "precision" )
-		{
-			size_t precision;
-			planfile >> precision;
-
-			OPENCL_V( clfftSetPlanPrecision( plan_handle, static_cast<clfftPrecision>(precision) ), _T("clfftReadPlanFromDisk: clfftSetPlanPrecision") );
-		}
-		else if( next_word == "forwardscale" || next_word == "backwardscale" )
-		{
-			size_t scale;
-			planfile >> scale;
-
-			if( next_word == "forwardscale" )
-			{
-				OPENCL_V( clfftSetPlanScale( plan_handle, CLFFT_FORWARD, hex_as_float<float>((unsigned int)scale) ), _T("clfftReadPlanFromDisk: clfftSetPlanScale") );
-			}
-			else
-			{
-				OPENCL_V( clfftSetPlanScale( plan_handle, CLFFT_BACKWARD, hex_as_float<float>((unsigned int)scale) ), _T("clfftReadPlanFromDisk: clfftSetPlanScale") );
-			}
-		}
-		else if( next_word == "gen" )
-		{
-			int gen_read;
-			planfile >> gen_read;
-			plan->gen = static_cast<clfftGenerators>(gen_read);
-		}
-		else if( next_word == "tmpBufSize" )
-		{
-			planfile >> plan->tmpBufSize;
-		}
-		else if( next_word == "large1D" )
-		{
-			planfile >> plan->large1D;
-		}
-		else if( next_word == "large2D" )
-		{
-			planfile >> plan->large2D;
-		}
-		else if( next_word == "number-of-devices" )
-		{
-			planfile >> plan->number_of_devices;
-		}
-		else if( next_word == "binary-sizes" )
-		{
-			plan->ResetBinarySizes();
-			for( int i = 0; i < plan->number_of_devices; i++ )
-			{
-				planfile >> plan->binary_sizes[i];
-			}
-		}
-		else if( next_word == "binaries" )
-		{
-			plan->ResetBinaries();
-
-			size_t number_of_devices = plan->number_of_devices;
-
-			while( static_cast<char>(planfile.peek()) == ' ' )
-				planfile.ignore();
-
-			// consume the beginning of binary message. the binary will begin with the character immediately following
-			std::unique_ptr<char[]> beginning_message( new char[beginning_of_binary.size()] );
-			planfile.read( beginning_message.get(), beginning_of_binary.size() );
-
-			for( int i = 0; i < plan->number_of_devices; i++ )
-			{
-				planfile.read( plan->binaries[i].get(), plan->binary_sizes[i] );
-			}
-
-			std::unique_ptr<char[]> end_message( new char[end_of_binary.size()] );
-			planfile.read( end_message.get(), end_of_binary.size() );
-		}
-		else if( next_word == end_of_file )
-		{
-			// we're at the end of the file
-		}
-		else
-		{
-			std::cout << next_word << std::endl;
-			OPENCL_V( CLFFT_INVALID_ARG_VALUE, _T("clfftReadPlanFromDisk: unrecognized parameter") );
-		}
-	}
-
-	return CLFFT_SUCCESS;
-}
-#endif
 
 clfftStatus	clfftDestroyPlan( clfftPlanHandle* plHandle )
 {
@@ -3179,47 +2706,13 @@ clfftStatus FFTPlan::ReleaseBuffers ()
 	return	result;
 }
 
-clfftStatus  FFTPlan::GetWorkSizes (std::vector<size_t> & globalws, std::vector<size_t> & localws) const
-{
-	switch(gen)
-	{
-    case Stockham:		return GetWorkSizesPvt<Stockham>( globalws, localws );
-    case Transpose_VLIW:		return GetWorkSizesPvt<Transpose_VLIW>( globalws, localws );
-    case Transpose_GCN:		return GetWorkSizesPvt<Transpose_GCN>( globalws, localws );
-    case Copy:			return GetWorkSizesPvt<Copy>( globalws, localws );
-    default:			assert( false ); return CLFFT_NOTIMPLEMENTED;
-	}
-}
 
-clfftStatus  FFTPlan::GetKernelGenKey (FFTKernelGenKeyParams & params) const
-{
-	switch(gen)
-	{
-	case Stockham:		return GetKernelGenKeyPvt<Stockham>(params);
-	case Transpose_VLIW:		return GetKernelGenKeyPvt<Transpose_VLIW>(params);
-    case Transpose_GCN:		return GetKernelGenKeyPvt<Transpose_GCN>( params );
-    case Copy:			return GetKernelGenKeyPvt<Copy>( params );
-	default:			assert(false); return CLFFT_NOTIMPLEMENTED;
-	}
-}
-
-clfftStatus  FFTPlan::GenerateKernel (FFTRepo & fftRepo, const cl_command_queue commQueueFFT) const
-{
-	switch(gen)
-	{
-	case Stockham:		return GenerateKernelPvt<Stockham>(fftRepo, commQueueFFT);
-	case Transpose_VLIW:		return GenerateKernelPvt<Transpose_VLIW>(fftRepo, commQueueFFT);
-    case Transpose_GCN:		return GenerateKernelPvt<Transpose_GCN>( fftRepo, commQueueFFT );
-    case Copy:			return GenerateKernelPvt<Copy>( fftRepo, commQueueFFT );
-	default:			assert(false); return CLFFT_NOTIMPLEMENTED;
-	}
-}
 
 clfftStatus FFTPlan::GetMax1DLength (size_t *longest ) const
 {
 	switch(gen)
 	{
-	case Stockham:		return GetMax1DLengthPvt<Stockham>(longest);
+	case Stockham:		return GetMax1DLengthStockham(longest);
 	//No restriction for Transpose_VLIW kernel
 	case Transpose_VLIW:     *longest = 4096; return CLFFT_SUCCESS;
     case Transpose_GCN:     *longest = 4096; return CLFFT_SUCCESS;

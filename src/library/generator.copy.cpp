@@ -19,6 +19,71 @@
 #include <math.h>
 #include <list>
 #include "generator.stockham.h"
+#include "action.h"
+
+FFTGeneratedCopyAction::FFTGeneratedCopyAction(clfftPlanHandle plHandle, FFTPlan * plan, cl_command_queue queue, clfftStatus & err)
+    : FFTCopyAction(plHandle, plan, queue, err)
+{
+    if (err != CLFFT_SUCCESS)
+    {
+        // FFTCopyAction() failed, exit
+        fprintf(stderr, "FFTCopyAction() failed!\n");
+        return;
+    }
+
+    // Initialize the FFTAction::FFTKernelGenKeyParams member
+    err = this->initParams();
+
+    if (err != CLFFT_SUCCESS)
+    {
+        fprintf(stderr, "FFTGeneratedCopyAction::initParams() failed!\n");
+        return;
+    }
+
+    FFTRepo &fftRepo = FFTRepo::getInstance();
+
+    err = this->generateKernel(fftRepo, queue);
+
+    if (err != CLFFT_SUCCESS)
+    {
+        fprintf(stderr, "FFTGeneratedCopyAction::generateKernel failed\n");
+        return;
+    }
+
+    err = compileKernels( queue, plHandle, plan);
+
+    if (err != CLFFT_SUCCESS)
+    {
+        fprintf(stderr, "FFTGeneratedCopyAction::compileKernels failed\n");
+        return;
+    }
+
+    err = CLFFT_SUCCESS;
+}
+
+bool FFTGeneratedCopyAction::buildForwardKernel()
+{
+    clfftLayout inputLayout = this->getSignatureData()->fft_inputLayout;
+    clfftLayout outputLayout = this->getSignatureData()->fft_outputLayout;
+
+    bool r2c_transform = (inputLayout == CLFFT_REAL);
+	bool h2c = (inputLayout == CLFFT_HERMITIAN_PLANAR) || (inputLayout == CLFFT_HERMITIAN_INTERLEAVED);
+    bool c2h = (outputLayout == CLFFT_HERMITIAN_PLANAR) || (outputLayout == CLFFT_HERMITIAN_INTERLEAVED);
+
+    return (r2c_transform || c2h) || (!(h2c || c2h));
+}
+
+bool FFTGeneratedCopyAction::buildBackwardKernel()
+{
+    clfftLayout inputLayout = this->getSignatureData()->fft_inputLayout;
+    clfftLayout outputLayout = this->getSignatureData()->fft_outputLayout;
+
+    bool c2r_transform = (outputLayout == CLFFT_REAL);
+    bool h2c = (inputLayout == CLFFT_HERMITIAN_PLANAR) || (inputLayout == CLFFT_HERMITIAN_INTERLEAVED);
+	bool c2h = (outputLayout == CLFFT_HERMITIAN_PLANAR) || (outputLayout == CLFFT_HERMITIAN_INTERLEAVED);
+
+    return (c2r_transform || h2c) || (!(h2c || c2h));
+}
 
 using namespace StockhamGenerator;
 
@@ -30,7 +95,7 @@ namespace CopyGenerator
     {
         size_t N;
 		size_t Nt;
-		const FFTKernelGenKeyParams params;
+		const FFTGeneratedCopyAction::Signature & params;
 		bool h2c, c2h;
 		bool general;
 
@@ -59,7 +124,7 @@ namespace CopyGenerator
 		}
 
     public:
-        CopyKernel( const FFTKernelGenKeyParams &paramsVal) :
+        CopyKernel( const FFTGeneratedCopyAction::Signature &paramsVal) :
 					params(paramsVal)
 
         {
@@ -338,66 +403,58 @@ namespace CopyGenerator
 };
 
 
-template<>
-clfftStatus FFTPlan::GetKernelGenKeyPvt<Copy> (FFTKernelGenKeyParams & params) const
+clfftStatus FFTGeneratedCopyAction::initParams ()
 {
 
     //    Query the devices in this context for their local memory sizes
     //    How we generate a kernel depends on the *minimum* LDS size for all devices.
     //
     const FFTEnvelope * pEnvelope = NULL;
-    OPENCL_V(const_cast<FFTPlan*>(this)->GetEnvelope (& pEnvelope), _T("GetEnvelope failed"));
+    OPENCL_V(this->plan->GetEnvelope (& pEnvelope), _T("GetEnvelope failed"));
     BUG_CHECK (NULL != pEnvelope);
 
-    ::memset( &params, 0, sizeof( params ) );
-    params.fft_precision    = this->precision;
-    params.fft_placeness    = this->placeness;
-    params.fft_inputLayout  = this->inputLayout;
-	params.fft_MaxWorkGroupSize = this->envelope.limit_WorkGroupSize;
+    this->signature.fft_precision    = this->plan->precision;
+    this->signature.fft_placeness    = this->plan->placeness;
+    this->signature.fft_inputLayout  = this->plan->inputLayout;
+	this->signature.fft_MaxWorkGroupSize = this->plan->envelope.limit_WorkGroupSize;
 
-    ARG_CHECK (this->inStride.size() == this->outStride.size())
+    ARG_CHECK (this->plan->inStride.size() == this->plan->outStride.size())
 
-    params.fft_outputLayout = this->outputLayout;
+    this->signature.fft_outputLayout = this->plan->outputLayout;
 
-	params.fft_DataDim = this->length.size() + 1;
+	this->signature.fft_DataDim = this->plan->length.size() + 1;
 	int i = 0;
-	for(i = 0; i < (params.fft_DataDim - 1); i++)
+	for(i = 0; i < (this->signature.fft_DataDim - 1); i++)
 	{
-        params.fft_N[i]         = this->length[i];
-        params.fft_inStride[i]  = this->inStride[i];
-        params.fft_outStride[i] = this->outStride[i];
+        this->signature.fft_N[i]         = this->plan->length[i];
+        this->signature.fft_inStride[i]  = this->plan->inStride[i];
+        this->signature.fft_outStride[i] = this->plan->outStride[i];
 
 	}
-    params.fft_inStride[i]  = this->iDist;
-    params.fft_outStride[i] = this->oDist;
+    this->signature.fft_inStride[i]  = this->plan->iDist;
+    this->signature.fft_outStride[i] = this->plan->oDist;
 
-    params.fft_fwdScale  = this->forwardScale;
-    params.fft_backScale = this->backwardScale;
+    this->signature.fft_fwdScale  = this->plan->forwardScale;
+    this->signature.fft_backScale = this->plan->backwardScale;
 
     return CLFFT_SUCCESS;
 }
 
-template<>
-clfftStatus FFTPlan::GetWorkSizesPvt<Copy> (std::vector<size_t> & globalWS, std::vector<size_t> & localWS) const
+clfftStatus FFTGeneratedCopyAction::getWorkSizes (std::vector<size_t> & globalWS, std::vector<size_t> & localWS)
 {
-    FFTKernelGenKeyParams fftParams;
-	OPENCL_V( this->GetKernelGenKeyPvt<Copy>( fftParams ), _T("GetKernelGenKey() failed!") );
-
 	bool h2c, c2h;
-	h2c = (	(fftParams.fft_inputLayout == CLFFT_HERMITIAN_PLANAR) ||
-			(fftParams.fft_inputLayout == CLFFT_HERMITIAN_INTERLEAVED) ) ? true : false;
-	c2h = (	(fftParams.fft_outputLayout == CLFFT_HERMITIAN_PLANAR) ||
-			(fftParams.fft_outputLayout == CLFFT_HERMITIAN_INTERLEAVED) ) ? true : false;
+	h2c = (	(this->signature.fft_inputLayout == CLFFT_HERMITIAN_PLANAR) || (this->signature.fft_inputLayout == CLFFT_HERMITIAN_INTERLEAVED) );
+	c2h = (	(this->signature.fft_outputLayout == CLFFT_HERMITIAN_PLANAR) || (this->signature.fft_outputLayout == CLFFT_HERMITIAN_INTERLEAVED) );
 
 	bool general = !(h2c || c2h);
 
-	size_t count = this->batchsize;
+	size_t count = this->plan->batchsize;
 
-	switch(fftParams.fft_DataDim)
+	switch(this->signature.fft_DataDim)
 	{
 	case 5: assert(false);
-	case 4: count *= fftParams.fft_N[2];
-	case 3: count *= fftParams.fft_N[1];
+	case 4: count *= this->signature.fft_N[2];
+	case 3: count *= this->signature.fft_N[1];
 	case 2:
 			{
 				if(general)
@@ -406,7 +463,7 @@ clfftStatus FFTPlan::GetWorkSizesPvt<Copy> (std::vector<size_t> & globalWS, std:
 				}
 				else
 				{
-					count *= (1 + fftParams.fft_N[0]/2); 
+					count *= (1 + this->signature.fft_N[0]/2); 
 				}
 			}
 			break;
@@ -419,40 +476,30 @@ clfftStatus FFTPlan::GetWorkSizesPvt<Copy> (std::vector<size_t> & globalWS, std:
     return    CLFFT_SUCCESS;
 }
 
-template<>
-clfftStatus FFTPlan::GetMax1DLengthPvt<Copy> (size_t * longest) const
-{
-	return FFTPlan::GetMax1DLengthPvt<Stockham>(longest);
-}
 
 using namespace CopyGenerator;
 
-template<>
-clfftStatus FFTPlan::GenerateKernelPvt<Copy>(FFTRepo& fftRepo, const cl_command_queue& commQueueFFT ) const
+clfftStatus FFTGeneratedCopyAction::generateKernel(FFTRepo& fftRepo, const cl_command_queue commQueueFFT )
 {
-  FFTKernelGenKeyParams params;
-  OPENCL_V( this->GetKernelGenKeyPvt<Copy> (params), _T("GetKernelGenKey() failed!") );
 
   bool h2c, c2h;
-  h2c = (	(params.fft_inputLayout == CLFFT_HERMITIAN_PLANAR) ||
-  			(params.fft_inputLayout == CLFFT_HERMITIAN_INTERLEAVED) ) ? true : false;
-  c2h = (	(params.fft_outputLayout == CLFFT_HERMITIAN_PLANAR) ||
-  			(params.fft_outputLayout == CLFFT_HERMITIAN_INTERLEAVED) ) ? true : false;
+  h2c = ( (this->signature.fft_inputLayout == CLFFT_HERMITIAN_PLANAR) || (this->signature.fft_inputLayout == CLFFT_HERMITIAN_INTERLEAVED) );
+  c2h = ( (this->signature.fft_outputLayout == CLFFT_HERMITIAN_PLANAR) || (this->signature.fft_outputLayout == CLFFT_HERMITIAN_INTERLEAVED) );
   
   bool general = !(h2c || c2h);
 
   std::string programCode;
-  Precision pr = (params.fft_precision == CLFFT_SINGLE) ? P_SINGLE : P_DOUBLE;
+  Precision pr = (this->signature.fft_precision == CLFFT_SINGLE) ? P_SINGLE : P_DOUBLE;
   switch(pr)
   {
   case P_SINGLE:
     {
-      CopyKernel<P_SINGLE> kernel(params);
+      CopyKernel<P_SINGLE> kernel(this->signature);
       kernel.GenerateKernel(programCode);
     } break;
   case P_DOUBLE:
     {
-      CopyKernel<P_DOUBLE> kernel(params);
+      CopyKernel<P_DOUBLE> kernel(this->signature);
       kernel.GenerateKernel(programCode);
     } break;
   }
@@ -466,15 +513,15 @@ clfftStatus FFTPlan::GenerateKernelPvt<Copy>(FFTRepo& fftRepo, const cl_command_
     status = clGetCommandQueueInfo(commQueueFFT, CL_QUEUE_CONTEXT, sizeof(cl_context), &QueueContext, NULL);
     OPENCL_V( status, _T( "clGetCommandQueueInfo failed" ) );
 
-  OPENCL_V( fftRepo.setProgramCode( Copy, params, programCode, Device, QueueContext ), _T( "fftRepo.setclString() failed!" ) );
+  OPENCL_V( fftRepo.setProgramCode( this->getGenerator(), this->getSignatureData(), programCode, Device, QueueContext ), _T( "fftRepo.setclString() failed!" ) );
 
   if(general)
   {
-  OPENCL_V( fftRepo.setProgramEntryPoints( Copy, params, "copy_general", "copy_general", Device, QueueContext ), _T( "fftRepo.setProgramEntryPoint() failed!" ) );
+  OPENCL_V( fftRepo.setProgramEntryPoints( this->getGenerator(), this->getSignatureData(), "copy_general", "copy_general", Device, QueueContext ), _T( "fftRepo.setProgramEntryPoint() failed!" ) );
   }
   else
   {
-  OPENCL_V( fftRepo.setProgramEntryPoints( Copy, params, "copy_c2h", "copy_h2c", Device, QueueContext ), _T( "fftRepo.setProgramEntryPoint() failed!" ) );
+  OPENCL_V( fftRepo.setProgramEntryPoints( this->getGenerator(), this->getSignatureData(), "copy_c2h", "copy_h2c", Device, QueueContext ), _T( "fftRepo.setProgramEntryPoint() failed!" ) );
   }
 
   return CLFFT_SUCCESS;

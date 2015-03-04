@@ -28,6 +28,74 @@
 #include "generator.transpose.gcn.h"
 #include "generator.stockham.h"
 
+#include "action.h"
+
+FFTGeneratedTransposeGCNAction::FFTGeneratedTransposeGCNAction(clfftPlanHandle plHandle, FFTPlan * plan, cl_command_queue queue, clfftStatus & err)
+    : FFTTransposeGCNAction(plHandle, plan, queue, err)
+{
+    if (err != CLFFT_SUCCESS)
+    {
+        // FFTTransposeGCNAction() failed, exit
+        fprintf(stderr, "FFTTransposeGCNAction() failed!\n");
+        return;
+    }
+
+    // Initialize the FFTAction::FFTKernelGenKeyParams member
+    err = this->initParams();
+
+    if (err != CLFFT_SUCCESS)
+    {
+        fprintf(stderr, "FFTGeneratedTransposeGCNAction::initParams() failed!\n");
+        return;
+    }
+
+    FFTRepo &fftRepo = FFTRepo::getInstance();
+
+    err = this->generateKernel(fftRepo, queue);
+
+    if (err != CLFFT_SUCCESS)
+    {
+        fprintf(stderr, "FFTGeneratedTransposeGCNAction::generateKernel failed\n");
+        return;
+    }
+
+    err = compileKernels( queue, plHandle, plan);
+
+    if (err != CLFFT_SUCCESS)
+    {
+        fprintf(stderr, "FFTGeneratedTransposeGCNAction::compileKernels failed\n");
+        return;
+    }
+
+    err = CLFFT_SUCCESS;
+}
+
+
+bool FFTGeneratedTransposeGCNAction::buildForwardKernel()
+{
+    clfftLayout inputLayout = this->getSignatureData()->fft_inputLayout;
+    clfftLayout outputLayout = this->getSignatureData()->fft_outputLayout;
+
+    bool r2c_transform = (inputLayout == CLFFT_REAL);
+    bool c2r_transform = (outputLayout == CLFFT_REAL);
+    bool real_transform = (r2c_transform || c2r_transform);
+
+    return (!real_transform) || r2c_transform;
+}
+
+bool FFTGeneratedTransposeGCNAction::buildBackwardKernel()
+{
+    clfftLayout inputLayout = this->getSignatureData()->fft_inputLayout;
+    clfftLayout outputLayout = this->getSignatureData()->fft_outputLayout;
+
+    bool r2c_transform = (inputLayout == CLFFT_REAL);
+    bool c2r_transform = (outputLayout == CLFFT_REAL);
+    bool real_transform = (r2c_transform || c2r_transform);
+
+    return (!real_transform) || c2r_transform;
+}
+
+
 // A structure that represents a bounding box or tile, with convenient names for the row and column addresses
 // local work sizes
 struct tile
@@ -142,7 +210,7 @@ const std::string pmImagOut( "pmImagOut" );
 const std::string pmComplexIn( "pmComplexIn" );
 const std::string pmComplexOut( "pmComplexOut" );
 
-static clfftStatus genTransposePrototype( const FFTKernelGenKeyParams& params, const tile& lwSize, const std::string& dtPlanar, const std::string& dtComplex, 
+static clfftStatus genTransposePrototype( const FFTGeneratedTransposeGCNAction::Signature & params, const tile& lwSize, const std::string& dtPlanar, const std::string& dtComplex, 
                                          const std::string &funcName, std::stringstream& transKernel, std::string& dtInput, std::string& dtOutput )
 {
 
@@ -231,7 +299,7 @@ static clfftStatus genTransposePrototype( const FFTKernelGenKeyParams& params, c
     return CLFFT_SUCCESS;
 }
 
-static clfftStatus genTransposeKernel( const FFTKernelGenKeyParams& params, std::string& strKernel, const tile& lwSize, const size_t reShapeFactor, 
+static clfftStatus genTransposeKernel( const FFTGeneratedTransposeGCNAction::Signature & params, std::string& strKernel, const tile& lwSize, const size_t reShapeFactor, 
                                             const size_t loopCount, const size_t outRowPadding )
 {
     strKernel.reserve( 4096 );
@@ -497,67 +565,67 @@ static clfftStatus genTransposeKernel( const FFTKernelGenKeyParams& params, std:
     return CLFFT_SUCCESS;
 }
 
-template<>
-clfftStatus FFTPlan::GetKernelGenKeyPvt<Transpose_GCN> (FFTKernelGenKeyParams & params) const
-{
-    ::memset( &params, 0, sizeof( params ) );
-    params.fft_precision    = this->precision;
-    params.fft_placeness    = this->placeness;
-    params.fft_inputLayout  = this->inputLayout;
-    params.fft_outputLayout = this->outputLayout;
-    params.fft_3StepTwiddle = false;
 
-	params.transOutHorizontal = this->transOutHorizontal;	// using the twiddle front flag to specify horizontal write
+clfftStatus FFTGeneratedTransposeGCNAction::initParams ()
+{
+
+    this->signature.fft_precision    = this->plan->precision;
+    this->signature.fft_placeness    = this->plan->placeness;
+    this->signature.fft_inputLayout  = this->plan->inputLayout;
+    this->signature.fft_outputLayout = this->plan->outputLayout;
+    this->signature.fft_3StepTwiddle = false;
+
+	this->signature.transOutHorizontal = this->plan->transOutHorizontal;	// using the twiddle front flag to specify horizontal write
 														// we do this so as to reuse flags in FFTKernelGenKeyParams
 														// and to avoid making a new one 
 
-    ARG_CHECK( this->inStride.size( ) == this->outStride.size( ) );
+    ARG_CHECK( this->plan->inStride.size( ) == this->plan->outStride.size( ) );
 
-    if( CLFFT_INPLACE == params.fft_placeness )
+    if( CLFFT_INPLACE == this->signature.fft_placeness )
     {
         //	If this is an in-place transform the
         //	input and output layout, dimensions and strides
         //	*MUST* be the same.
         //
-        ARG_CHECK( params.fft_inputLayout == params.fft_outputLayout )
+        ARG_CHECK( this->signature.fft_inputLayout == this->signature.fft_outputLayout )
 
-        for( size_t u = this->inStride.size(); u-- > 0; )
+        for( size_t u = this->plan->inStride.size(); u-- > 0; )
         {
-            ARG_CHECK( this->inStride[u] == this->outStride[u] );
+            ARG_CHECK( this->plan->inStride[u] == this->plan->outStride[u] );
         }
     }
 
-	params.fft_DataDim = this->length.size() + 1;
+	this->signature.fft_DataDim = this->plan->length.size() + 1;
 	int i = 0;
-	for(i = 0; i < (params.fft_DataDim - 1); i++)
+	for(i = 0; i < (this->signature.fft_DataDim - 1); i++)
 	{
-        params.fft_N[i]         = this->length[i];
-        params.fft_inStride[i]  = this->inStride[i];
-        params.fft_outStride[i] = this->outStride[i];
+        this->signature.fft_N[i]         = this->plan->length[i];
+        this->signature.fft_inStride[i]  = this->plan->inStride[i];
+        this->signature.fft_outStride[i] = this->plan->outStride[i];
 
 	}
-    params.fft_inStride[i]  = this->iDist;
-    params.fft_outStride[i] = this->oDist;
+    this->signature.fft_inStride[i]  = this->plan->iDist;
+    this->signature.fft_outStride[i] = this->plan->oDist;
 
-    if (this->large1D != 0) {
-        ARG_CHECK (params.fft_N[0] != 0)
-        ARG_CHECK ((this->large1D % params.fft_N[0]) == 0)
-        params.fft_3StepTwiddle = true;
-		ARG_CHECK ( this->large1D  == (params.fft_N[1] * params.fft_N[0]) );
+    if (this->plan->large1D != 0) {
+        ARG_CHECK (this->signature.fft_N[0] != 0)
+        ARG_CHECK ((this->plan->large1D % this->signature.fft_N[0]) == 0)
+        this->signature.fft_3StepTwiddle = true;
+		ARG_CHECK ( this->plan->large1D  == (this->signature.fft_N[1] * this->signature.fft_N[0]) );
     }
 
     //	Query the devices in this context for their local memory sizes
     //	How we generate a kernel depends on the *minimum* LDS size for all devices.
     //
     const FFTEnvelope * pEnvelope = NULL;
-    OPENCL_V( this->GetEnvelope( &pEnvelope ), _T( "GetEnvelope failed" ) );
+    OPENCL_V( this->plan->GetEnvelope( &pEnvelope ), _T( "GetEnvelope failed" ) );
     BUG_CHECK( NULL != pEnvelope );
 
     // TODO:  Since I am going with a 2D workgroup size now, I need a better check than this 1D use
     // Check:  CL_DEVICE_MAX_WORK_GROUP_SIZE/CL_KERNEL_WORK_GROUP_SIZE
     // CL_DEVICE_MAX_WORK_ITEM_SIZES
-    params.fft_R = 1; // Dont think i'll use
-    params.fft_SIMD = pEnvelope->limit_WorkGroupSize; // Use devices maximum workgroup size
+    this->signature.fft_R = 1; // Dont think i'll use
+    this->signature.fft_SIMD = pEnvelope->limit_WorkGroupSize; // Use devices maximum workgroup size
 
     return CLFFT_SUCCESS;
 }
@@ -577,13 +645,10 @@ size_t loopCount = 0;
 
 //	OpenCL does not take unicode strings as input, so this routine returns only ASCII strings
 //	Feed this generator the FFTPlan, and it returns the generated program as a string
-template<>
-clfftStatus FFTPlan::GenerateKernelPvt<Transpose_GCN> ( FFTRepo& fftRepo, const cl_command_queue& commQueueFFT ) const
+clfftStatus FFTGeneratedTransposeGCNAction::generateKernel ( FFTRepo& fftRepo, const cl_command_queue commQueueFFT )
 {
-    FFTKernelGenKeyParams params;
-    OPENCL_V( this->GetKernelGenKeyPvt<Transpose_GCN>( params ), _T( "GetKernelGenKey() failed!" ) );
 
-    switch( params.fft_precision )
+    switch( this->signature.fft_precision )
     {
     case CLFFT_SINGLE:
     case CLFFT_SINGLE_FAST:
@@ -600,7 +665,7 @@ clfftStatus FFTPlan::GenerateKernelPvt<Transpose_GCN> ( FFTRepo& fftRepo, const 
     }
 
     std::string programCode;
-    OPENCL_V( genTransposeKernel( params, programCode, lwSize, reShapeFactor, loopCount, outRowPadding ), _T( "GenerateTransposeKernel() failed!" ) );
+    OPENCL_V( genTransposeKernel( this->signature, programCode, lwSize, reShapeFactor, loopCount, outRowPadding ), _T( "GenerateTransposeKernel() failed!" ) );
 
     cl_int status = CL_SUCCESS;
     cl_device_id Device = NULL;
@@ -612,39 +677,38 @@ clfftStatus FFTPlan::GenerateKernelPvt<Transpose_GCN> ( FFTRepo& fftRepo, const 
     OPENCL_V( status, _T( "clGetCommandQueueInfo failed" ) );
 
 
-    OPENCL_V( fftRepo.setProgramCode( Transpose_GCN, params, programCode, Device, QueueContext ), _T( "fftRepo.setclString() failed!" ) );
+    OPENCL_V( fftRepo.setProgramCode( Transpose_GCN, this->getSignatureData(), programCode, Device, QueueContext ), _T( "fftRepo.setclString() failed!" ) );
 
     // Note:  See genFunctionPrototype( )
-    if( params.fft_3StepTwiddle )
+    if( this->signature.fft_3StepTwiddle )
     {
-        OPENCL_V( fftRepo.setProgramEntryPoints( Transpose_GCN, params, "transpose_gcn_tw_fwd", "transpose_gcn_tw_back", Device, QueueContext ), _T( "fftRepo.setProgramEntryPoint() failed!" ) );
+        OPENCL_V( fftRepo.setProgramEntryPoints( Transpose_GCN, this->getSignatureData(), "transpose_gcn_tw_fwd", "transpose_gcn_tw_back", Device, QueueContext ), _T( "fftRepo.setProgramEntryPoint() failed!" ) );
     }
     else
     {
-        OPENCL_V( fftRepo.setProgramEntryPoints( Transpose_GCN, params, "transpose_gcn", "transpose_gcn", Device, QueueContext ), _T( "fftRepo.setProgramEntryPoint() failed!" ) );
+        OPENCL_V( fftRepo.setProgramEntryPoints( Transpose_GCN, this->getSignatureData(), "transpose_gcn", "transpose_gcn", Device, QueueContext ), _T( "fftRepo.setProgramEntryPoint() failed!" ) );
     }
 
     return CLFFT_SUCCESS;
 }
 
-template<>
-clfftStatus FFTPlan::GetWorkSizesPvt<Transpose_GCN>( std::vector< size_t >& globalWS, std::vector< size_t >& localWS ) const
+
+clfftStatus FFTGeneratedTransposeGCNAction::getWorkSizes( std::vector< size_t >& globalWS, std::vector< size_t >& localWS )
 {
-	FFTKernelGenKeyParams parameters;
-    OPENCL_V( this->GetKernelGenKeyPvt<Transpose_GCN>( parameters ), _T( "GetKernelGenKey() failed!" ) );
+
     // We need to make sure that the global work size is evenly divisible by the local work size
     // Our transpose works in tiles, so divide tiles in each dimension to get count of blocks, rounding up for remainder items
-    size_t numBlocksX = NumBlocksX(parameters.fft_N[ 0 ]);
-    size_t numBlocksY = DivRoundingUp( parameters.fft_N[ 1 ], lwSize.y / reShapeFactor * loopCount );
+    size_t numBlocksX = NumBlocksX(this->signature.fft_N[ 0 ]);
+    size_t numBlocksY = DivRoundingUp( this->signature.fft_N[ 1 ], lwSize.y / reShapeFactor * loopCount );
     size_t numWIX = numBlocksX * lwSize.x;
 
     // Batches of matrices are lined up along the Y axis, 1 after the other
-	size_t numWIY = numBlocksY * lwSize.y * this->batchsize;
+	size_t numWIY = numBlocksY * lwSize.y * this->plan->batchsize;
 	// fft_DataDim has one more dimension than the actual fft data, which is devoted to batch.
 	// dim from 2 to fft_DataDim - 2 are lined up along the Y axis
-	for(int i = 2; i < parameters.fft_DataDim - 1; i++)
+	for(int i = 2; i < this->signature.fft_DataDim - 1; i++)
 	{
-		numWIY *= parameters.fft_N[i];
+		numWIY *= this->signature.fft_N[i];
 	}
 
 

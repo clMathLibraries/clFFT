@@ -23,6 +23,75 @@
 #include "stdafx.h"
 #include <math.h>
 #include "generator.transpose.vliw.h"
+#include "action.h"
+
+
+FFTGeneratedTransposeVLIWAction::FFTGeneratedTransposeVLIWAction(clfftPlanHandle plHandle, FFTPlan * plan, cl_command_queue queue, clfftStatus & err)
+    : FFTTransposeVLIWAction(plHandle, plan, queue, err)
+{
+    if (err != CLFFT_SUCCESS)
+    {
+        // FFTTransposeVLIWAction() failed, exit
+        fprintf(stderr, "FFTTransposeVLIWAction() failed!\n");
+        return;
+    }
+
+    // Initialize the FFTAction::FFTKernelGenKeyParams member
+    err = this->initParams();
+
+    if (err != CLFFT_SUCCESS)
+    {
+        fprintf(stderr, "FFTGeneratedTransposeVLIWAction::initParams() failed!\n");
+        return;
+    }
+
+    FFTRepo &fftRepo = FFTRepo::getInstance();
+
+    err = this->generateKernel(fftRepo, queue);
+
+    if (err != CLFFT_SUCCESS)
+    {
+        fprintf(stderr, "FFTGeneratedTransposeVLIWAction::generateKernel failed\n");
+        return;
+    }
+
+    err = compileKernels( queue, plHandle, plan);
+
+    if (err != CLFFT_SUCCESS)
+    {
+        fprintf(stderr, "FFTGeneratedTransposeVLIWAction::compileKernels failed\n");
+        return;
+    }
+
+    err = CLFFT_SUCCESS;
+}
+
+
+bool FFTGeneratedTransposeVLIWAction::buildForwardKernel()
+{
+    clfftLayout inputLayout = this->getSignatureData()->fft_inputLayout;
+    clfftLayout outputLayout = this->getSignatureData()->fft_outputLayout;
+
+    bool r2c_transform = (inputLayout == CLFFT_REAL);
+    bool c2r_transform = (outputLayout == CLFFT_REAL);
+    bool real_transform = (r2c_transform || c2r_transform);
+
+    return (!real_transform) || r2c_transform;
+}
+
+bool FFTGeneratedTransposeVLIWAction::buildBackwardKernel()
+{
+    clfftLayout inputLayout = this->getSignatureData()->fft_inputLayout;
+    clfftLayout outputLayout = this->getSignatureData()->fft_outputLayout;
+
+    bool r2c_transform = (inputLayout == CLFFT_REAL);
+    bool c2r_transform = (outputLayout == CLFFT_REAL);
+    bool real_transform = (r2c_transform || c2r_transform);
+
+    return (!real_transform) || c2r_transform;
+}
+
+
 
 #define QUOTEMARK(x) #x
 
@@ -75,7 +144,7 @@ typedef enum inputoutputflag_
 	ENDTRANSIO
 } transio;
 
-static clfftStatus GenerateTransposeKernel (FFTKernelGenKeyParams & params,
+static clfftStatus GenerateTransposeKernel (FFTGeneratedTransposeVLIWAction::Signature  & params,
 	std::string & kernel)
 {
 	kernel.reserve (8000);
@@ -736,84 +805,78 @@ static clfftStatus GenerateTransposeKernel (FFTKernelGenKeyParams & params,
 	return CLFFT_SUCCESS;
 }
 
-template<>
-clfftStatus FFTPlan::GetKernelGenKeyPvt<Transpose_VLIW> (FFTKernelGenKeyParams & params) const
+clfftStatus FFTGeneratedTransposeVLIWAction::initParams ()
 {
 
 	//	Query the devices in this context for their local memory sizes
 	//	How we generate a kernel depends on the *minimum* LDS size for all devices.
 	//
 	const FFTEnvelope * pEnvelope = NULL;
-	OPENCL_V(const_cast<FFTPlan*>(this)->GetEnvelope (& pEnvelope), _T("GetEnvelope failed"));
+	OPENCL_V(this->plan->GetEnvelope (& pEnvelope), _T("GetEnvelope failed"));
 	BUG_CHECK (NULL != pEnvelope);
 
-	::memset( &params, 0, sizeof( params ) );
-	params.fft_precision    = this->precision;
-	params.fft_placeness    = this->placeness;
-	params.fft_inputLayout  = this->inputLayout;
 
-	ARG_CHECK (this->inStride.size() == this->outStride.size())
+	this->signature.fft_precision    = this->plan->precision;
+	this->signature.fft_placeness    = this->plan->placeness;
+	this->signature.fft_inputLayout  = this->plan->inputLayout;
 
-	if (CLFFT_INPLACE == this->placeness) {
+	ARG_CHECK (this->plan->inStride.size() == this->plan->outStride.size())
+
+	if (CLFFT_INPLACE == this->plan->placeness) {
 		//	If this is an in-place transform the
 		//	input and output layout, dimensions and strides
 		//	*MUST* be the same.
 		//
-		ARG_CHECK (this->inputLayout == this->outputLayout)
-		params.fft_outputLayout = this->inputLayout;
-		for (size_t u = this->inStride.size(); u-- > 0; ) {
-			ARG_CHECK (this->inStride[u] == this->outStride[u]);
+		ARG_CHECK (this->plan->inputLayout == this->plan->outputLayout)
+		this->signature.fft_outputLayout = this->plan->inputLayout;
+		for (size_t u = this->plan->inStride.size(); u-- > 0; ) {
+			ARG_CHECK (this->plan->inStride[u] == this->plan->outStride[u]);
 		}
 	} else {
-		params.fft_outputLayout = this->outputLayout;
+		this->signature.fft_outputLayout = this->plan->outputLayout;
 	}
 
 	//we only support 2D transpose
-	switch (this->inStride.size()) {
+	switch (this->plan->inStride.size()) {
 		//	2-D array is a 3-D data structure
 		//	2-D unit is a speical case of 2-D array.
 	case 2:
-		ARG_CHECK(this->length   .size() > 1);
-		ARG_CHECK(this->outStride.size() > 1);
-		params.fft_DataDim      = 3;
-		params.fft_N[0]         = this->length[0];
-		params.fft_N[1]         = this->length[1];
-		params.fft_inStride[0]  = this->inStride[0];
-		params.fft_inStride[1]  = this->inStride[1];
-		params.fft_inStride[2]  = this->iDist;
-		params.fft_outStride[0] = this->outStride[0];
-		params.fft_outStride[1] = this->outStride[1];
-		params.fft_outStride[2] = this->oDist;
+		ARG_CHECK(this->plan->length   .size() > 1);
+		ARG_CHECK(this->plan->outStride.size() > 1);
+		this->signature.fft_DataDim      = 3;
+		this->signature.fft_N[0]         = this->plan->length[0];
+		this->signature.fft_N[1]         = this->plan->length[1];
+		this->signature.fft_inStride[0]  = this->plan->inStride[0];
+		this->signature.fft_inStride[1]  = this->plan->inStride[1];
+		this->signature.fft_inStride[2]  = this->plan->iDist;
+		this->signature.fft_outStride[0] = this->plan->outStride[0];
+		this->signature.fft_outStride[1] = this->plan->outStride[1];
+		this->signature.fft_outStride[2] = this->plan->oDist;
 		break;
 	default:
 		ARG_CHECK (false);
 	}
 
 	//ToDO: work group size setup
-	params.fft_R = 32; // divide the element into 32x32 blocks
-	params.fft_SIMD = 64; //work group size
+	this->signature.fft_R = 32; // divide the element into 32x32 blocks
+	this->signature.fft_SIMD = 64; //work group size
 
 	return CLFFT_SUCCESS;
 }
 
-template<>
-clfftStatus FFTPlan::GetWorkSizesPvt<Transpose_VLIW> (std::vector<size_t> & globalWS, std::vector<size_t> & localWS) const
+clfftStatus  FFTGeneratedTransposeVLIWAction::getWorkSizes (std::vector<size_t> & globalWS, std::vector<size_t> & localWS)
 {
-	//	How many numbers per workitem in the generated kernel?
-	FFTKernelGenKeyParams fftParams;
-	//	Translate the user plan into the structure that we use to map plans to clPrograms
-	OPENCL_V( this->GetKernelGenKeyPvt<Transpose_VLIW>( fftParams ), _T("GetKernelGenKey() failed!") );
 
 	unsigned long long count, count0, count1;
-	count0 = DivRoundingUp<unsigned long long> (this->length[0], fftParams.fft_R);
-	count1 = DivRoundingUp<unsigned long long> (this->length[1], fftParams.fft_R);
+	count0 = DivRoundingUp<unsigned long long> (this->plan->length[0], this->signature.fft_R);
+	count1 = DivRoundingUp<unsigned long long> (this->plan->length[1], this->signature.fft_R);
 	count  = (count0>count1) ? count0 : count1;
 	count  = (count * (count+1)) /2;
-	count *= fftParams.fft_SIMD;
-	count *= this->batchsize;
+	count *= this->signature.fft_SIMD;
+	count *= this->plan->batchsize;
 
 	globalWS.push_back( static_cast< size_t >( count ) );
-	localWS.push_back( fftParams.fft_SIMD );
+	localWS.push_back( this->signature.fft_SIMD );
 
 	return	CLFFT_SUCCESS;
 }
@@ -821,14 +884,11 @@ clfftStatus FFTPlan::GetWorkSizesPvt<Transpose_VLIW> (std::vector<size_t> & glob
 
 //	OpenCL does not take unicode strings as input, so this routine returns only ASCII strings
 //	Feed this generator the FFTPlan, and it returns the generated program as a string
-template<>
-clfftStatus FFTPlan::GenerateKernelPvt<Transpose_VLIW> ( FFTRepo& fftRepo, const cl_command_queue& commQueueFFT ) const
+clfftStatus FFTGeneratedTransposeVLIWAction::generateKernel ( FFTRepo& fftRepo, const cl_command_queue commQueueFFT )
 {
-	FFTKernelGenKeyParams params;
-	OPENCL_V( this->GetKernelGenKeyPvt<Transpose_VLIW> (params), _T("GetKernelGenKey() failed!") );
 
 	std::string programCode;
-	OPENCL_V( GenerateTransposeKernel( params, programCode ), _T( "GenerateTransposeKernel() failed!" ) );
+	OPENCL_V( GenerateTransposeKernel(  this->signature, programCode ), _T( "GenerateTransposeKernel() failed!" ) );
 
     cl_int status = CL_SUCCESS;
     cl_device_id Device = NULL;
@@ -839,8 +899,8 @@ clfftStatus FFTPlan::GenerateKernelPvt<Transpose_VLIW> ( FFTRepo& fftRepo, const
     status = clGetCommandQueueInfo(commQueueFFT, CL_QUEUE_CONTEXT, sizeof(cl_context), &QueueContext, NULL);
     OPENCL_V( status, _T( "clGetCommandQueueInfo failed" ) );
 
-	OPENCL_V( fftRepo.setProgramCode( Transpose_VLIW, params, programCode, Device, QueueContext ), _T( "fftRepo.setclString() failed!" ) );
-	OPENCL_V( fftRepo.setProgramEntryPoints( Transpose_VLIW, params, "fft_trans", "fft_trans", Device, QueueContext ), _T( "fftRepo.setProgramEntryPoint() failed!" ) );
+	OPENCL_V( fftRepo.setProgramCode( Transpose_VLIW, this->getSignatureData(), programCode, Device, QueueContext ), _T( "fftRepo.setclString() failed!" ) );
+	OPENCL_V( fftRepo.setProgramEntryPoints( Transpose_VLIW,  this->getSignatureData(), "fft_trans", "fft_trans", Device, QueueContext ), _T( "fftRepo.setProgramEntryPoint() failed!" ) );
 
 	return CLFFT_SUCCESS;
 }

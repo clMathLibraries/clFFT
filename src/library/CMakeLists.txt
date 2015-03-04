@@ -24,6 +24,9 @@ set( clFFT.Source	transform.cpp
 								generator.transpose.gcn.cpp 
 								generator.copy.cpp
 								lifetime.cpp 
+								fft_binary_lookup.cpp
+								md5sum.c
+								action.cpp
 								stdafx.cpp )
 
 # Windows only uses dllmain
@@ -32,6 +35,7 @@ if( MSVC )
 endif( )
 
 set( clFFT.Headers	private.h 
+					action.h
 					repo.h 
 					plan.h 
 					lock.h 
@@ -40,6 +44,8 @@ set( clFFT.Headers	private.h
 					generator.stockham.h 
 					generator.transpose.vliw.h 
 					generator.transpose.gcn.h 
+					fft_binary_lookup.h
+					md5sum.h
 					../include/stdafx.h 
 					../include/unicode.compatibility.h 
 					../include/targetver.h 
