@@ -14,7 +14,7 @@ before_script:
   - cd ${TRAVIS_BUILD_DIR}
   - mkdir -p bin/clFFT
   - cd bin/clFFT
-  - cmake -DBoost_NO_SYSTEM_PATHS=OFF ../../src
+  - cmake -DBoost_NO_SYSTEM_PATHS=OFF -DCMAKE_INSTALL_PREFIX:PATH=$PWD/package ../../src
 
 script: 
   - make install
