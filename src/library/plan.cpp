@@ -56,7 +56,7 @@ clfftStatus checkDevExt( std::string ext, const cl_device_id &device )
 	return CLFFT_SUCCESS;
 }
 
-clfftStatus	clfftCreateDefaultPlan( clfftPlanHandle* plHandle, cl_context context, const clfftDim dim,
+clfftStatus	clfftCreateDefaultPlanInternal( clfftPlanHandle* plHandle, cl_context context, const clfftDim dim,
 						const size_t* clLengths )
 {
 	if( clLengths == NULL )
@@ -117,7 +117,7 @@ clfftStatus	clfftCreateDefaultPlan( clfftPlanHandle* plHandle, cl_context contex
 			break;
 	}
 
-	FFTPlan* fftPlan	= NULL;
+	FFTPlan *fftPlan = NULL;
 	FFTRepo& fftRepo	= FFTRepo::getInstance( );
 	OPENCL_V( fftRepo.createPlan( plHandle, fftPlan ), _T( "fftRepo.insertPlan failed" ) );
 
@@ -131,8 +131,6 @@ clfftStatus	clfftCreateDefaultPlan( clfftPlanHandle* plHandle, cl_context contex
 	fftPlan->forwardScale	= 1.0;
 	fftPlan->backwardScale	= 1.0 / static_cast< double >( lenX * lenY * lenZ );
 	fftPlan->batchsize		= 1;
-	fftPlan->userPlan		= true;
-
 	fftPlan->gen			= Stockham; //default setting
 
 	OPENCL_V(fftPlan->SetEnvelope(), _T("SetEnvelope failed"));
@@ -210,6 +208,24 @@ clfftStatus	clfftCreateDefaultPlan( clfftPlanHandle* plHandle, cl_context contex
 	return	CLFFT_SUCCESS;
 }
 
+clfftStatus	clfftCreateDefaultPlan( clfftPlanHandle* plHandle, cl_context context, const clfftDim dim,
+						const size_t* clLengths )
+{
+	clfftStatus ret = clfftCreateDefaultPlanInternal(plHandle, context, dim, clLengths);
+
+	if(ret == CLFFT_SUCCESS)
+	{
+		FFTRepo& fftRepo	= FFTRepo::getInstance( );
+		FFTPlan *fftPlan = NULL;
+		lockRAII* planLock	= NULL;
+		OPENCL_V( fftRepo.getPlan( *plHandle, fftPlan, planLock ), _T( "fftRepo.getPlan failed" ) );
+
+		fftPlan->userPlan = true;
+	}
+	
+	return ret;
+
+}
 
 std::string getKernelName(const clfftGenerators gen, const clfftPlanHandle plHandle, bool withPlHandle)
 {
@@ -607,7 +623,7 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 
 					//Transpose
 					//Input --> tmp buffer
-					OPENCL_V(clfftCreateDefaultPlan( &fftPlan->planTX, fftPlan->context, CLFFT_2D, clLengths ),
+					OPENCL_V(clfftCreateDefaultPlanInternal( &fftPlan->planTX, fftPlan->context, CLFFT_2D, clLengths ),
 						_T( "CreateDefaultPlan Large1d transpose 1 failed" ) );
 
 					FFTPlan* trans1Plan	= NULL;
@@ -636,7 +652,7 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 					//Row transform
 					//tmp->output
 					//size clLengths[1], batch clLengths[0], with length[0] twiddle factor multiplication
-					OPENCL_V(clfftCreateDefaultPlan( &fftPlan->planX, fftPlan->context, CLFFT_1D, &clLengths[1] ),
+					OPENCL_V(clfftCreateDefaultPlanInternal( &fftPlan->planX, fftPlan->context, CLFFT_1D, &clLengths[1] ),
 						_T( "CreateDefaultPlan Large1d column failed" ) );
 
 					FFTPlan* row1Plan	= NULL;
@@ -673,7 +689,7 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 					//Transpose 2
 					//Output --> tmp buffer
 					clLengths[2] = clLengths[0];
-					OPENCL_V(clfftCreateDefaultPlan( &fftPlan->planTY, fftPlan->context, CLFFT_2D, &clLengths[1] ),
+					OPENCL_V(clfftCreateDefaultPlanInternal( &fftPlan->planTY, fftPlan->context, CLFFT_2D, &clLengths[1] ),
 						_T( "CreateDefaultPlan Large1d transpose 2 failed" ) );
 
 					FFTPlan* trans2Plan	= NULL;
@@ -703,7 +719,7 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 					//Row transform 2
 					//tmp->tmp
 					//size clLengths[0], batch clLengths[1]
-					OPENCL_V(clfftCreateDefaultPlan( &fftPlan->planY, fftPlan->context, CLFFT_1D, &clLengths[0] ),
+					OPENCL_V(clfftCreateDefaultPlanInternal( &fftPlan->planY, fftPlan->context, CLFFT_1D, &clLengths[0] ),
 						_T( "CreateDefaultPlan Large1d second row plan failed" ) );
 
 					FFTPlan* row2Plan	= NULL;
@@ -737,7 +753,7 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 
 					//Transpose 3
 					//tmp --> output
-					OPENCL_V(clfftCreateDefaultPlan( &fftPlan->planTZ, fftPlan->context, CLFFT_2D, clLengths ),
+					OPENCL_V(clfftCreateDefaultPlanInternal( &fftPlan->planTZ, fftPlan->context, CLFFT_2D, clLengths ),
 						_T( "CreateDefaultPlan Large1d transpose 3 failed" ) );
 
 					FFTPlan* trans3Plan	= NULL;
@@ -786,7 +802,7 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 
 					// column FFT, size clLengths[1], batch clLengths[0], with length[0] twiddle factor multiplication
 					// transposed output
-					OPENCL_V(clfftCreateDefaultPlan( &fftPlan->planX, fftPlan->context, CLFFT_1D, &clLengths[1] ),
+					OPENCL_V(clfftCreateDefaultPlanInternal( &fftPlan->planX, fftPlan->context, CLFFT_1D, &clLengths[1] ),
 						_T( "CreateDefaultPlan Large1d column failed" ) );
 
 					FFTPlan* colTPlan	= NULL;
@@ -837,7 +853,7 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 					OPENCL_V(clfftBakePlan(fftPlan->planX, numQueues, commQueueFFT, NULL, NULL ), _T( "BakePlan large1d first column plan failed" ) );
 
 					//another column FFT, size clLengths[0], batch clLengths[1], output without transpose
-					OPENCL_V(clfftCreateDefaultPlan( &fftPlan->planY, fftPlan->context, CLFFT_1D,  &clLengths[0] ),
+					OPENCL_V(clfftCreateDefaultPlanInternal( &fftPlan->planY, fftPlan->context, CLFFT_1D,  &clLengths[0] ),
 						_T( "CreateDefaultPlan large1D row failed" ) );
 
 					FFTPlan* col2Plan	= NULL;
@@ -884,7 +900,7 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 
 
 					// copy plan to get back to hermitian
-					OPENCL_V(clfftCreateDefaultPlan( &fftPlan->planRCcopy, fftPlan->context, CLFFT_1D,  &fftPlan->length[0] ),
+					OPENCL_V(clfftCreateDefaultPlanInternal( &fftPlan->planRCcopy, fftPlan->context, CLFFT_1D,  &fftPlan->length[0] ),
 						_T( "CreateDefaultPlan RC copy failed" ) );
 
 					FFTPlan* copyPlan	= NULL;
@@ -939,7 +955,7 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 					}
 
 					// copy plan to from hermitian to full complex
-					OPENCL_V(clfftCreateDefaultPlan( &fftPlan->planRCcopy, fftPlan->context, CLFFT_1D,  &fftPlan->length[0] ),
+					OPENCL_V(clfftCreateDefaultPlanInternal( &fftPlan->planRCcopy, fftPlan->context, CLFFT_1D,  &fftPlan->length[0] ),
 						_T( "CreateDefaultPlan RC copy failed" ) );
 
 					FFTPlan* copyPlan	= NULL;
@@ -981,7 +997,7 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 
 					// column FFT, size clLengths[1], batch clLengths[0], with length[0] twiddle factor multiplication
 					// transposed output
-					OPENCL_V(clfftCreateDefaultPlan( &fftPlan->planX, fftPlan->context, CLFFT_1D, &clLengths[1] ),
+					OPENCL_V(clfftCreateDefaultPlanInternal( &fftPlan->planX, fftPlan->context, CLFFT_1D, &clLengths[1] ),
 						_T( "CreateDefaultPlan Large1d column failed" ) );
 
 					FFTPlan* colTPlan	= NULL;
@@ -1035,7 +1051,7 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 					OPENCL_V(clfftBakePlan(fftPlan->planX, numQueues, commQueueFFT, NULL, NULL ), _T( "BakePlan large1d first column plan failed" ) );
 
 					//another column FFT, size clLengths[0], batch clLengths[1], output without transpose
-					OPENCL_V(clfftCreateDefaultPlan( &fftPlan->planY, fftPlan->context, CLFFT_1D,  &clLengths[0] ),
+					OPENCL_V(clfftCreateDefaultPlanInternal( &fftPlan->planY, fftPlan->context, CLFFT_1D,  &clLengths[0] ),
 						_T( "CreateDefaultPlan large1D row failed" ) );
 
 					FFTPlan* col2Plan	= NULL;
@@ -1104,7 +1120,7 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 
 						size_t len[3] = { clLengths[1], clLengths[0], 1 };
 
-						OPENCL_V(clfftCreateDefaultPlan( &fftPlan->planTX, fftPlan->context, CLFFT_2D, len ),
+						OPENCL_V(clfftCreateDefaultPlanInternal( &fftPlan->planTX, fftPlan->context, CLFFT_2D, len ),
 						_T( "CreateDefaultPlan Large1d trans1 failed" ) );
 
 						FFTPlan* trans1Plan	= NULL;
@@ -1132,7 +1148,7 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 
 
 						// row FFT
-						OPENCL_V(clfftCreateDefaultPlan( &fftPlan->planX, fftPlan->context, CLFFT_1D, &clLengths[0] ),
+						OPENCL_V(clfftCreateDefaultPlanInternal( &fftPlan->planX, fftPlan->context, CLFFT_1D, &clLengths[0] ),
 							_T( "CreateDefaultPlan Large1d column failed" ) );
 
 						FFTPlan* rowPlan	= NULL;
@@ -1176,7 +1192,7 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 						OPENCL_V(clfftBakePlan(fftPlan->planX, numQueues, commQueueFFT, NULL, NULL ), _T( "BakePlan large1d first row plan failed" ) );
 
 						//column FFT
-						OPENCL_V(clfftCreateDefaultPlan( &fftPlan->planY, fftPlan->context, CLFFT_1D,  &clLengths[1] ),
+						OPENCL_V(clfftCreateDefaultPlanInternal( &fftPlan->planY, fftPlan->context, CLFFT_1D,  &clLengths[1] ),
 							_T( "CreateDefaultPlan large1D column failed" ) );
 
 						FFTPlan* col2Plan	= NULL;
@@ -1227,7 +1243,7 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 
 
 						// copy plan to get results back to packed output
-						OPENCL_V(clfftCreateDefaultPlan( &fftPlan->planCopy, fftPlan->context, CLFFT_1D,  &clLengths[0] ),
+						OPENCL_V(clfftCreateDefaultPlanInternal( &fftPlan->planCopy, fftPlan->context, CLFFT_1D,  &clLengths[0] ),
 							_T( "CreateDefaultPlan Copy failed" ) );
 
 						FFTPlan* copyPlan	= NULL;
@@ -1283,7 +1299,7 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 
 						// column FFT, size clLengths[1], batch clLengths[0], with length[0] twiddle factor multiplication
 						// transposed output
-						OPENCL_V(clfftCreateDefaultPlan( &fftPlan->planX, fftPlan->context, CLFFT_1D, &clLengths[1] ),
+						OPENCL_V(clfftCreateDefaultPlanInternal( &fftPlan->planX, fftPlan->context, CLFFT_1D, &clLengths[1] ),
 							_T( "CreateDefaultPlan Large1d column failed" ) );
 
 						FFTPlan* colTPlan	= NULL;
@@ -1343,7 +1359,7 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 						OPENCL_V(clfftBakePlan(fftPlan->planX, numQueues, commQueueFFT, NULL, NULL ), _T( "BakePlan large1d first column plan failed" ) );
 
 						//another column FFT, size clLengths[0], batch clLengths[1], output without transpose
-						OPENCL_V(clfftCreateDefaultPlan( &fftPlan->planY, fftPlan->context, CLFFT_1D,  &clLengths[0] ),
+						OPENCL_V(clfftCreateDefaultPlanInternal( &fftPlan->planY, fftPlan->context, CLFFT_1D,  &clLengths[0] ),
 							_T( "CreateDefaultPlan large1D row failed" ) );
 
 						FFTPlan* col2Plan	= NULL;
@@ -1439,7 +1455,7 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 						{
 							//Transpose 
 							//tmp --> output
-							OPENCL_V(clfftCreateDefaultPlan( &fftPlan->planTZ, fftPlan->context, CLFFT_2D, clLengths ),
+							OPENCL_V(clfftCreateDefaultPlanInternal( &fftPlan->planTZ, fftPlan->context, CLFFT_2D, clLengths ),
 								_T( "CreateDefaultPlan Large1d transpose failed" ) );
 
 							FFTPlan* trans3Plan	= NULL;
@@ -1511,7 +1527,10 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 				if (fftPlan->transflag) //Transpose for 2D
 				{
                     clfftStatus err;
-                    fftPlan->action = new FFTGeneratedTransposeVLIWAction(plHandle, fftPlan, *commQueueFFT, err);
+					if(fftPlan->gen == Transpose_GCN)
+						fftPlan->action = new FFTGeneratedTransposeGCNAction(plHandle, fftPlan, *commQueueFFT, err);
+					else
+						fftPlan->action = new FFTGeneratedTransposeVLIWAction(plHandle, fftPlan, *commQueueFFT, err);
                     OPENCL_V( err, "FFTGeneratedTransposeVLIWAction failed");
 
 					fftPlan->baked		= true;
@@ -1557,7 +1576,7 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 
 				//create row plan,
 				// x=y & x!=y, In->In for inplace, In->out for outofplace
-				OPENCL_V(clfftCreateDefaultPlan( &fftPlan->planX, fftPlan->context, CLFFT_1D, &fftPlan->length[ DimX ] ),
+				OPENCL_V(clfftCreateDefaultPlanInternal( &fftPlan->planX, fftPlan->context, CLFFT_1D, &fftPlan->length[ DimX ] ),
 					_T( "CreateDefaultPlan for planX failed" ) );
 
 				FFTPlan* rowPlan	= NULL;
@@ -1601,7 +1620,7 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 						fftPlan->batchsize * fftPlan->ElementSize();
 				}
 
-				OPENCL_V(clfftCreateDefaultPlan( &fftPlan->planTX, fftPlan->context, CLFFT_2D, clLengths ),
+				OPENCL_V(clfftCreateDefaultPlanInternal( &fftPlan->planTX, fftPlan->context, CLFFT_2D, clLengths ),
 					_T( "CreateDefaultPlan for planT failed" ) );
 
 				FFTPlan* transPlanX	= NULL;
@@ -1642,7 +1661,7 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 				//create second row plan
 				//x!=y: tmp->tmp, x=y case: In->In or Out->Out
 				//if Transposed result is a choice x!=y: tmp->In or out
-				OPENCL_V(clfftCreateDefaultPlan( &fftPlan->planY, fftPlan->context, CLFFT_1D, &fftPlan->length[ DimY ] ),
+				OPENCL_V(clfftCreateDefaultPlanInternal( &fftPlan->planY, fftPlan->context, CLFFT_1D, &fftPlan->length[ DimY ] ),
 					_T( "CreateDefaultPlan for planY failed" ) );
 
 				FFTPlan* colPlan	= NULL;
@@ -1709,7 +1728,7 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 				//x!=y case tmp->In or Out, x=y case In->In or Out->out
 				clLengths[0] = fftPlan->length[1];
 				clLengths[1] = fftPlan->length[0];
-				OPENCL_V(clfftCreateDefaultPlan( &fftPlan->planTY, fftPlan->context, CLFFT_2D, clLengths ),
+				OPENCL_V(clfftCreateDefaultPlanInternal( &fftPlan->planTY, fftPlan->context, CLFFT_2D, clLengths ),
 					_T( "CreateDefaultPlan for planTY failed" ) );
 
 				FFTPlan* transPlanY	= NULL;
@@ -1771,7 +1790,7 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 				// real to hermitian
 
 				//create row plan
-				OPENCL_V(clfftCreateDefaultPlan( &fftPlan->planX, fftPlan->context, CLFFT_1D, &fftPlan->length[ DimX ] ),
+				OPENCL_V(clfftCreateDefaultPlanInternal( &fftPlan->planX, fftPlan->context, CLFFT_1D, &fftPlan->length[ DimX ] ),
 					_T( "CreateDefaultPlan for planX failed" ) );
 
 				FFTPlan* rowPlan	= NULL;
@@ -1816,7 +1835,7 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 				// create col plan
 				// complex to complex
 
-				OPENCL_V(clfftCreateDefaultPlan( &fftPlan->planY, fftPlan->context, CLFFT_1D, &fftPlan->length[ DimY ] ),
+				OPENCL_V(clfftCreateDefaultPlanInternal( &fftPlan->planY, fftPlan->context, CLFFT_1D, &fftPlan->length[ DimY ] ),
 					_T( "CreateDefaultPlan for planY failed" ) );
 
 				FFTPlan* colPlan	= NULL;
@@ -1888,7 +1907,7 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 				// create col plan
 				// complex to complex
 
-				OPENCL_V(clfftCreateDefaultPlan( &fftPlan->planY, fftPlan->context, CLFFT_1D, &fftPlan->length[ DimY ] ),
+				OPENCL_V(clfftCreateDefaultPlanInternal( &fftPlan->planY, fftPlan->context, CLFFT_1D, &fftPlan->length[ DimY ] ),
 					_T( "CreateDefaultPlan for planY failed" ) );
 
 				FFTPlan* colPlan	= NULL;
@@ -1964,7 +1983,7 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 				// hermitian to real
 
 				//create row plan
-				OPENCL_V(clfftCreateDefaultPlan( &fftPlan->planX, fftPlan->context, CLFFT_1D, &fftPlan->length[ DimX ] ),
+				OPENCL_V(clfftCreateDefaultPlanInternal( &fftPlan->planX, fftPlan->context, CLFFT_1D, &fftPlan->length[ DimX ] ),
 					_T( "CreateDefaultPlan for planX failed" ) );
 
 				FFTPlan* rowPlan	= NULL;
@@ -2015,7 +2034,7 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 				}
 
 				//create row plan
-				OPENCL_V(clfftCreateDefaultPlan( &fftPlan->planX, fftPlan->context, CLFFT_1D, &fftPlan->length[ DimX ] ),
+				OPENCL_V(clfftCreateDefaultPlanInternal( &fftPlan->planX, fftPlan->context, CLFFT_1D, &fftPlan->length[ DimX ] ),
 					_T( "CreateDefaultPlan for planX failed" ) );
 
 				FFTPlan* rowPlan	= NULL;
@@ -2070,7 +2089,7 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 				OPENCL_V(clfftBakePlan(fftPlan->planX, numQueues, commQueueFFT, NULL, NULL ), _T( "BakePlan for planX failed" ) );
 
 				//create col plan
-				OPENCL_V(clfftCreateDefaultPlan( &fftPlan->planY, fftPlan->context, CLFFT_1D, &fftPlan->length[ DimY ] ),
+				OPENCL_V(clfftCreateDefaultPlanInternal( &fftPlan->planY, fftPlan->context, CLFFT_1D, &fftPlan->length[ DimY ] ),
 					_T( "CreateDefaultPlan for planY failed" ) );
 
 				FFTPlan* colPlan	= NULL;
@@ -2137,7 +2156,7 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 				clLengths[1] = fftPlan->length[ DimY ];
 
 				//create 2D xy plan
-				OPENCL_V(clfftCreateDefaultPlan( &fftPlan->planX, fftPlan->context, CLFFT_2D, clLengths ),
+				OPENCL_V(clfftCreateDefaultPlanInternal( &fftPlan->planX, fftPlan->context, CLFFT_2D, clLengths ),
 					_T( "CreateDefaultPlan 2D planX failed" ) );
 
 				FFTPlan* xyPlan	= NULL;
@@ -2175,7 +2194,7 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 				clLengths[0] = fftPlan->length[ DimZ ];
 				clLengths[1] = clLengths[2] = 0;
 				//create 1D col plan
-				OPENCL_V(clfftCreateDefaultPlan( &fftPlan->planZ, fftPlan->context, CLFFT_1D, clLengths ),
+				OPENCL_V(clfftCreateDefaultPlanInternal( &fftPlan->planZ, fftPlan->context, CLFFT_1D, clLengths ),
 					_T( "CreateDefaultPlan for planZ failed" ) );
 
 				FFTPlan* colPlan	= NULL;
@@ -2240,7 +2259,7 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 				clLengths[1] = clLengths[2] = 0;
 
 				//create 1D col plan
-				OPENCL_V(clfftCreateDefaultPlan( &fftPlan->planZ, fftPlan->context, CLFFT_1D, clLengths ),
+				OPENCL_V(clfftCreateDefaultPlanInternal( &fftPlan->planZ, fftPlan->context, CLFFT_1D, clLengths ),
 					_T( "CreateDefaultPlan for planZ failed" ) );
 
 				FFTPlan* colPlan	= NULL;
@@ -2302,7 +2321,7 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 				clLengths[1] = fftPlan->length[ DimY ];
 
 				//create 2D xy plan
-				OPENCL_V(clfftCreateDefaultPlan( &fftPlan->planX, fftPlan->context, CLFFT_2D, clLengths ),
+				OPENCL_V(clfftCreateDefaultPlanInternal( &fftPlan->planX, fftPlan->context, CLFFT_2D, clLengths ),
 					_T( "CreateDefaultPlan 2D planX failed" ) );
 
 				FFTPlan* xyPlan	= NULL;
@@ -2356,7 +2375,7 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 				clLengths[1] = fftPlan->length[ DimY ];
 
 				//create 2D xy plan
-				OPENCL_V(clfftCreateDefaultPlan( &fftPlan->planX, fftPlan->context, CLFFT_2D, clLengths ),
+				OPENCL_V(clfftCreateDefaultPlanInternal( &fftPlan->planX, fftPlan->context, CLFFT_2D, clLengths ),
 					_T( "CreateDefaultPlan 2D planX failed" ) );
 
 				FFTPlan* xyPlan	= NULL;
@@ -2394,7 +2413,7 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 				clLengths[0] = fftPlan->length[ DimZ ];
 				clLengths[1] = clLengths[2] = 0;
 				//create 1D col plan
-				OPENCL_V(clfftCreateDefaultPlan( &fftPlan->planZ, fftPlan->context, CLFFT_1D, clLengths ),
+				OPENCL_V(clfftCreateDefaultPlanInternal( &fftPlan->planZ, fftPlan->context, CLFFT_1D, clLengths ),
 					_T( "CreateDefaultPlan for planZ failed" ) );
 
 				FFTPlan* colPlan	= NULL;
