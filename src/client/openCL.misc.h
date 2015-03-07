@@ -29,6 +29,15 @@
 	#define countOf( arr ) ( sizeof( arr ) / sizeof( arr[ 0 ] ) )
 #endif
 
+class ClPlatformDiscoverer
+{
+	std::vector< cl_platform_id > mPlatforms;
+	std::vector< std::vector< cl_device_id > > devices;
+
+public:
+
+};
+
 /*
  * \brief OpenCL related initialization
  *        Create Context, Device list
@@ -101,6 +110,7 @@ inline cl_int OpenCL_V_Throw ( cl_int res, const std::string& msg, size_t lineno
 	return	res;
 }
 #define OPENCL_V_THROW(_status,_message) OpenCL_V_Throw (_status, _message, __LINE__)
+#define OPENCL_V_WARN(_status,_message) std::cout << "Warning: " << _message << std::endl;
 
 /*
  * \brief Release OpenCL resources (Context, Memory etc.)
