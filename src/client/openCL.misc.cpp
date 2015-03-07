@@ -459,15 +459,15 @@ std::vector< cl_device_id > initializeCL( cl_device_type deviceType,
 	}
 
 	// Do some error checking if we really selected a valid platform and a valid device
+	if (NULL == devices[0])
+	{
+		OPENCL_V_THROW(CLFFT_DEVICE_NOT_AVAILABLE, "No devices available");
+	}
+
 	if (NULL == platform)
 	{
 		throw std::runtime_error("No appropriate OpenCL platform could be found");
-	}
-
-	if (NULL == devices[0])
-	{
-		OPENCL_V_THROW( CLFFT_DEVICE_NOT_AVAILABLE, "No devices available");
-	}
+	}	
 		
 	// Create an OpenCL context
 	cl_context_properties cps[3] = { CL_CONTEXT_PLATFORM, (cl_context_properties) platform, 0 };
