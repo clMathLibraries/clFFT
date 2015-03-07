@@ -24,7 +24,6 @@
 #include <sstream>
 #include <cstring>
 #include <vector>
-#include <map>
 #include "clFFT.h"
 #include "openCL.misc.h"
 
@@ -215,7 +214,7 @@ void prettyPrintDeviceInfo( const cl_device_id& dId )
 void prettyPrintCLPlatforms(std::vector< cl_platform_id >& platforms,
 	std::vector< std::vector< cl_device_id > >& devices)
 {
-	unsigned int devNr = 0;
+	unsigned int devNo = 0;
 	
 	for (unsigned int i = 0; i < platforms.size(); ++i)
 	{
@@ -224,9 +223,9 @@ void prettyPrintCLPlatforms(std::vector< cl_platform_id >& platforms,
 
 		for (unsigned int n = 0; n < devices[i].size(); ++n)
 		{
-			std::cout << "OpenCL device [ " << devNr << " ]:" << std::endl;
+			std::cout << "OpenCL platform [ " << i << " ], device [ " << devNo << " ]:" << std::endl;
 			prettyPrintDeviceInfo((devices[i])[n]);
-			devNr++;
+			devNo++;
 		}
 	}
 
@@ -417,10 +416,7 @@ std::vector< cl_device_id > initializeCL( cl_device_type deviceType,
 	std::vector< cl_device_id > devices(1);
 	devices[0] = NULL;
 	
-	/*
-	* Have a look at the available platforms and pick either
-	* the AMD one if available or a reasonable default.
-	*/
+	// Have a look at all the available platforms on this system
 	std::vector< cl_platform_id > platformInfos;
 	std::vector< std::vector< cl_device_id > > deviceInfos;
 	discoverCLPlatforms( deviceType, platformInfos, deviceInfos );
@@ -462,6 +458,7 @@ std::vector< cl_device_id > initializeCL( cl_device_type deviceType,
 		}
 	}
 
+	// Do some error checking if we really selected a valid platform and a valid device
 	if (NULL == platform)
 	{
 		throw std::runtime_error("No appropriate OpenCL platform could be found");
@@ -471,11 +468,8 @@ std::vector< cl_device_id > initializeCL( cl_device_type deviceType,
 	{
 		OPENCL_V_THROW( CLFFT_DEVICE_NOT_AVAILABLE, "No devices available");
 	}
-	
 		
-	/////////////////////////////////////////////////////////////////
 	// Create an OpenCL context
-	/////////////////////////////////////////////////////////////////
 	cl_context_properties cps[3] = { CL_CONTEXT_PLATFORM, (cl_context_properties) platform, 0 };
 	context = clCreateContext(cps,
 		(cl_uint)devices.size(),

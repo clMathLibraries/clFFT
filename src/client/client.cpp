@@ -753,7 +753,6 @@ int _tmain( int argc, _TCHAR* argv[] )
 
 	//	OpenCL state
 	cl_device_type		deviceType	= CL_DEVICE_TYPE_DEFAULT;
-	cl_uint				deviceGpuList     = 0;	// a bitmap set
 	cl_int				deviceId = -1;
 
 	//	FFT state
@@ -788,7 +787,7 @@ int _tmain( int argc, _TCHAR* argv[] )
 			( "gpu,g",         "Force selection of OpenCL GPU devices only" )
 			( "cpu,c",         "Force selection of OpenCL CPU devices only" )
 			( "all,a",         "Force selection of all OpenCL devices" )
-			( "device",        po::value< cl_int >( &deviceId )->default_value( -1 ),   "Force selection of specific OpenCL device id as reported by clInfo" )
+			( "device",        po::value< cl_int >( &deviceId )->default_value( -1 ),   "Force selection of a specific OpenCL device id as it is reported by clInfo" )
 			( "outPlace,o",    "Out of place FFT transform (default: in place)" )
 			( "double",		   "Double precision transform (default: single)" )
 			( "inv",			"Backward transform (default: forward)" )
@@ -843,8 +842,8 @@ int _tmain( int argc, _TCHAR* argv[] )
 			| ((vm.count( "all" ) > 0) ? 4 : 0);
 		if ((mutex & (mutex-1)) != 0) {
 			terr << _T("You have selected mutually-exclusive OpenCL device options:") << std::endl;
-			if (vm.count ( "gpu" )  > 0) terr << _T("    gpu,g   Force selection of an OpenCL GPU devices only" ) << std::endl;
-			if (vm.count ( "cpu" )  > 0) terr << _T("    cpu,c   Force selection of an OpenCL CPU devices only" ) << std::endl;
+			if (vm.count ( "gpu" )  > 0) terr << _T("    gpu,g   Force selection of OpenCL GPU devices only" ) << std::endl;
+			if (vm.count ( "cpu" )  > 0) terr << _T("    cpu,c   Force selection of OpenCL CPU devices only" ) << std::endl;
 			if (vm.count ( "all" )  > 0) terr << _T("    all,a   Force selection of all OpenCL devices" ) << std::endl;
 			return 1;
 		}
@@ -852,7 +851,6 @@ int _tmain( int argc, _TCHAR* argv[] )
 		if( vm.count( "gpu" ) )
 		{
 			deviceType	= CL_DEVICE_TYPE_GPU;
-			deviceGpuList = ~0;
 		}
 
 		if( vm.count( "cpu" ) )
