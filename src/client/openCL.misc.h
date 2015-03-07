@@ -117,6 +117,10 @@ inline cl_int OpenCL_V_Warn(cl_int res, const std::string& msg, size_t lineno)
 	{
 		case	CL_SUCCESS:		/**< No error */
 			break;
+		case	CL_DEVICE_NOT_FOUND:
+			// This happens all the time when discovering the OpenCL capabilities of the system,
+			// so do nothing here.
+			break;
 		default:
 		{
 			std::stringstream tmp;

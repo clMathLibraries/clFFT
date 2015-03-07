@@ -393,7 +393,7 @@ int discoverCLPlatforms( cl_device_type deviceType,
 				"Getting OpenCL devices ( ::clGetDeviceIDs() )");
 			if (0 == numDevices)
 			{
-				OPENCL_V_WARN(CLFFT_DEVICE_NOT_AVAILABLE, "No devices available");
+				// OPENCL_V_WARN(CLFFT_DEVICE_NOT_AVAILABLE, "No devices available");
 				continue;
 			}
 

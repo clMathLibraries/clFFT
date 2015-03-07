@@ -264,7 +264,7 @@ public:
 			cl_context tempContext = NULL;
 			device_id = initializeCL(
 				device_type,
-				device_gpu_list,
+				dev_id,
 				tempContext,
 				printInfo
 			);

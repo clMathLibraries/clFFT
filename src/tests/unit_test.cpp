@@ -29,12 +29,12 @@ protected:
 		lengths[ 0 ] = 32;
 		lengths[ 1 ] = 32;
 		lengths[ 2 ] = 32;
-		cl_uint	deviceGpuList = ~0; // a bitmap set
+		cl_int devId = -1;
 		commandQueueFlags = 0;
 
 		size_t memSizeBytes = lengths[ 0 ] * lengths[ 1 ] * lengths[ 2 ] * sizeof( std::complex< float > );
 
-		device_id = initializeCL( CL_DEVICE_TYPE_CPU, deviceGpuList, context, printInfo );
+		device_id = initializeCL( CL_DEVICE_TYPE_CPU, devId, context, printInfo );
 		createOpenCLCommandQueue( context,
 								  commandQueueFlags,
 								  queue,
