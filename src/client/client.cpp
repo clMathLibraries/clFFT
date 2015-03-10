@@ -752,7 +752,7 @@ int _tmain( int argc, _TCHAR* argv[] )
 #endif /* MEMORYREPORT */
 
 	//	OpenCL state
-	cl_device_type		deviceType	= CL_DEVICE_TYPE_DEFAULT;
+	cl_device_type		deviceType	= CL_DEVICE_TYPE_ALL;
 	cl_int				deviceId = -1;
 
 	//	FFT state
@@ -786,7 +786,7 @@ int _tmain( int argc, _TCHAR* argv[] )
 			( "clInfo,i",      "Print queryable information of the OpenCL runtime" )
 			( "gpu,g",         "Force selection of OpenCL GPU devices only" )
 			( "cpu,c",         "Force selection of OpenCL CPU devices only" )
-			( "all,a",         "Force selection of all OpenCL devices" )
+			( "all,a",         "Force selection of all OpenCL devices (default)" )
 			( "device",        po::value< cl_int >( &deviceId )->default_value( -1 ),   "Force selection of a specific OpenCL device id as it is reported by clInfo" )
 			( "outPlace,o",    "Out of place FFT transform (default: in place)" )
 			( "double",		   "Double precision transform (default: single)" )
