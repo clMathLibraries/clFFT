@@ -751,7 +751,7 @@ int _tmain( int argc, _TCHAR* argv[] )
 
 #endif /* MEMORYREPORT */
 
-	//	OpenCL state
+	//	OpenCL state 
 	cl_device_type		deviceType	= CL_DEVICE_TYPE_ALL;
 	cl_int				deviceId = -1;
 
