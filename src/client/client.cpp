@@ -844,7 +844,7 @@ int _tmain( int argc, _TCHAR* argv[] )
 			terr << _T("You have selected mutually-exclusive OpenCL device options:") << std::endl;
 			if (vm.count ( "gpu" )  > 0) terr << _T("    gpu,g   Force selection of OpenCL GPU devices only" ) << std::endl;
 			if (vm.count ( "cpu" )  > 0) terr << _T("    cpu,c   Force selection of OpenCL CPU devices only" ) << std::endl;
-			if (vm.count ( "all" )  > 0) terr << _T("    all,a   Force selection of all OpenCL devices" ) << std::endl;
+			if (vm.count ( "all" )  > 0) terr << _T("    all,a   Force selection of all OpenCL devices (default)" ) << std::endl;
 			return 1;
 		}
 
