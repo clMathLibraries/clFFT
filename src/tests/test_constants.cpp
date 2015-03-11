@@ -88,7 +88,7 @@ size_t max_mem_available_on_cl_device(size_t device_index) {
 	cl_context tempContext = NULL;
 	device_id = initializeCL(
 		device_type,
-		device_gpu_list,
+		dev_id,
 		tempContext,
 		false
 		);

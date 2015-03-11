@@ -59,6 +59,8 @@ bool suppress_output = false;
 //	Globals that user can set on the command line, that need to be passed down to unit tests
 cl_device_type device_type = CL_DEVICE_TYPE_GPU;
 cl_uint device_gpu_list = ~0x0;
+cl_int dev_id = -1;
+
 bool comparison_type = root_mean_square;
 
 int main( int argc, char **argv )
@@ -104,6 +106,7 @@ int main( int argc, char **argv )
 		( "noInfoCL",      "Don't print information from the OpenCL runtime" )
 		( "cpu,c",         "Run tests on a CPU device" )
 		( "gpu,g",         "Run tests on a GPU device (default)" )
+		("device", po::value< cl_int >(&dev_id)->default_value(-1), "Run tests on a specific OpenCL device id as reported by clInfo")
 		( "pointwise,p",         "Do a pointwise comparison to determine test correctness (default: use root mean square)" )
 		( "tolerance,t",        po::value< float >( &tolerance )->default_value( 0.001f ),   "tolerance level to use when determining test pass/fail" )
 		( "numRandom,r",        po::value< size_t >( &number_of_random_tests )->default_value( 2000 ),   "number of random tests to run" )
@@ -168,7 +171,7 @@ int main( int argc, char **argv )
 		cl_context tempContext = NULL;
 		cl_command_queue tempQueue = NULL;
 		cl_event tempEvent = NULL;
-		std::vector< cl_device_id > device_id = ::initializeCL( device_type, device_gpu_list, tempContext, true );
+		std::vector< cl_device_id > device_id = ::initializeCL(device_type, dev_id, tempContext, true);
 		::cleanupCL( &tempContext, &tempQueue, 0, NULL, 0, NULL, &tempEvent );
 	}
 
