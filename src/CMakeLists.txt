@@ -284,6 +284,25 @@ if( BUILD_EXAMPLES )
     add_subdirectory( examples )
 endif()
 
+if(WIN32)
+  set(destdir CMake)
+else()
+  set(destdir share/clFFT)
+endif()
+string(REGEX REPLACE "[^/]+" ".." reldir "${destdir}")
+configure_file(
+  ${CMAKE_CURRENT_SOURCE_DIR}/clFFTConfigVersion.cmake.in
+  ${CMAKE_CURRENT_BINARY_DIR}/clFFTConfigVersion.cmake
+  @ONLY)
+configure_file(
+  ${CMAKE_CURRENT_SOURCE_DIR}/clFFTConfig.cmake.in
+  ${CMAKE_CURRENT_BINARY_DIR}/clFFTConfig.cmake
+  @ONLY)
+install(EXPORT Library DESTINATION ${destdir} FILE clFFTTargets.cmake)
+install(FILES ${CMAKE_CURRENT_BINARY_DIR}/clFFTConfigVersion.cmake
+  ${CMAKE_CURRENT_BINARY_DIR}/clFFTConfig.cmake
+  DESTINATION ${destdir})
+
 # The following code is setting variables to control the behavior of CPack to generate our
 if( WIN32 )
 	set( CPACK_SOURCE_GENERATOR "ZIP" )
