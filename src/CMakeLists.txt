@@ -71,6 +71,7 @@ option( BUILD_CLIENT "Build a command line clFFT client program with a variety o
 option( BUILD_TEST "Build the library testing suite (dependency on google test, Boost, and FFTW)" ON )
 option( BUILD_LOADLIBRARIES "Build the optional dynamic load libraries that the FFT runtime will search for" ON )
 option( BUILD_SHARED_LIBRARY "Build shared libraries." ON)
+option( BUILD_EXAMPLES "Build examples." ON)
 
 # If BOOST_ROOT is defined as an environment value, use that value and cache it so it's visible in the cmake-gui.
 # Otherwise, create a sensible default that the user can change
@@ -278,6 +279,10 @@ if( UNIT_TEST AND IS_DIRECTORY "${PROJECT_SOURCE_DIR}/tests" )
 else( )
 	message( "GoogleTest unit tests will NOT be built" )
 endif( )
+
+if( BUILD_EXAMPLES )
+    add_subdirectory( examples )
+endif()
 
 # The following code is setting variables to control the behavior of CPack to generate our
 if( WIN32 )
