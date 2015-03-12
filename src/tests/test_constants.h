@@ -63,6 +63,7 @@ extern float tolerance;
 
 extern cl_device_type device_type;
 extern cl_uint device_gpu_list;
+extern cl_int dev_id;
 
 extern size_t number_of_random_tests;
 extern time_t random_test_parameter_seed;
