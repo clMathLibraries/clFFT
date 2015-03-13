@@ -872,6 +872,7 @@ int _tmain( int argc, _TCHAR* argv[] )
 			std::vector< std::vector< cl_device_id > > deviceInfos;
 			discoverCLPlatforms( deviceType, platformInfos, deviceInfos );
 			prettyPrintCLPlatforms(platformInfos, deviceInfos);
+			return 0;
 		}
 
 		bool printInfo = false;
