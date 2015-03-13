@@ -263,8 +263,9 @@ public:
 		{
 			cl_context tempContext = NULL;
 			device_id = initializeCL(
-				device_type,
-				dev_id,
+				g_device_type,
+				g_device_id,
+				g_platform_id,
 				tempContext,
 				printInfo
 			);
@@ -646,7 +647,7 @@ public:
 
 		// we don't want to bog down the CPU with ginormous problem sizes
 		// so we chop the global memory way down to keep things manageable
-		if( device_type == CL_DEVICE_TYPE_CPU )
+		if( g_device_type == CL_DEVICE_TYPE_CPU )
 		{
 			global_memory_size /= 8;
 		}

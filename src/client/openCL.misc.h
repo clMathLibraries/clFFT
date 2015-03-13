@@ -38,6 +38,9 @@ int discoverCLPlatforms( cl_device_type deviceType,
 					     std::vector< cl_platform_id >& platforms,
 						 std::vector< std::vector< cl_device_id > >& devices );
 
+void prettyPrintCLPlatforms(std::vector< cl_platform_id >& platforms,
+	std::vector< std::vector< cl_device_id > >& devices);
+
 /*
  * \brief OpenCL related initialization
  *        Create Context, Device list
@@ -46,6 +49,7 @@ int discoverCLPlatforms( cl_device_type deviceType,
  */
 std::vector< cl_device_id > initializeCL( cl_device_type deviceType,
 										  cl_int deviceId,
+										  cl_int platformId,
 										  cl_context& context,
 										  bool printclInfo );
 

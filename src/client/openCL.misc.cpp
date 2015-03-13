@@ -408,6 +408,7 @@ int discoverCLPlatforms( cl_device_type deviceType,
 
 std::vector< cl_device_id > initializeCL( cl_device_type deviceType,
 										  cl_int deviceId,
+										  cl_int platformId,
 										  cl_context& context,
 										  bool printclInfo )
 {
@@ -420,42 +421,34 @@ std::vector< cl_device_id > initializeCL( cl_device_type deviceType,
 	std::vector< cl_platform_id > platformInfos;
 	std::vector< std::vector< cl_device_id > > deviceInfos;
 	discoverCLPlatforms( deviceType, platformInfos, deviceInfos );
-	if (printclInfo)
-	{
-		prettyPrintCLPlatforms(platformInfos, deviceInfos);
-	}
 
-	if (deviceId >= 0)
-	{
-		cl_int devNr = 0;
 
-		// A specific deviceId is selected, so try to find it
-		for (unsigned int i = 0; i < platformInfos.size(); ++i)
+	for (unsigned int i = 0; i < platformInfos.size(); ++i)
+	{
+		if(i == platformId)
 		{
 			for (unsigned int n = 0; n < deviceInfos[i].size(); ++n)
 			{
-				if (deviceId == devNr)
+				if (n == deviceId)
 				{
 					platform = platformInfos[i];
 					devices[0] = deviceInfos[i][n];
-				}
 
-				devNr++;
+					if(printclInfo)
+					{
+						prettyPrintPlatformInfo(platform);
+						prettyPrintDeviceInfo(devices[0]);
+					}
+
+					break;
+				}
 			}
+
+			break;
 		}
 	}
-	else
-	{
-		// The default device (here: the last reported device) shall be selected
-		for (unsigned int i = 0; i < platformInfos.size(); ++i)
-		{
-			for (unsigned int n = 0; n < deviceInfos[i].size(); ++n)
-			{
-				platform = platformInfos[i];
-				devices[0] = deviceInfos[i][n];
-			}
-		}
-	}
+
+
 
 	// Do some error checking if we really selected a valid platform and a valid device
 	if (NULL == devices[0])
