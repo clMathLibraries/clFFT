@@ -214,8 +214,6 @@ void prettyPrintDeviceInfo( const cl_device_id& dId )
 void prettyPrintCLPlatforms(std::vector< cl_platform_id >& platforms,
 	std::vector< std::vector< cl_device_id > >& devices)
 {
-	unsigned int devNo = 0;
-	
 	for (unsigned int i = 0; i < platforms.size(); ++i)
 	{
 		std::cout << "OpenCL platform [ " << i << " ]:" << std::endl;
@@ -223,9 +221,8 @@ void prettyPrintCLPlatforms(std::vector< cl_platform_id >& platforms,
 
 		for (unsigned int n = 0; n < devices[i].size(); ++n)
 		{
-			std::cout << "OpenCL platform [ " << i << " ], device [ " << devNo << " ]:" << std::endl;
+			std::cout << "OpenCL platform [ " << i << " ], device [ " << n << " ]:" << std::endl;
 			prettyPrintDeviceInfo((devices[i])[n]);
-			devNo++;
 		}
 	}
 

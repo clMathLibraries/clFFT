@@ -62,7 +62,6 @@ const double magnitude_lower_limit = 1.0E-100;
 extern float tolerance;
 
 extern cl_device_type g_device_type;
-//extern cl_uint device_gpu_list;
 extern cl_int g_device_id;
 extern cl_int g_platform_id;
 
