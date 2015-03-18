@@ -208,6 +208,7 @@ clfftStatus	clfftCreateDefaultPlanInternal( clfftPlanHandle* plHandle, cl_contex
 	return	CLFFT_SUCCESS;
 }
 
+// This external entry-point should not be called from within the library. Use clfftCreateDefaultPlanInternal instead.
 clfftStatus	clfftCreateDefaultPlan( clfftPlanHandle* plHandle, cl_context context, const clfftDim dim,
 						const size_t* clLengths )
 {
@@ -343,12 +344,12 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 	clGetCommandQueueInfo(*commQueueFFT, CL_QUEUE_DEVICE, sizeof(cl_device_id), &fftPlan->bakeDevice, NULL);
 
 	//find product of lengths
-	size_t pLength = 1;
+	size_t maxLengthInAnyDim = 1;
 	switch(fftPlan->dim)
 	{
-		case CLFFT_3D: pLength *= fftPlan->length[DimZ];
-		case CLFFT_2D: pLength *= fftPlan->length[DimY];
-		case CLFFT_1D: pLength *= fftPlan->length[DimX];
+		case CLFFT_3D: maxLengthInAnyDim = maxLengthInAnyDim > fftPlan->length[DimZ] ? maxLengthInAnyDim : fftPlan->length[DimZ];
+		case CLFFT_2D: maxLengthInAnyDim = maxLengthInAnyDim > fftPlan->length[DimY] ? maxLengthInAnyDim : fftPlan->length[DimY];
+		case CLFFT_1D: maxLengthInAnyDim = maxLengthInAnyDim > fftPlan->length[DimX] ? maxLengthInAnyDim : fftPlan->length[DimX];
 	}
 
 	const bool rc = (fftPlan->inputLayout == CLFFT_REAL) || (fftPlan->outputLayout == CLFFT_REAL);
@@ -356,8 +357,8 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 	// upper bounds on transfrom lengths - address this in the next release
 	size_t SP_MAX_LEN = 1 << 24;
 	size_t DP_MAX_LEN = 1 << 22;
-	if((fftPlan->precision == CLFFT_SINGLE) && (pLength > SP_MAX_LEN) && rc) return CLFFT_NOTIMPLEMENTED;
-	if((fftPlan->precision == CLFFT_DOUBLE) && (pLength > DP_MAX_LEN) && rc) return CLFFT_NOTIMPLEMENTED;
+	if((fftPlan->precision == CLFFT_SINGLE) && (maxLengthInAnyDim > SP_MAX_LEN) && rc) return CLFFT_NOTIMPLEMENTED;
+	if((fftPlan->precision == CLFFT_DOUBLE) && (maxLengthInAnyDim > DP_MAX_LEN) && rc) return CLFFT_NOTIMPLEMENTED;
 
 
 	// release buffers, as these will be created only in EnqueueTransform
@@ -366,7 +367,7 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 	if( NULL != fftPlan->intBufferC2R ) { OPENCL_V( clReleaseMemObject( fftPlan->intBufferC2R ), _T( "Failed to release internal temporary buffer" ) ); fftPlan->intBufferC2R = NULL; }
 
 
-    if( fftPlan->dim == fftPlan->length.size( ) && ( fftPlan->gen != Transpose_VLIW ) && ( fftPlan->gen != Transpose_GCN ) && ( fftPlan->gen != Copy ) ) // confirm it is top-level plan (user plan)
+    if( fftPlan->userPlan ) // confirm it is top-level plan (user plan)
 	{
 		if(fftPlan->placeness == CLFFT_INPLACE)
 		{
@@ -2501,6 +2502,7 @@ clfftStatus clfftCopyPlan( clfftPlanHandle* out_plHandle, cl_context new_context
 	out_fftPlan->inStride = in_fftPlan->inStride;
 	out_fftPlan->outStride = in_fftPlan->outStride;
 	out_fftPlan->batchsize = in_fftPlan->batchsize;
+	out_fftPlan->transposed = in_fftPlan->transposed;
 
 	return	CLFFT_SUCCESS;
 }
