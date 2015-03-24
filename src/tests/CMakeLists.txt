@@ -1,12 +1,12 @@
 # ########################################################################
 # Copyright 2013 Advanced Micro Devices, Inc.
-# 
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# 
+#
 # http://www.apache.org/licenses/LICENSE-2.0
-# 
+#
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -31,7 +31,7 @@ set( clFFT.Test.Source
 	 ${PROJECT_SOURCE_DIR}/client/openCL.misc.cpp
 	 c-compliance.c
    )
-   
+
 set( clFFT.Test.Headers
 	${PROJECT_SOURCE_DIR}/include/clFFT.h
 	${PROJECT_SOURCE_DIR}/include/unicode.compatibility.h
@@ -46,7 +46,7 @@ set( clFFT.Test.Headers
 	fftw_transform.h
 	typedefs.h
   )
-  
+
 set( clFFT.Test.Files ${clFFT.Test.Source} ${clFFT.Test.Headers} )
 
 set( LD_PTHREAD "" )
@@ -69,7 +69,7 @@ add_executable( Test ${clFFT.Test.Files} )
 
 # If the runtime is being built by the project, use it, otherwise link to a runtime library specified in the install prefix
 if( BUILD_RUNTIME )
-	target_link_libraries( Test clFFT ${Boost_LIBRARIES} ${GTEST_LIBRARIES} ${FFTW_LIBRARIES} ${OPENCL_LIBRARIES} ${LD_PTHREAD} )
+	target_link_libraries( Test clFFT ${Boost_LIBRARIES} ${GTEST_LIBRARIES} ${FFTW_LIBRARIES} ${OPENCL_LIBRARIES} ${LD_PTHREAD} ${CMAKE_DL_LIBS})
 else( )
 	# Search for 64bit libs if FIND_LIBRARY_USE_LIB64_PATHS is set to true in the global environment, 32bit libs else
 	get_property( LIB64 GLOBAL PROPERTY FIND_LIBRARY_USE_LIB64_PATHS )
@@ -78,14 +78,14 @@ else( )
 	else( )
 		set( clFFT.library "${CMAKE_INSTALL_PREFIX}/lib32" )
 	endif( )
-	
+
 	if( WIN32 )
 		set( clFFT.library "${clFFT.library}/import/clFFT${CMAKE_STATIC_LIBRARY_SUFFIX}" )
 	else( )
 		set( clFFT.library "${clFFT.library}/${CMAKE_SHARED_LIBRARY_PREFIX}clFFT${CMAKE_SHARED_LIBRARY_SUFFIX}" )
 	endif( )
 
-	target_link_libraries( Test ${clFFT.library} ${Boost_LIBRARIES} ${GTEST_LIBRARIES} ${FFTW_LIBRARIES} ${OPENCL_LIBRARIES} ${LD_PTHREAD} )
+	target_link_libraries( Test ${clFFT.library} ${Boost_LIBRARIES} ${GTEST_LIBRARIES} ${FFTW_LIBRARIES} ${OPENCL_LIBRARIES} ${LD_PTHREAD} ${CMAKE_DL_LIBS})
 
 endif( )
 
@@ -115,4 +115,3 @@ configure_file(
 
 # Register script at run at install time to analyze the executable and copy dependencies into package
 install( SCRIPT "${CMAKE_CURRENT_BINARY_DIR}/copyTestDependencies.cmake")
- 
