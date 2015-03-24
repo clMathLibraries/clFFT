@@ -1,12 +1,12 @@
 # ########################################################################
 # Copyright 2013 Advanced Micro Devices, Inc.
-# 
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# 
+#
 # http://www.apache.org/licenses/LICENSE-2.0
-# 
+#
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -31,7 +31,7 @@ set( clFFT.Test.Source
 	 ${PROJECT_SOURCE_DIR}/client/openCL.misc.cpp
 	 c-compliance.c
    )
-   
+
 set( clFFT.Test.Headers
 	${PROJECT_SOURCE_DIR}/include/clFFT.h
 	${PROJECT_SOURCE_DIR}/include/unicode.compatibility.h
@@ -46,7 +46,7 @@ set( clFFT.Test.Headers
 	fftw_transform.h
 	typedefs.h
   )
-  
+
 set( clFFT.Test.Files ${clFFT.Test.Source} ${clFFT.Test.Headers} )
 
 set( LD_PTHREAD "" )
@@ -78,7 +78,7 @@ else( )
 	else( )
 		set( clFFT.library "${CMAKE_INSTALL_PREFIX}/lib32" )
 	endif( )
-	
+
 	if( WIN32 )
 		set( clFFT.library "${clFFT.library}/import/clFFT${CMAKE_STATIC_LIBRARY_SUFFIX}" )
 	else( )
@@ -99,11 +99,24 @@ set_target_properties( Test PROPERTIES VERSION ${CLFFT_VERSION} )
 set_target_properties( Test PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIR}/staging" )
 
 # CPack configuration; include the executable into the package
-install( TARGETS Test
-        RUNTIME DESTINATION bin${SUFFIX_BIN}
-        LIBRARY DESTINATION lib${SUFFIX_LIB}
-        ARCHIVE DESTINATION lib${SUFFIX_LIB}/import
-        )
+
+if (WIN32)
+
+    install( TARGETS Test
+    RUNTIME DESTINATION test/bin${SUFFIX_BIN}
+    LIBRARY DESTINATION lib${SUFFIX_LIB}
+    ARCHIVE DESTINATION lib${SUFFIX_LIB}/import
+    )
+
+else()
+
+    install( TARGETS Test
+    RUNTIME DESTINATION share/clFFT/test/bin${SUFFIX_BIN}
+    LIBRARY DESTINATION lib${SUFFIX_LIB}
+    ARCHIVE DESTINATION lib${SUFFIX_LIB}/import
+    )
+
+endif()
 
 get_target_property( testLocation Test LOCATION )
 
@@ -115,4 +128,3 @@ configure_file(
 
 # Register script at run at install time to analyze the executable and copy dependencies into package
 install( SCRIPT "${CMAKE_CURRENT_BINARY_DIR}/copyTestDependencies.cmake")
- 
