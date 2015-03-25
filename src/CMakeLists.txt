@@ -248,7 +248,7 @@ install( FILES
 			"./include" )
 
 if( NOT BUILD_SHARED_LIBRARY )
-    add_definitions( -DBUILD_STATIC )
+  add_definitions( -DCLFFT_BUILD_STATIC )
 endif()
 
 # Recurse into subdirectory and start building files there

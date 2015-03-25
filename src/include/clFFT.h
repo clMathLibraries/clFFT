@@ -47,7 +47,7 @@
 		#define inline __inline
 	#endif
 
-    #if defined( BUILD_STATIC )
+    #if defined( CLFFT_BUILD_STATIC )
         #define CLFFTAPI
     #elif defined( CLFFT_EXPORTS )
         #define CLFFTAPI __declspec( dllexport )
