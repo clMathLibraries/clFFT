@@ -63,7 +63,7 @@ add_definitions( "/DSTATTIMER_EXPORTS" )
 # Include standard OpenCL headers
 include_directories( ${OPENCL_INCLUDE_DIRS} ${PROJECT_BINARY_DIR}/include ../include )
 
-if(BUILD_SHARED_LIBRARY)
+if(BUILD_SHARED_LIBS)
   add_library( StatTimer SHARED ${StatTimer.Files} )
 else()
   add_library( StatTimer STATIC ${StatTimer.Files} )
