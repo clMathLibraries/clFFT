@@ -247,8 +247,8 @@ install( FILES
 		DESTINATION
 			"./include" )
 
-if( NOT BUILD_SHARED_LIBS )
-        add_definitions( -DBUILD_STATIC )
+if( NOT BUILD_SHARED_LIBRARY )
+    add_definitions( -DBUILD_STATIC )
 endif()
 
 # Recurse into subdirectory and start building files there
