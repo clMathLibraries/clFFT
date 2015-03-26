@@ -245,7 +245,7 @@ private:
 		preinitialize_strides_to_1_1_1();
 
 		// we need to calculate the strides if tightly packed
-		if( strides_in == tightly_packed) {
+		if( strides_in == nullptr ) {
 			_strides[dimx] = 1;
 			for( size_t i = 1; i < _number_of_dimensions; ++i )
 			{
