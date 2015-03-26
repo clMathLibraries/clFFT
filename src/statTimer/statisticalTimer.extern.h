@@ -40,7 +40,7 @@
 		#define inline __inline
 	#endif
 
-    #if defined( CLFFT_BUILD_STATIC )
+    #if defined( CLFFT_STATIC )
         #define STATTIMER_API
     #elif defined( STATTIMER_EXPORTS )
         #define STATTIMER_API __declspec( dllexport )

@@ -237,6 +237,9 @@ message( STATUS "CMAKE_CXX_COMPILER release flags: " ${CMAKE_CXX_FLAGS_RELEASE} 
 message( STATUS "CMAKE_CXX_COMPILER relwithdebinfo flags: " ${CMAKE_CXX_FLAGS_RELWITHDEBINFO} )
 message( STATUS "CMAKE_EXE_LINKER link flags: " ${CMAKE_EXE_LINKER_FLAGS} )
 
+if(NOT BUILD_SHARED_LIBS)
+  set(CLFFT_STATIC ON)
+endif()
 # configure a header file to pass the CMake version settings to the source, and package the header files in the output archive
 configure_file( "${PROJECT_SOURCE_DIR}/include/clFFT.version.h.in" "${PROJECT_BINARY_DIR}/include/clFFT.version.h" )
 install( FILES
@@ -246,10 +249,6 @@ install( FILES
 			"include/clAmdFft.version.h"
 		DESTINATION
 			"./include" )
-
-if( NOT BUILD_SHARED_LIBS )
-  add_definitions( -DCLFFT_BUILD_STATIC )
-endif()
 
 # Recurse into subdirectory and start building files there
 if( BUILD_RUNTIME AND IS_DIRECTORY "${PROJECT_SOURCE_DIR}/library" )
