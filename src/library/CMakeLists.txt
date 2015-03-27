@@ -74,11 +74,7 @@ add_definitions( "/DCLFFT_EXPORTS" )
 # Include standard OpenCL headers
 include_directories( ${OPENCL_INCLUDE_DIRS} ${PROJECT_BINARY_DIR}/include ../include )
 
-if(BUILD_SHARED_LIBS)
-  add_library( clFFT SHARED ${clFFT.Files} )
-else()
-  add_library( clFFT STATIC ${clFFT.Files} )
-endif()
+add_library( clFFT ${clFFT.Files} )
 target_link_libraries( clFFT ${OPENCL_LIBRARIES} )
 
 set_target_properties( clFFT PROPERTIES VERSION ${CLFFT_VERSION} )
