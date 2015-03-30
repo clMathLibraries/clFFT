@@ -20,3 +20,5 @@
 #define clfftVersionMajor @CLFFT_VERSION_MAJOR@
 #define clfftVersionMinor @CLFFT_VERSION_MINOR@
 #define clfftVersionPatch @CLFFT_VERSION_PATCH@
+
+#cmakedefine CLFFT_STATIC
