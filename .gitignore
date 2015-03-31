@@ -11,3 +11,6 @@
 *.lai
 *.la
 *.a
+
+# ignore build directory if name is 'build'
+build/

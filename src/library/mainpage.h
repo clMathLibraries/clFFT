@@ -14,7 +14,7 @@
  * limitations under the License.
  * ************************************************************************/
 
-/*! @file clFFT.mainpage.h
+/*! @file mainpage.h
 
 This file contains all documentation, no code, in the form of comment text.  It's purpose is to provide
 chapter 1 of the documentation we produce with doxygen.  This included the title page, installation instructions

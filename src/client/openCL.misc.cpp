@@ -27,6 +27,8 @@
 #include "clFFT.h"
 #include "openCL.misc.h"
 
+
+
 void prettyPrintPlatformInfo( const cl_platform_id& pId )
 {
     size_t platformProfileSize	= 0;
@@ -209,6 +211,23 @@ void prettyPrintDeviceInfo( const cl_device_id& dId )
     std::cout << std::right << std::endl;
 }
 
+void prettyPrintCLPlatforms(std::vector< cl_platform_id >& platforms,
+	std::vector< std::vector< cl_device_id > >& devices)
+{
+	for (unsigned int i = 0; i < platforms.size(); ++i)
+	{
+		std::cout << "OpenCL platform [ " << i << " ]:" << std::endl;
+		prettyPrintPlatformInfo(platforms[i]);
+
+		for (unsigned int n = 0; n < devices[i].size(); ++n)
+		{
+			std::cout << "OpenCL platform [ " << i << " ], device [ " << n << " ]:" << std::endl;
+			prettyPrintDeviceInfo((devices[i])[n]);
+		}
+	}
+
+}
+
 //	Verify a failed condition; return true on fail
 inline cl_bool OPENCL_V_FAIL( cl_int res )
 {
@@ -334,145 +353,125 @@ std::string prettyPrintclFFTStatus( const cl_int& status )
     }
 }
 
-std::vector< cl_device_id > initializeCL( cl_device_type deviceType,
-                                          cl_uint deviceGpuList,
-                                          cl_context& context,
-                                          bool printclInfo )
+
+int discoverCLPlatforms( cl_device_type deviceType,
+						 std::vector< cl_platform_id >& platforms,
+						 std::vector< std::vector< cl_device_id > >& devices )
 {
-    cl_int status = 0;
+	cl_int status = 0;
 
-    /*
-        * Have a look at the available platforms and pick either
-        * the AMD one if available or a reasonable default.
-        */
+	/*
+	* Find all OpenCL platforms this system has to offer.
+	*/
 
-    cl_uint numPlatforms	= 0;
-    cl_platform_id platform = NULL;
-    OPENCL_V_THROW( ::clGetPlatformIDs( 0, NULL, &numPlatforms ),
-            "Getting number of platforms( ::clGetPlatformsIDs() )" );
+	cl_uint numPlatforms = 0;
+	cl_platform_id platform = NULL;
+	OPENCL_V_THROW(::clGetPlatformIDs(0, NULL, &numPlatforms),
+		"Getting number of platforms( ::clGetPlatformsIDs() )");
 
-    if( numPlatforms > 0 )
-    {
-        std::vector< cl_platform_id > platforms( numPlatforms );
-        OPENCL_V_THROW( ::clGetPlatformIDs( numPlatforms, &platforms[ 0 ], NULL ),
-            "Getting Platform Id's ( ::clGetPlatformsIDs() )" );
+	if (numPlatforms > 0)
+	{
+		platforms.resize( numPlatforms );
+		devices.resize( numPlatforms );
+		OPENCL_V_THROW(::clGetPlatformIDs(numPlatforms, &platforms[0], NULL),
+			"Getting Platform Id's ( ::clGetPlatformsIDs() )");
 
-        //	TODO: How should we determine what platform to choose?  We are just defaulting to the last one reported, as we
-        //	print out the info
-        for( unsigned int i=0; i < numPlatforms; ++i )
-        {
-            if( printclInfo )
-            {
-                std::cout << "OpenCL platform [ " << i << " ]:" << std::endl;
-                prettyPrintPlatformInfo( platforms[i] );
-            }
+		if (NULL == platforms[0])
+		{
+			throw std::runtime_error("No appropriate OpenCL platform could be found");
+		}
+		
+		/*
+		* Now, for each platform get all available devices matching deviceType.
+		*/
+		for (unsigned int i = 0; i < numPlatforms; ++i)
+		{
+			//	Get the device list for deviceType.
+			//
+			cl_uint numDevices = 0;
+			OPENCL_V_WARN(::clGetDeviceIDs(platforms[i], deviceType, 0, NULL, &numDevices),
+				"Getting OpenCL devices ( ::clGetDeviceIDs() )");
+			if (0 == numDevices)
+			{
+				// OPENCL_V_WARN(CLFFT_DEVICE_NOT_AVAILABLE, "No devices available");
+				continue;
+			}
 
-            platform = platforms[i];
-        }
-    }
+			devices[i].resize(numDevices);
+			OPENCL_V_THROW(::clGetDeviceIDs(platforms[i], deviceType, numDevices, &(devices[i])[0], NULL),
+				"Getting OpenCL deviceIDs ( ::clGetDeviceIDs() )");
+		}
+	}
 
-    if( NULL == platform )
-    {
-        throw std::runtime_error( "No appropriate OpenCL platform could be found" );
-    }
+	return 0;
+}
 
-    /*
-     * If we could find our platform, use it. Otherwise use just available platform.
-     */
+std::vector< cl_device_id > initializeCL( cl_device_type deviceType,
+										  cl_int deviceId,
+										  cl_int platformId,
+										  cl_context& context,
+										  bool printclInfo )
+{
+	cl_int status = 0;
+	cl_platform_id platform = NULL;
+	std::vector< cl_device_id > devices(1);
+	devices[0] = NULL;
+	
+	// Have a look at all the available platforms on this system
+	std::vector< cl_platform_id > platformInfos;
+	std::vector< std::vector< cl_device_id > > deviceInfos;
+	discoverCLPlatforms( deviceType, platformInfos, deviceInfos );
 
-    //	Get the device list for this type.
-    //
-    cl_uint num_devices = 0;
-    OPENCL_V_THROW( ::clGetDeviceIDs( platform, deviceType, 0, NULL, &num_devices ),
-        "Getting OpenCL devices ( ::clGetDeviceIDs() )" );
-    if( 0 == num_devices )
-    {
-        OPENCL_V_THROW( CLFFT_DEVICE_NOT_AVAILABLE, "No devices available");
-    }
 
-    std::vector< cl_device_id > deviceIDs( num_devices );
-    OPENCL_V_THROW( ::clGetDeviceIDs( platform, deviceType, num_devices, &deviceIDs[0], NULL),
-        "Getting OpenCL deviceIDs ( ::clGetDeviceIDs() )" );
+	for (unsigned int i = 0; i < platformInfos.size(); ++i)
+	{
+		if(i == platformId)
+		{
+			for (unsigned int n = 0; n < deviceInfos[i].size(); ++n)
+			{
+				if (n == deviceId)
+				{
+					platform = platformInfos[i];
+					devices[0] = deviceInfos[i][n];
 
-    if( (CL_DEVICE_TYPE_GPU == deviceType) && (~cl_uint(0) != deviceGpuList) )
-    {
-        //	The command line options specify to user certain gpu(s)
-        //
-        for( unsigned u = (unsigned) deviceIDs.size(); u-- > 0; )
-        {
-            if( 0 != (deviceGpuList & (1<<u) ) )
-                continue;
+					if(printclInfo)
+					{
+						prettyPrintPlatformInfo(platform);
+						prettyPrintDeviceInfo(devices[0]);
+					}
 
-            //  Remove this GPU from the list
-            deviceIDs[u] = deviceIDs.back();
-            deviceIDs.pop_back();
-        }
-    }
+					break;
+				}
+			}
 
-    if( 0 == deviceIDs.size( ) )
-    {
-        OPENCL_V_THROW( CLFFT_DEVICE_NOT_AVAILABLE, "No devices available");
-    }
+			break;
+		}
+	}
 
-    cl_context_properties cps[3] = { CL_CONTEXT_PLATFORM, (cl_context_properties)platform, 0 };
 
-    /////////////////////////////////////////////////////////////////
-    // Create an OpenCL context
-    /////////////////////////////////////////////////////////////////
-    context = clCreateContext( cps,
-                               (cl_uint) deviceIDs.size(),
-                               & deviceIDs[0],
-                               NULL,
-                               NULL,
-                               &status);
-    OPENCL_V_THROW( status, "Creating Context ( ::clCreateContextFromType() )" );
 
-    /* First, get the size of device list data */
-    size_t deviceListSize;
-    OPENCL_V_THROW( ::clGetContextInfo( context, CL_CONTEXT_DEVICES, 0, NULL, &deviceListSize ),
-        "Getting device array size ( ::clGetContextInfo() )" );
+	// Do some error checking if we really selected a valid platform and a valid device
+	if (NULL == devices[0])
+	{
+		OPENCL_V_THROW(CLFFT_DEVICE_NOT_AVAILABLE, "No devices available");
+	}
 
-    /////////////////////////////////////////////////////////////////
-    // Detect OpenCL devices
-    /////////////////////////////////////////////////////////////////
-    std::vector< cl_device_id > devices( deviceListSize/sizeof( cl_device_id ) );
+	if (NULL == platform)
+	{
+		throw std::runtime_error("No appropriate OpenCL platform could be found");
+	}	
+		
+	// Create an OpenCL context
+	cl_context_properties cps[3] = { CL_CONTEXT_PLATFORM, (cl_context_properties) platform, 0 };
+	context = clCreateContext(cps,
+		(cl_uint)devices.size(),
+		&devices[0],
+		NULL,
+		NULL,
+		&status);
+	OPENCL_V_THROW(status, "Creating Context ( ::clCreateContextFromType() )");
 
-    /* Now, get the device list data */
-    OPENCL_V_THROW( ::clGetContextInfo( context, CL_CONTEXT_DEVICES, deviceListSize, &devices[ 0 ], NULL ),
-        "Getting device array ( ::clGetContextInfo() )" );
-
-    if( printclInfo )
-    {
-        cl_uint cContextDevices	= 0;
-
-        size_t deviceVersionSize	= 0;
-        OPENCL_V_THROW( ::clGetDeviceInfo( devices[0], CL_DEVICE_VERSION, 0, NULL, &deviceVersionSize ),
-            "Getting CL_DEVICE_VERSION Platform Info string size ( ::clGetDeviceInfo() )" );
-
-        std::vector< char > szDeviceVersion( deviceVersionSize );
-        OPENCL_V_THROW( ::clGetDeviceInfo( devices[0], CL_DEVICE_VERSION, deviceVersionSize, &szDeviceVersion[ 0 ], NULL ),
-            "Getting CL_DEVICE_VERSION Platform Info string ( ::clGetDeviceInfo() )" );
-
-        char openclstr[11]="OpenCL 1.0";
-
-        if (!strncmp((const char*)&szDeviceVersion[ 0 ], openclstr, 10))
-        {
-            cContextDevices	= 1;
-        }
-        else
-        {
-            OPENCL_V_THROW( ::clGetContextInfo( context, CL_CONTEXT_NUM_DEVICES, sizeof( cContextDevices ), &cContextDevices, NULL ),
-                "Getting number of context devices ( ::clGetContextInfo() )" );
-        }
-
-        for( cl_uint i = 0; i < cContextDevices; ++i )
-        {
-            std::cout << "OpenCL devices [ " << i << " ]:" << std::endl;
-            prettyPrintDeviceInfo( devices[i] );
-        }
-    }
-
-    return devices;
+	return devices;
 }
 
 int cleanupCL( cl_context* context, cl_command_queue* commandQueue,

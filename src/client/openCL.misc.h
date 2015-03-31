@@ -30,13 +30,26 @@
 #endif
 
 /*
+ * \brief OpenCL platform and device discovery
+ *        Creates a list of OpenCL platforms
+ *        and their associated devices 
+ */
+int discoverCLPlatforms( cl_device_type deviceType,
+					     std::vector< cl_platform_id >& platforms,
+						 std::vector< std::vector< cl_device_id > >& devices );
+
+void prettyPrintCLPlatforms(std::vector< cl_platform_id >& platforms,
+	std::vector< std::vector< cl_device_id > >& devices);
+
+/*
  * \brief OpenCL related initialization
  *        Create Context, Device list
  *        Load CL file, compile, link CL source
  *		  Build program and kernel objects
  */
 std::vector< cl_device_id > initializeCL( cl_device_type deviceType,
-										  cl_uint deviceGpuList,
+										  cl_int deviceId,
+										  cl_int platformId,
 										  cl_context& context,
 										  bool printclInfo );
 
@@ -101,6 +114,34 @@ inline cl_int OpenCL_V_Throw ( cl_int res, const std::string& msg, size_t lineno
 	return	res;
 }
 #define OPENCL_V_THROW(_status,_message) OpenCL_V_Throw (_status, _message, __LINE__)
+
+inline cl_int OpenCL_V_Warn(cl_int res, const std::string& msg, size_t lineno)
+{
+	switch (res)
+	{
+		case	CL_SUCCESS:		/**< No error */
+			break;
+		case	CL_DEVICE_NOT_FOUND:
+			// This happens all the time when discovering the OpenCL capabilities of the system,
+			// so do nothing here.
+			break;
+		default:
+		{
+			std::stringstream tmp;
+			tmp << "OPENCL_V_WARN< ";
+			tmp << prettyPrintclFFTStatus(res);
+			tmp << " > (";
+			tmp << lineno;
+			tmp << "): ";
+			tmp << msg;
+			std::string errorm(tmp.str());
+			std::cout << errorm << std::endl;
+		}
+	}
+
+	return	res;
+}
+#define OPENCL_V_WARN(_status,_message) OpenCL_V_Warn (_status, _message, __LINE__);
 
 /*
  * \brief Release OpenCL resources (Context, Memory etc.)

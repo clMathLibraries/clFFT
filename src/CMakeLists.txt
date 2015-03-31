@@ -56,7 +56,7 @@ set( CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${PROJECT_SOURCE_DIR} )
 
 # On windows, it's convenient to change the default install prefix such that it does NOT point to 'program files'
 # Need to check out CMAKE_RUNTIME_OUTPUT_DIRECTORY variable, and see if that eliminates the need to modify install path
-if( CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT )
+if( WIN32 AND CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT )
 	set( CMAKE_INSTALL_PREFIX "${PROJECT_BINARY_DIR}/package" CACHE PATH "Install path prefix, prepended onto install directories" FORCE )
 endif( )
 
@@ -71,6 +71,7 @@ option( BUILD_CLIENT "Build a command line clFFT client program with a variety o
 option( BUILD_TEST "Build the library testing suite (dependency on google test, Boost, and FFTW)" ON )
 option( BUILD_LOADLIBRARIES "Build the optional dynamic load libraries that the FFT runtime will search for" ON )
 option( BUILD_SHARED_LIBRARY "Build shared libraries." ON)
+option( BUILD_EXAMPLES "Build examples." ON)
 
 # If BOOST_ROOT is defined as an environment value, use that value and cache it so it's visible in the cmake-gui.
 # Otherwise, create a sensible default that the user can change
@@ -115,8 +116,9 @@ set( SUFFIX_BIN_DEFAULT "" )
 if( BUILD64 )
 	set_property( GLOBAL PROPERTY FIND_LIBRARY_USE_LIB64_PATHS TRUE )
 	message( STATUS "64bit build - FIND_LIBRARY_USE_LIB64_PATHS TRUE" )
-
-    set( SUFFIX_LIB_DEFAULT "64" )
+    if( NOT APPLE )
+      set( SUFFIX_LIB_DEFAULT "64" )
+    endif()
 else( )
 	set_property( GLOBAL PROPERTY FIND_LIBRARY_USE_LIB64_PATHS FALSE )
 	message( STATUS "32bit build - FIND_LIBRARY_USE_LIB64_PATHS FALSE" )
@@ -155,17 +157,7 @@ find_package( OpenCL )
 # This will define FFTW_FOUND
 find_package( FFTW )
 
-if( (${CMAKE_MAJOR_VERSION}.${CMAKE_MINOR_VERSION} VERSION_LESS 2.8) )
-	message( STATUS "Cmake version 2.8 or greater needed to use GTest" )
-else()
-	# This will define GTEST_FOUND
-	find_package( GTest )
-
-	# Hack to get googletest v1.6 to work with vs2012
-	if( MSVC11 )
-		add_definitions( "/D_VARIADIC_MAX=10" )
-	endif( )
-endif()
+include(gtest.cmake)
 
 # Enable building of the clACML client if both requested and all dependencies are found
 if( BUILD_CLIENT AND Boost_FOUND )
@@ -186,6 +178,11 @@ endif( )
 get_filename_component( C_COMPILER_NAME ${CMAKE_C_COMPILER} NAME_WE )
 # message( "C_COMPILER_NAME: " ${C_COMPILER_NAME} )
 # message( "CMAKE_C_COMPILER: " ${CMAKE_C_COMPILER} )
+
+if(APPLE)
+    # avoid warning on newer cmake versions
+    set(CMAKE_MACOSX_RPATH 0)
+endif()
 
 # Set common compile and link options
 if( MSVC )
@@ -282,6 +279,29 @@ if( UNIT_TEST AND IS_DIRECTORY "${PROJECT_SOURCE_DIR}/tests" )
 else( )
 	message( "GoogleTest unit tests will NOT be built" )
 endif( )
+
+if( BUILD_EXAMPLES )
+    add_subdirectory( examples )
+endif()
+
+if(WIN32)
+  set(destdir CMake)
+else()
+  set(destdir share/clFFT)
+endif()
+string(REGEX REPLACE "[^/]+" ".." reldir "${destdir}")
+configure_file(
+  ${CMAKE_CURRENT_SOURCE_DIR}/clFFTConfigVersion.cmake.in
+  ${CMAKE_CURRENT_BINARY_DIR}/clFFTConfigVersion.cmake
+  @ONLY)
+configure_file(
+  ${CMAKE_CURRENT_SOURCE_DIR}/clFFTConfig.cmake.in
+  ${CMAKE_CURRENT_BINARY_DIR}/clFFTConfig.cmake
+  @ONLY)
+install(EXPORT Library DESTINATION ${destdir} FILE clFFTTargets.cmake)
+install(FILES ${CMAKE_CURRENT_BINARY_DIR}/clFFTConfigVersion.cmake
+  ${CMAKE_CURRENT_BINARY_DIR}/clFFTConfig.cmake
+  DESTINATION ${destdir})
 
 # The following code is setting variables to control the behavior of CPack to generate our
 if( WIN32 )

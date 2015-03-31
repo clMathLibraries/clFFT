@@ -87,8 +87,9 @@ size_t max_mem_available_on_cl_device(size_t device_index) {
 	std::vector< cl_device_id >	device_id;
 	cl_context tempContext = NULL;
 	device_id = initializeCL(
-		device_type,
-		device_gpu_list,
+		g_device_type,
+		(cl_int)device_index,
+		g_platform_id,
 		tempContext,
 		false
 		);

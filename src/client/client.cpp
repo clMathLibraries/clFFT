@@ -47,7 +47,7 @@ template < typename T >
 int transform( size_t* lengths, const size_t *inStrides, const size_t *outStrides, size_t batch_size,
 				clfftLayout in_layout, clfftLayout out_layout,
 				clfftResultLocation place, clfftPrecision precision, clfftDirection dir,
-				cl_device_type deviceType, cl_uint deviceGpuList, bool printInfo,
+				cl_device_type deviceType, cl_int deviceId, cl_int platformId, bool printInfo,
 				cl_uint command_queue_flags, cl_uint profile_count,
 				std::auto_ptr< clfftSetupData > setupData )
 {
@@ -168,7 +168,7 @@ int transform( size_t* lengths, const size_t *inStrides, const size_t *outStride
 			//	This call creates our openCL context and sets up our devices; expected to throw on error
 			size_of_input_buffers_in_bytes = fftBatchSize * sizeof( std::complex< T > );
 
-			device_id = initializeCL( deviceType, deviceGpuList, context, printInfo );
+			device_id = initializeCL( deviceType, deviceId, platformId, context, printInfo );
 			createOpenCLCommandQueue( context,
 				command_queue_flags, queue,
 				device_id,
@@ -214,7 +214,7 @@ int transform( size_t* lengths, const size_t *inStrides, const size_t *outStride
 			//	This call creates our openCL context and sets up our devices; expected to throw on error
 			size_of_input_buffers_in_bytes = fftBatchSize * sizeof( T );
 
-			device_id = initializeCL( deviceType, deviceGpuList, context, printInfo );
+			device_id = initializeCL( deviceType, deviceId, platformId, context, printInfo );
 			createOpenCLCommandQueue( context,
 				command_queue_flags, queue,
 				device_id,
@@ -264,7 +264,7 @@ int transform( size_t* lengths, const size_t *inStrides, const size_t *outStride
 			//	This call creates our openCL context and sets up our devices; expected to throw on error
 			size_of_input_buffers_in_bytes = fftBatchSize * sizeof( std::complex< T > );
 
-			device_id = initializeCL( deviceType, deviceGpuList, context, printInfo );
+			device_id = initializeCL( deviceType, deviceId, platformId, context, printInfo );
 			createOpenCLCommandQueue( context,
 				command_queue_flags, queue,
 				device_id,
@@ -298,7 +298,7 @@ int transform( size_t* lengths, const size_t *inStrides, const size_t *outStride
 			//	This call creates our openCL context and sets up our devices; expected to throw on error
 			size_of_input_buffers_in_bytes = fftBatchSize * sizeof( T );
 
-			device_id = initializeCL( deviceType, deviceGpuList, context, printInfo );
+			device_id = initializeCL( deviceType, deviceId, platformId, context, printInfo );
 			createOpenCLCommandQueue( context,
 				command_queue_flags, queue,
 				device_id,
@@ -337,7 +337,7 @@ int transform( size_t* lengths, const size_t *inStrides, const size_t *outStride
 			//	This call creates our openCL context and sets up our devices; expected to throw on error
 			size_of_input_buffers_in_bytes = fftBatchSize * sizeof( T );
 
-			device_id = initializeCL( deviceType, deviceGpuList, context, printInfo );
+			device_id = initializeCL( deviceType, deviceId, platformId, context, printInfo );
 			createOpenCLCommandQueue( context,
 				command_queue_flags, queue,
 				device_id,
@@ -766,9 +766,10 @@ int _tmain( int argc, _TCHAR* argv[] )
 
 #endif /* MEMORYREPORT */
 
-	//	OpenCL state
-	cl_device_type		deviceType	= CL_DEVICE_TYPE_DEFAULT;
-	cl_uint				deviceGpuList     = 0;	// a bitmap set
+	//	OpenCL state 
+	cl_device_type		deviceType	= CL_DEVICE_TYPE_ALL;
+	cl_int				deviceId = 0;
+	cl_int				platformId = 0;
 
 	//	FFT state
 
@@ -798,10 +799,13 @@ int _tmain( int argc, _TCHAR* argv[] )
 		desc.add_options()
 			( "help,h",        "produces this help message" )
 			( "version,v",     "Print queryable version information from the clFFT library" )
-			( "clInfo,i",      "Print queryable information of the OpenCL runtime" )
-			( "gpu,g",         "Force instantiation of an OpenCL GPU device" )
-			( "cpu,c",         "Force instantiation of an OpenCL CPU device" )
-			( "all,a",         "Force instantiation of all OpenCL devices" )
+			( "clinfo,i",      "Print queryable information of all the OpenCL runtimes and devices" )
+			( "printChosen",   "Print queryable information of the selected OpenCL runtime and device" )
+			( "gpu,g",         "Force selection of OpenCL GPU devices only" )
+			( "cpu,c",         "Force selection of OpenCL CPU devices only" )
+			( "all,a",         "Force selection of all OpenCL devices (default)" )
+			( "platform",      po::value< cl_int >( &platformId )->default_value( 0 ),   "Select a specific OpenCL platform id as it is reported by clinfo" )
+			( "device",        po::value< cl_int >( &deviceId )->default_value( 0 ),   "Select a specific OpenCL device id as it is reported by clinfo" )
 			( "outPlace,o",    "Out of place FFT transform (default: in place)" )
 			( "double",		   "Double precision transform (default: single)" )
 			( "inv",			"Backward transform (default: forward)" )
@@ -856,16 +860,15 @@ int _tmain( int argc, _TCHAR* argv[] )
 			| ((vm.count( "all" ) > 0) ? 4 : 0);
 		if ((mutex & (mutex-1)) != 0) {
 			terr << _T("You have selected mutually-exclusive OpenCL device options:") << std::endl;
-			if (vm.count ( "gpu" )  > 0) terr << _T("    gpu,g   Force instantiation of an OpenCL GPU device" ) << std::endl;
-			if (vm.count ( "cpu" )  > 0) terr << _T("    cpu,c   Force instantiation of an OpenCL CPU device" ) << std::endl;
-			if (vm.count ( "all" )  > 0) terr << _T("    all,a   Force instantiation of all OpenCL devices" ) << std::endl;
+			if (vm.count ( "gpu" )  > 0) terr << _T("    gpu,g   Force selection of OpenCL GPU devices only" ) << std::endl;
+			if (vm.count ( "cpu" )  > 0) terr << _T("    cpu,c   Force selection of OpenCL CPU devices only" ) << std::endl;
+			if (vm.count ( "all" )  > 0) terr << _T("    all,a   Force selection of all OpenCL devices (default)" ) << std::endl;
 			return 1;
 		}
 
 		if( vm.count( "gpu" ) )
 		{
 			deviceType	= CL_DEVICE_TYPE_GPU;
-			deviceGpuList = ~0;
 		}
 
 		if( vm.count( "cpu" ) )
@@ -878,8 +881,17 @@ int _tmain( int argc, _TCHAR* argv[] )
 			deviceType	= CL_DEVICE_TYPE_ALL;
 		}
 
+		if( vm.count( "clinfo" ) )
+		{
+			std::vector< cl_platform_id > platformInfos;
+			std::vector< std::vector< cl_device_id > > deviceInfos;
+			discoverCLPlatforms( deviceType, platformInfos, deviceInfos );
+			prettyPrintCLPlatforms(platformInfos, deviceInfos);
+			return 0;
+		}
+
 		bool printInfo = false;
-		if( vm.count( "clInfo" ) )
+		if( vm.count( "printChosen" ) )
 		{
 			printInfo = true;
 		}
@@ -987,9 +999,9 @@ int _tmain( int argc, _TCHAR* argv[] )
 		}
 
 		if( precision == CLFFT_SINGLE )
-			transform<float>( lengths, iStrides, oStrides, batchSize, inLayout, outLayout, place, precision, dir, deviceType, deviceGpuList, printInfo, command_queue_flags, profile_count, setupData );
+			transform<float>( lengths, iStrides, oStrides, batchSize, inLayout, outLayout, place, precision, dir, deviceType, deviceId, platformId, printInfo, command_queue_flags, profile_count, setupData );
 		else
-			transform<double>( lengths, iStrides, oStrides, batchSize, inLayout, outLayout, place, precision, dir, deviceType, deviceGpuList, printInfo, command_queue_flags, profile_count, setupData );
+			transform<double>( lengths, iStrides, oStrides, batchSize, inLayout, outLayout, place, precision, dir, deviceType, deviceId, platformId, printInfo, command_queue_flags, profile_count, setupData );
 	}
 	catch( std::exception& e )
 	{

@@ -57,8 +57,10 @@ void inline BSF (unsigned long * index, size_t & mask) {
 bool suppress_output = false;
 
 //	Globals that user can set on the command line, that need to be passed down to unit tests
-cl_device_type device_type = CL_DEVICE_TYPE_GPU;
-cl_uint device_gpu_list = ~0x0;
+cl_device_type g_device_type = CL_DEVICE_TYPE_ALL;
+cl_int g_device_id = 0;
+cl_int g_platform_id = 0;
+
 bool comparison_type = root_mean_square;
 
 int main( int argc, char **argv )
@@ -103,7 +105,10 @@ int main( int argc, char **argv )
 		( "noVersion",     "Don't print version information from the clFFT library" )
 		( "noInfoCL",      "Don't print information from the OpenCL runtime" )
 		( "cpu,c",         "Run tests on a CPU device" )
-		( "gpu,g",         "Run tests on a GPU device (default)" )
+		( "gpu,g",         "Run tests on a GPU device" )
+		( "all,a",         "Run tests on any device type (default)" )
+		( "platform",      po::value< cl_int >( &g_platform_id )->default_value( 0 ),   "Select a specific OpenCL platform id as it is reported by clinfo" )
+		( "device",        po::value< cl_int >( &g_device_id )->default_value( 0 ),   "Select a specific OpenCL device id as it is reported by clinfo" )
 		( "pointwise,p",         "Do a pointwise comparison to determine test correctness (default: use root mean square)" )
 		( "tolerance,t",        po::value< float >( &tolerance )->default_value( 0.001f ),   "tolerance level to use when determining test pass/fail" )
 		( "numRandom,r",        po::value< size_t >( &number_of_random_tests )->default_value( 2000 ),   "number of random tests to run" )
@@ -125,24 +130,31 @@ int main( int argc, char **argv )
 	std::cout << std::endl;
 
 	size_t mutex = ((vm.count( "gpu" ) > 0) ? 1 : 0)
-		| ((vm.count( "cpu" ) > 0) ? 2 : 0);
+		| ((vm.count( "cpu" ) > 0) ? 2 : 0)
+		| ((vm.count( "all" ) > 0) ? 4 : 0);
 	if ((mutex & (mutex-1)) != 0) {
 		terr << _T("You have selected mutually-exclusive OpenCL device options:") << std::endl;
-		if (vm.count ( "cpu" )  > 0) terr << _T("    cpu, c	Run tests on a CPU device" ) << std::endl;
-		if (vm.count ( "gpu" )  > 0) terr << _T("    gpu, g	Run tests on a GPU device" ) << std::endl;
+		if (vm.count ( "gpu" )  > 0) terr << _T("    gpu,g   Force selection of OpenCL GPU devices only" ) << std::endl;
+		if (vm.count ( "cpu" )  > 0) terr << _T("    cpu,c   Force selection of OpenCL CPU devices only" ) << std::endl;
+		if (vm.count ( "all" )  > 0) terr << _T("    all,a   Force selection of all OpenCL devices (default)" ) << std::endl;
 		return 1;
-	}
-
-	if( vm.count( "cpu" ) )
-	{
-		device_type = CL_DEVICE_TYPE_CPU;
 	}
 
 	if( vm.count( "gpu" ) )
 	{
-		device_type	= CL_DEVICE_TYPE_GPU;
-		device_gpu_list = ~0;
+		g_device_type	= CL_DEVICE_TYPE_GPU;
 	}
+
+	if( vm.count( "cpu" ) )
+	{
+		g_device_type	= CL_DEVICE_TYPE_CPU;
+	}
+
+	if( vm.count( "all" ) )
+	{
+		g_device_type	= CL_DEVICE_TYPE_ALL;
+	}
+
 
 	//	Print version by default
 	if( !vm.count( "noVersion" ) )
@@ -168,7 +180,7 @@ int main( int argc, char **argv )
 		cl_context tempContext = NULL;
 		cl_command_queue tempQueue = NULL;
 		cl_event tempEvent = NULL;
-		std::vector< cl_device_id > device_id = ::initializeCL( device_type, device_gpu_list, tempContext, true );
+		::initializeCL(g_device_type, g_device_id, g_platform_id, tempContext, true);
 		::cleanupCL( &tempContext, &tempQueue, 0, NULL, 0, NULL, &tempEvent );
 	}
 
