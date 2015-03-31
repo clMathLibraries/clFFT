@@ -37,7 +37,7 @@ elseif( APPLE )
 	set( CMAKE_CXX_FLAGS "-std=c++11 -stdlib=libc++ ${CMAKE_CXX_FLAGS}" )	
 else( )
 	# To use the dlopen() and dlclose() functions, we should link with libdl
-	set( DL_LIB "-ldl" )
+	set( DL_LIB "-ldl -lrt" )
 endif( )
 
 # Include standard OpenCL headers
