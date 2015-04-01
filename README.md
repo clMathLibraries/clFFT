@@ -11,7 +11,7 @@ Pre-built binaries are available [here][binary_release].
 
 ## What's New
 
-The commit ID with SHA: 2a533358c6a559d1a996e1c3077dd05bc8845191 in the
+The [commit](https://github.com/clMathLibraries/clFFT/commit/2a533358c6a559d1a996e1c3077dd05bc8845191) in the
 develop branch has added important updates to the library. They 
 include:
 -   Significant uplift of 1D complex transform performance
