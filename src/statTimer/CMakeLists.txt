@@ -63,11 +63,7 @@ add_definitions( "/DSTATTIMER_EXPORTS" )
 # Include standard OpenCL headers
 include_directories( ${OPENCL_INCLUDE_DIRS} ${PROJECT_BINARY_DIR}/include ../include )
 
-if(BUILD_SHARED_LIBRARY)
-  add_library( StatTimer SHARED ${StatTimer.Files} )
-else()
-  add_library( StatTimer STATIC ${StatTimer.Files} )
-endif()
+add_library( StatTimer ${StatTimer.Files} )
 set_target_properties( StatTimer PROPERTIES VERSION ${CLFFT_VERSION} )
 set_target_properties( StatTimer PROPERTIES SOVERSION ${CLFFT_SOVERSION} )
 set_target_properties( StatTimer PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIR}/staging" )

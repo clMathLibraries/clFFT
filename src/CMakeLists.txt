@@ -70,7 +70,7 @@ option( BUILD_RUNTIME "Build the FFT runtime library" ON )
 option( BUILD_CLIENT "Build a command line clFFT client program with a variety of configurable parameters (dependency on Boost)" ON )
 option( BUILD_TEST "Build the library testing suite (dependency on google test, Boost, and FFTW)" ON )
 option( BUILD_LOADLIBRARIES "Build the optional dynamic load libraries that the FFT runtime will search for" ON )
-option( BUILD_SHARED_LIBRARY "Build shared libraries." ON)
+option( BUILD_SHARED_LIBS "Build shared libraries." ON)
 option( BUILD_EXAMPLES "Build examples." ON)
 
 # If BOOST_ROOT is defined as an environment value, use that value and cache it so it's visible in the cmake-gui.
@@ -237,6 +237,9 @@ message( STATUS "CMAKE_CXX_COMPILER release flags: " ${CMAKE_CXX_FLAGS_RELEASE} 
 message( STATUS "CMAKE_CXX_COMPILER relwithdebinfo flags: " ${CMAKE_CXX_FLAGS_RELWITHDEBINFO} )
 message( STATUS "CMAKE_EXE_LINKER link flags: " ${CMAKE_EXE_LINKER_FLAGS} )
 
+if(NOT BUILD_SHARED_LIBS)
+  set(CLFFT_STATIC ON)
+endif()
 # configure a header file to pass the CMake version settings to the source, and package the header files in the output archive
 configure_file( "${PROJECT_SOURCE_DIR}/include/clFFT.version.h.in" "${PROJECT_BINARY_DIR}/include/clFFT.version.h" )
 install( FILES
@@ -246,7 +249,6 @@ install( FILES
 			"include/clAmdFft.version.h"
 		DESTINATION
 			"./include" )
-
 
 # Recurse into subdirectory and start building files there
 if( BUILD_RUNTIME AND IS_DIRECTORY "${PROJECT_SOURCE_DIR}/library" )
