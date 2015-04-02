@@ -300,7 +300,7 @@ static clfftStatus genTransposePrototype( const FFTGeneratedTransposeGCNAction::
 }
 
 static clfftStatus genTransposeKernel( const FFTGeneratedTransposeGCNAction::Signature & params, std::string& strKernel, const tile& lwSize, const size_t reShapeFactor, 
-                                            const size_t loopCount, const size_t outRowPadding )
+                                            const size_t loopCount, const tile& blockSize, const size_t outRowPadding )
 {
     strKernel.reserve( 4096 );
     std::stringstream transKernel( std::stringstream::out );
@@ -385,22 +385,7 @@ static clfftStatus genTransposeKernel( const FFTGeneratedTransposeGCNAction::Sig
 		clKernWrite( transKernel, 3 ) << "const Tile localIndex = { get_local_id( 0 ), get_local_id( 1 ) }; " << std::endl;
 		clKernWrite( transKernel, 3 ) << "const Tile localExtent = { get_local_size( 0 ), get_local_size( 1 ) }; " << std::endl;
 		clKernWrite( transKernel, 3 ) << "const Tile groupIndex = { get_group_id( 0 ), get_group_id( 1 ) };" << std::endl;
-		// clKernWrite( transKernel, 3 ) << "const Tile groupExtent = { get_num_groups( 0 ), get_num_groups( 1 ) }; " << std::endl;
 		clKernWrite( transKernel, 3 ) << std::endl;
-
-		// Debug index code to see what indices we recieve
-		//clKernWrite( transKernel, 3 ) << "printf( \"localExtent: (%lu, %lu) \", localExtent.x, localExtent.x );" << std::endl;
-		//clKernWrite( transKernel, 3 ) << "printf( \"localIndex.x: %lu   \", localIndex.x );" << std::endl;
-		//clKernWrite( transKernel, 3 ) << "printf( \"localIndex.x: %lu   \", localIndex.x );" << std::endl;
-		//clKernWrite( transKernel, 3 ) << "if( localIndex.x == 0 && localIndex.y == 0) {\n" << std::endl;
-		//clKernWrite( transKernel, 6 ) << "printf( \"localIndex.x: %lu   \", localIndex.x );" << std::endl;
-		//clKernWrite( transKernel, 6 ) << "printf( \"localIndex.y: %lu   \", localIndex.y );" << std::endl;
-		//clKernWrite( transKernel, 6 ) << "printf( \"groupIndex.x: %lu   \", groupIndex.x );" << std::endl;
-		//clKernWrite( transKernel, 6 ) << "printf( \"groupIndex.y: %lu\\n\", groupIndex.y );" << std::endl;
-		//clKernWrite( transKernel, 3 ) << "}\n" << std::endl;
-
-		// This is an interesting idea in that we might be able to reshape the input 1D array as a 2D array
-		//clKernWrite( transKernel, 3 ) << "global " << dtInput << " (*myTileIn)[ 4096 ] =(global " << dtInput << " (*)[ 4096 ]) " << pmComplexIn << ";" << std::endl;
 
 
 
@@ -468,40 +453,92 @@ static clfftStatus genTransposeKernel( const FFTGeneratedTransposeGCNAction::Sig
 
 		// This is the loop reading through the Tile
 		clKernWrite( transKernel, 3 ) << dtComplex << " tmp;" << std::endl;
-		clKernWrite( transKernel, 3 ) << "rowSizeinUnits = " << params.fft_inStride[ 1 ] << ";" << std::endl; // get_num_groups( 0 ) * wgTileExtent.x;" << std::endl;
-		clKernWrite( transKernel, 3 ) << "for( uint t=0; t < wgUnroll; t++ )" << std::endl;
-		clKernWrite( transKernel, 3 ) << "{" << std::endl;
+		clKernWrite( transKernel, 3 ) << "rowSizeinUnits = " << params.fft_inStride[ 1 ] << ";" << std::endl; 
 
-		clKernWrite( transKernel, 6 ) << "size_t xInd = localIndex.x + localExtent.x * ( localIndex.y % wgTileExtent.y ); " << std::endl;
-		clKernWrite( transKernel, 6 ) << "size_t yInd = localIndex.y/wgTileExtent.y + t * wgTileExtent.y; " << std::endl;
+		bool branchingInX = ((params.fft_N[0] % blockSize.x) != 0);
+		bool branchingInY = ((params.fft_N[1] % blockSize.y) != 0);
+		bool branching = branchingInX || branchingInY;
 
-		// Calculating the index seperately enables easier debugging through tools
-		clKernWrite( transKernel, 6 ) << "size_t gInd = xInd + rowSizeinUnits * yInd;" << std::endl;
-
-		switch( params.fft_inputLayout )
+		if(branching)
 		{
-		case CLFFT_COMPLEX_INTERLEAVED:
-			clKernWrite( transKernel, 6 ) << "tmp = tileIn[ gInd ];" << std::endl;
-			break;
-		case CLFFT_COMPLEX_PLANAR:
-			clKernWrite( transKernel, 6 ) << "tmp.s0 = realTileIn[ gInd ];" << std::endl;
-			clKernWrite( transKernel, 6 ) << "tmp.s1 = imagTileIn[ gInd ];" << std::endl;
-			break;
-		case CLFFT_HERMITIAN_INTERLEAVED:
-		case CLFFT_HERMITIAN_PLANAR:
-		case CLFFT_REAL:
-			return CLFFT_TRANSPOSED_NOTIMPLEMENTED;
+			clKernWrite( transKernel, 3 ) << std::endl;
+			clKernWrite( transKernel, 3 ) << "bool branching = ( (groupIndex.x == " <<
+				(params.fft_N[0] / blockSize.x) << ") || (currDimSize == " <<
+				(params.fft_N[1] / blockSize.y) << ") );" << std::endl;
+			clKernWrite( transKernel, 3 ) << std::endl;
 		}
 
-		clKernWrite( transKernel, 6 ) << "// Transpose of Tile data happens here" << std::endl;
+		for(size_t i = 0; i<2; i++)
+		{
+			if(branching)
+				if(!i)
+				{
+					clKernWrite( transKernel, 3 ) << "if(branching)" << std::endl;
+					clKernWrite( transKernel, 3 ) << "{" << std::endl;
+				}
+				else
+				{
+					clKernWrite( transKernel, 3 ) << "else" << std::endl;
+					clKernWrite( transKernel, 3 ) << "{" << std::endl;
+				}
 
 
-		// If requested, generate the Twiddle math to multiply constant values
-		if( params.fft_3StepTwiddle )
-			genTwiddleMath( params, transKernel, dtComplex, fwd );
+			clKernWrite( transKernel, 3 ) << "for( uint t=0; t < wgUnroll; t++ )" << std::endl;
+			clKernWrite( transKernel, 3 ) << "{" << std::endl;
 
-		clKernWrite( transKernel, 6 ) << "lds[ xInd ][ yInd ] = tmp; " << std::endl;
-		clKernWrite( transKernel, 3 ) << "}" << std::endl;
+			clKernWrite( transKernel, 6 ) << "size_t xInd = localIndex.x + localExtent.x * ( localIndex.y % wgTileExtent.y ); " << std::endl;
+			clKernWrite( transKernel, 6 ) << "size_t yInd = localIndex.y/wgTileExtent.y + t * wgTileExtent.y; " << std::endl;
+
+			// Calculating the index seperately enables easier debugging through tools
+			clKernWrite( transKernel, 6 ) << "size_t gInd = xInd + rowSizeinUnits * yInd;" << std::endl;
+
+			if(branching && !i)
+			{
+				size_t validX = params.fft_N[0] % blockSize.x;
+				size_t validY = params.fft_N[1] % blockSize.y;
+
+				clKernWrite( transKernel, 6 ) << std::endl;
+				clKernWrite( transKernel, 6 ) << "if( (xInd < " << validX << ") && (yInd < " << validY << ") )" << std::endl;
+				clKernWrite( transKernel, 6 ) << "{" << std::endl;
+			}
+
+			switch( params.fft_inputLayout )
+			{
+			case CLFFT_COMPLEX_INTERLEAVED:
+				clKernWrite( transKernel, 6 ) << "tmp = tileIn[ gInd ];" << std::endl;
+				break;
+			case CLFFT_COMPLEX_PLANAR:
+				clKernWrite( transKernel, 6 ) << "tmp.s0 = realTileIn[ gInd ];" << std::endl;
+				clKernWrite( transKernel, 6 ) << "tmp.s1 = imagTileIn[ gInd ];" << std::endl;
+				break;
+			case CLFFT_HERMITIAN_INTERLEAVED:
+			case CLFFT_HERMITIAN_PLANAR:
+			case CLFFT_REAL:
+				return CLFFT_TRANSPOSED_NOTIMPLEMENTED;
+			}
+
+			if(branching && !i)
+			{
+				clKernWrite( transKernel, 6 ) << "}" << std::endl;
+				clKernWrite( transKernel, 6 ) << std::endl;
+			}
+
+			clKernWrite( transKernel, 6 ) << "// Transpose of Tile data happens here" << std::endl;
+
+
+			// If requested, generate the Twiddle math to multiply constant values
+			if( params.fft_3StepTwiddle )
+				genTwiddleMath( params, transKernel, dtComplex, fwd );
+
+			clKernWrite( transKernel, 6 ) << "lds[ xInd ][ yInd ] = tmp; " << std::endl;
+			clKernWrite( transKernel, 3 ) << "}" << std::endl;
+
+			if(!branching)
+				break;
+			else
+				clKernWrite( transKernel, 3 ) << "}" << std::endl;
+		}
+
 		clKernWrite( transKernel, 3 ) << std::endl;
 		clKernWrite( transKernel, 3 ) << "barrier( CLK_LOCAL_MEM_FENCE );" << std::endl;
 		clKernWrite( transKernel, 3 ) << std::endl;
@@ -525,7 +562,7 @@ static clfftStatus genTransposeKernel( const FFTGeneratedTransposeGCNAction::Sig
 		}
 
 		// Write the transposed values from LDS into global memory
-		clKernWrite( transKernel, 3 ) << "rowSizeinUnits = " << params.fft_outStride[ 1 ] << ";" << std::endl; // get_num_groups( 0 ) * wgTileExtent.x;" << std::endl;
+		clKernWrite( transKernel, 3 ) << "rowSizeinUnits = " << params.fft_outStride[ 1 ] << ";" << std::endl; 
 		clKernWrite( transKernel, 3 ) << "const size_t transposeRatio = wgTileExtent.x / ( wgTileExtent.y * wgUnroll );" << std::endl;
 		clKernWrite( transKernel, 3 ) << "const size_t groupingPerY = wgUnroll / wgTileExtent.y;" << std::endl;
 		clKernWrite( transKernel, 3 ) << "for( uint t=0; t < wgUnroll; t++ )" << std::endl;
@@ -635,19 +672,20 @@ const tile lwSize = { 16, 16 };
 const size_t reShapeFactor = 4;   // wgTileSize = { lwSize.x * reShapeFactor, lwSize.y / reShapeFactor }
 const size_t outRowPadding = 0;
 
-static size_t NumBlocksX(size_t N)
-{
-	return DivRoundingUp( N, lwSize.x * reShapeFactor );
-}
-
 // This is global, but should consider to be part of FFTPlan
 size_t loopCount = 0;
+tile blockSize = {0, 0};
+
+static size_t NumBlocksX(size_t N)
+{
+	return DivRoundingUp( N, blockSize.x );
+}
 
 //	OpenCL does not take unicode strings as input, so this routine returns only ASCII strings
 //	Feed this generator the FFTPlan, and it returns the generated program as a string
 clfftStatus FFTGeneratedTransposeGCNAction::generateKernel ( FFTRepo& fftRepo, const cl_command_queue commQueueFFT )
 {
-
+	
     switch( this->signature.fft_precision )
     {
     case CLFFT_SINGLE:
@@ -664,8 +702,12 @@ clfftStatus FFTGeneratedTransposeGCNAction::generateKernel ( FFTRepo& fftRepo, c
         break;
     }
 
+	blockSize.x = lwSize.x * reShapeFactor;
+	blockSize.y = lwSize.y / reShapeFactor * loopCount;
+
+
     std::string programCode;
-    OPENCL_V( genTransposeKernel( this->signature, programCode, lwSize, reShapeFactor, loopCount, outRowPadding ), _T( "GenerateTransposeKernel() failed!" ) );
+    OPENCL_V( genTransposeKernel( this->signature, programCode, lwSize, reShapeFactor, loopCount, blockSize, outRowPadding ), _T( "GenerateTransposeKernel() failed!" ) );
 
     cl_int status = CL_SUCCESS;
     cl_device_id Device = NULL;
@@ -699,7 +741,7 @@ clfftStatus FFTGeneratedTransposeGCNAction::getWorkSizes( std::vector< size_t >&
     // We need to make sure that the global work size is evenly divisible by the local work size
     // Our transpose works in tiles, so divide tiles in each dimension to get count of blocks, rounding up for remainder items
     size_t numBlocksX = NumBlocksX(this->signature.fft_N[ 0 ]);
-    size_t numBlocksY = DivRoundingUp( this->signature.fft_N[ 1 ], lwSize.y / reShapeFactor * loopCount );
+    size_t numBlocksY = DivRoundingUp( this->signature.fft_N[ 1 ], blockSize.y );
     size_t numWIX = numBlocksX * lwSize.x;
 
     // Batches of matrices are lined up along the Y axis, 1 after the other

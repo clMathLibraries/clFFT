@@ -600,7 +600,7 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
                 // Start of block where transposes are generated; 1D FFT
 				while (1 && (fftPlan->inputLayout != CLFFT_REAL) && (fftPlan->outputLayout != CLFFT_REAL))
 				{
-					if (!IsPo2(fftPlan->length[0])) break;
+					//if (!IsPo2(fftPlan->length[0])) break;
 
 					//TBD, only one dimension?
 					if (fftPlan->length.size() > 1) break;
