@@ -606,7 +606,8 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 					if (fftPlan->length.size() > 1) break;
 					if (fftPlan->inStride[0] != 1 || fftPlan->outStride[0] != 1) break;
 
-					if (fftPlan->length[0] <= 1048576/PrecisionWidth(fftPlan->precision)) break;
+					if ( IsPo2(fftPlan->length[0])
+						&& (fftPlan->length[0] <= 1048576/PrecisionWidth(fftPlan->precision)) ) break;
 
 
 					ARG_CHECK(clLengths[0] <= Large1DThreshold);
