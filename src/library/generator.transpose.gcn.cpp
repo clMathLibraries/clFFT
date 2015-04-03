@@ -128,13 +128,13 @@ static void OffsetCalc(std::stringstream& transKernel, const FFTKernelGenKeyPara
 
 
 	clKernWrite( transKernel, 3 ) << "size_t " << offset << " = 0;" << std::endl;
-	clKernWrite( transKernel, 3 ) << "currDimSize = groupIndex.y;" << std::endl;
+	clKernWrite( transKernel, 3 ) << "currDimIndex = groupIndex.y;" << std::endl;
 
 
 	for(size_t i = params.fft_DataDim - 2; i > 0 ; i--)
 	{
-		clKernWrite( transKernel, 3 ) << offset << " += (currDimSize/numGroupsY_" << i << ")*" << stride[i+1] << ";" << std::endl;
-		clKernWrite( transKernel, 3 ) << "currDimSize = currDimSize % numGroupsY_" << i << ";" << std::endl;
+		clKernWrite( transKernel, 3 ) << offset << " += (currDimIndex/numGroupsY_" << i << ")*" << stride[i+1] << ";" << std::endl;
+		clKernWrite( transKernel, 3 ) << "currDimIndex = currDimIndex % numGroupsY_" << i << ";" << std::endl;
 	}
 
 	clKernWrite( transKernel, 3 ) << "rowSizeinUnits = " << stride[1] << ";" << std::endl;
@@ -146,29 +146,29 @@ static void OffsetCalc(std::stringstream& transKernel, const FFTKernelGenKeyPara
 		if(input)
 		{	
 			clKernWrite( transKernel, 3 ) << offset << " += rowSizeinUnits * wgTileExtent.y * wgUnroll * "
-				<< "(groupIndex.x + " << numBlocksX << "*(currDimSize%(numGroupsY_1/" << numBlocksX << ")));" << std::endl;
-			clKernWrite( transKernel, 3 ) << offset << " += (currDimSize/(numGroupsY_1/" << numBlocksX
+				<< "(groupIndex.x + " << numBlocksX << "*(currDimIndex%(numGroupsY_1/" << numBlocksX << ")));" << std::endl;
+			clKernWrite( transKernel, 3 ) << offset << " += (currDimIndex/(numGroupsY_1/" << numBlocksX
 				<< ")) * wgTileExtent.x;" << std::endl; 
 		}
 		else
 		{
-			clKernWrite( transKernel, 3 ) << offset << " += (currDimSize/(numGroupsY_1/" << numBlocksX
+			clKernWrite( transKernel, 3 ) << offset << " += (currDimIndex/(numGroupsY_1/" << numBlocksX
 				<< ")) * wgTileExtent.x * rowSizeinUnits;" << std::endl; 
 			clKernWrite( transKernel, 3 ) << offset << " += wgTileExtent.y * wgUnroll * "
-				<< "(groupIndex.x + " << numBlocksX << "*(currDimSize%(numGroupsY_1/" << numBlocksX << ")));" << std::endl;
+				<< "(groupIndex.x + " << numBlocksX << "*(currDimIndex%(numGroupsY_1/" << numBlocksX << ")));" << std::endl;
 		}
 	}
 	else
 	{
 		if(input)
 		{	
-			clKernWrite( transKernel, 3 ) << offset << " += rowSizeinUnits * wgTileExtent.y * wgUnroll * currDimSize;" << std::endl;
+			clKernWrite( transKernel, 3 ) << offset << " += rowSizeinUnits * wgTileExtent.y * wgUnroll * currDimIndex;" << std::endl;
 			clKernWrite( transKernel, 3 ) << offset << " += groupIndex.x * wgTileExtent.x;" << std::endl;
 		}
 		else
 		{
 			clKernWrite( transKernel, 3 ) << offset << " += rowSizeinUnits * wgTileExtent.x * groupIndex.x;" << std::endl;
-			clKernWrite( transKernel, 3 ) << offset << " += currDimSize * wgTileExtent.y * wgUnroll;" << std::endl;  
+			clKernWrite( transKernel, 3 ) << offset << " += currDimIndex * wgTileExtent.y * wgUnroll;" << std::endl;  
 		}
 	}
 
@@ -182,22 +182,22 @@ static void OffsetCalc(std::stringstream& transKernel, const FFTKernelGenKeyPara
 // the generator that it wants the twiddle factors generated inside of the transpose
 static clfftStatus genTwiddleMath( const FFTKernelGenKeyParams& params, std::stringstream& transKernel, const std::string& dtComplex, bool fwd )
 {
-    clKernWrite( transKernel, 6 ) << dtComplex << " W = TW3step( (groupIndex.x * wgTileExtent.x + xInd) * (currDimSize * wgTileExtent.y * wgUnroll + yInd) );" << std::endl;
-    clKernWrite( transKernel, 6 ) << dtComplex << " T;" << std::endl;
+    clKernWrite( transKernel, 9 ) << dtComplex << " W = TW3step( (groupIndex.x * wgTileExtent.x + xInd) * (currDimIndex * wgTileExtent.y * wgUnroll + yInd) );" << std::endl;
+    clKernWrite( transKernel, 9 ) << dtComplex << " T;" << std::endl;
 
 	if(fwd)
 	{
-		clKernWrite( transKernel, 6 ) << "T.x = ( W.x * tmp.x ) - ( W.y * tmp.y );" << std::endl;
-		clKernWrite( transKernel, 6 ) << "T.y = ( W.y * tmp.x ) + ( W.x * tmp.y );" << std::endl;
+		clKernWrite( transKernel, 9 ) << "T.x = ( W.x * tmp.x ) - ( W.y * tmp.y );" << std::endl;
+		clKernWrite( transKernel, 9 ) << "T.y = ( W.y * tmp.x ) + ( W.x * tmp.y );" << std::endl;
 	}
 	else
 	{
-		clKernWrite( transKernel, 6 ) << "T.x =  ( W.x * tmp.x ) + ( W.y * tmp.y );" << std::endl;
-		clKernWrite( transKernel, 6 ) << "T.y = -( W.y * tmp.x ) + ( W.x * tmp.y );" << std::endl;
+		clKernWrite( transKernel, 9 ) << "T.x =  ( W.x * tmp.x ) + ( W.y * tmp.y );" << std::endl;
+		clKernWrite( transKernel, 9 ) << "T.y = -( W.y * tmp.x ) + ( W.x * tmp.y );" << std::endl;
 	}
 
-    clKernWrite( transKernel, 6 ) << "tmp.x = T.x;" << std::endl;
-    clKernWrite( transKernel, 6 ) << "tmp.y = T.y;" << std::endl;
+    clKernWrite( transKernel, 9 ) << "tmp.x = T.x;" << std::endl;
+    clKernWrite( transKernel, 9 ) << "tmp.y = T.y;" << std::endl;
 
     return CLFFT_SUCCESS;
 }
@@ -429,7 +429,7 @@ static clfftStatus genTransposeKernel( const FFTGeneratedTransposeGCNAction::Sig
 		}
 
 
-		clKernWrite( transKernel, 3 ) << "size_t currDimSize;" << std::endl ;
+		clKernWrite( transKernel, 3 ) << "size_t currDimIndex;" << std::endl ;
 		clKernWrite( transKernel, 3 ) << "size_t rowSizeinUnits;" << std::endl << std::endl ;
 
 
@@ -454,27 +454,60 @@ static clfftStatus genTransposeKernel( const FFTGeneratedTransposeGCNAction::Sig
 		// This is the loop reading through the Tile
 		clKernWrite( transKernel, 3 ) << dtComplex << " tmp;" << std::endl;
 		clKernWrite( transKernel, 3 ) << "rowSizeinUnits = " << params.fft_inStride[ 1 ] << ";" << std::endl; 
+		clKernWrite( transKernel, 3 ) << std::endl << std::endl;
 
 		bool branchingInX = ((params.fft_N[0] % blockSize.x) != 0);
 		bool branchingInY = ((params.fft_N[1] % blockSize.y) != 0);
-		bool branching = branchingInX || branchingInY;
+		bool branchingInBoth = branchingInX && branchingInY;
+		bool branchingInAny = branchingInX || branchingInY;
 
-		if(branching)
-		{
-			clKernWrite( transKernel, 3 ) << std::endl;
-			clKernWrite( transKernel, 3 ) << "bool branching = ( (groupIndex.x == " <<
-				(params.fft_N[0] / blockSize.x) << ") || (currDimSize == " <<
-				(params.fft_N[1] / blockSize.y) << ") );" << std::endl;
-			clKernWrite( transKernel, 3 ) << std::endl;
-		}
+		size_t branchBlocks = branchingInBoth ? 4 : ( branchingInAny ? 2 : 1 );
 
-		for(size_t i = 0; i<2; i++)
+		size_t validX = params.fft_N[0] % blockSize.x;
+		size_t validY = params.fft_N[1] % blockSize.y;
+
+		for(size_t i = 0; i<branchBlocks; i++)
 		{
-			if(branching)
-				if(!i)
+			if(branchingInBoth)
+				if(i == 0)
 				{
-					clKernWrite( transKernel, 3 ) << "if(branching)" << std::endl;
+					clKernWrite( transKernel, 3 ) << "if( (groupIndex.x == " << 
+						(params.fft_N[0] / blockSize.x) << ") && (currDimIndex == " <<
+						(params.fft_N[1] / blockSize.y) << ") )" << std::endl;
 					clKernWrite( transKernel, 3 ) << "{" << std::endl;
+				}
+				else if(i == 1)
+				{
+					clKernWrite( transKernel, 3 ) << "else if( groupIndex.x == " << 
+						(params.fft_N[0] / blockSize.x) << " )" << std::endl;
+					clKernWrite( transKernel, 3 ) << "{" << std::endl;
+				}
+				else if(i == 2)
+				{
+					clKernWrite( transKernel, 3 ) << "else if( currDimIndex == " <<
+						(params.fft_N[1] / blockSize.y) << " )" << std::endl;
+					clKernWrite( transKernel, 3 ) << "{" << std::endl;
+				}
+				else
+				{
+					clKernWrite( transKernel, 3 ) << "else" << std::endl;
+					clKernWrite( transKernel, 3 ) << "{" << std::endl;
+				}
+			else if(branchingInAny)
+				if(i == 0)
+				{
+					if(branchingInX)
+					{
+						clKernWrite( transKernel, 3 ) << "if( groupIndex.x == " << 
+							(params.fft_N[0] / blockSize.x) << " )" << std::endl;
+						clKernWrite( transKernel, 3 ) << "{" << std::endl;
+					}
+					else
+					{
+						clKernWrite( transKernel, 3 ) << "if( currDimIndex == " <<
+							(params.fft_N[1] / blockSize.y) << " )" << std::endl;
+						clKernWrite( transKernel, 3 ) << "{" << std::endl;
+					}
 				}
 				else
 				{
@@ -483,33 +516,69 @@ static clfftStatus genTransposeKernel( const FFTGeneratedTransposeGCNAction::Sig
 				}
 
 
-			clKernWrite( transKernel, 3 ) << "for( uint t=0; t < wgUnroll; t++ )" << std::endl;
-			clKernWrite( transKernel, 3 ) << "{" << std::endl;
 
-			clKernWrite( transKernel, 6 ) << "size_t xInd = localIndex.x + localExtent.x * ( localIndex.y % wgTileExtent.y ); " << std::endl;
-			clKernWrite( transKernel, 6 ) << "size_t yInd = localIndex.y/wgTileExtent.y + t * wgTileExtent.y; " << std::endl;
+			clKernWrite( transKernel, 6 ) << "for( uint t=0; t < wgUnroll; t++ )" << std::endl;
+			clKernWrite( transKernel, 6 ) << "{" << std::endl;
+
+			clKernWrite( transKernel, 9 ) << "size_t xInd = localIndex.x + localExtent.x * ( localIndex.y % wgTileExtent.y ); " << std::endl;
+			clKernWrite( transKernel, 9 ) << "size_t yInd = localIndex.y/wgTileExtent.y + t * wgTileExtent.y; " << std::endl;
 
 			// Calculating the index seperately enables easier debugging through tools
-			clKernWrite( transKernel, 6 ) << "size_t gInd = xInd + rowSizeinUnits * yInd;" << std::endl;
+			clKernWrite( transKernel, 9 ) << "size_t gInd = xInd + rowSizeinUnits * yInd;" << std::endl;
 
-			if(branching && !i)
+
+			if(branchingInBoth)
 			{
-				size_t validX = params.fft_N[0] % blockSize.x;
-				size_t validY = params.fft_N[1] % blockSize.y;
-
-				clKernWrite( transKernel, 6 ) << std::endl;
-				clKernWrite( transKernel, 6 ) << "if( (xInd < " << validX << ") && (yInd < " << validY << ") )" << std::endl;
-				clKernWrite( transKernel, 6 ) << "{" << std::endl;
+				if(i == 0)
+				{
+					clKernWrite( transKernel, 9 ) << std::endl;
+					clKernWrite( transKernel, 9 ) << "if( (xInd < " << validX << ") && (yInd < " << validY << ") )" << std::endl;
+					clKernWrite( transKernel, 9 ) << "{" << std::endl;
+				}
+				else if(i == 1)
+				{
+					clKernWrite( transKernel, 9 ) << std::endl;
+					clKernWrite( transKernel, 9 ) << "if( (xInd < " << validX << ") )" << std::endl;
+					clKernWrite( transKernel, 9 ) << "{" << std::endl;
+				}
+				else if(i == 2)
+				{
+					clKernWrite( transKernel, 9 ) << std::endl;
+					clKernWrite( transKernel, 9 ) << "if( (yInd < " << validY << ") )" << std::endl;
+					clKernWrite( transKernel, 9 ) << "{" << std::endl;
+				}
+				else
+					clKernWrite( transKernel, 9 ) << "{" << std::endl;
+			}
+			else if(branchingInAny)
+			{
+				if(i == 0)
+				{
+					if(branchingInX)
+					{
+						clKernWrite( transKernel, 9 ) << std::endl;
+						clKernWrite( transKernel, 9 ) << "if( (xInd < " << validX << ") )" << std::endl;
+						clKernWrite( transKernel, 9 ) << "{" << std::endl;
+					}
+					else
+					{
+						clKernWrite( transKernel, 9 ) << std::endl;
+						clKernWrite( transKernel, 9 ) << "if( (yInd < " << validY << ") )" << std::endl;
+						clKernWrite( transKernel, 9 ) << "{" << std::endl;
+					}
+				}
+				else
+					clKernWrite( transKernel, 9 ) << "{" << std::endl;
 			}
 
 			switch( params.fft_inputLayout )
 			{
 			case CLFFT_COMPLEX_INTERLEAVED:
-				clKernWrite( transKernel, 6 ) << "tmp = tileIn[ gInd ];" << std::endl;
+				clKernWrite( transKernel, 9 ) << "tmp = tileIn[ gInd ];" << std::endl;
 				break;
 			case CLFFT_COMPLEX_PLANAR:
-				clKernWrite( transKernel, 6 ) << "tmp.s0 = realTileIn[ gInd ];" << std::endl;
-				clKernWrite( transKernel, 6 ) << "tmp.s1 = imagTileIn[ gInd ];" << std::endl;
+				clKernWrite( transKernel, 9 ) << "tmp.s0 = realTileIn[ gInd ];" << std::endl;
+				clKernWrite( transKernel, 9 ) << "tmp.s1 = imagTileIn[ gInd ];" << std::endl;
 				break;
 			case CLFFT_HERMITIAN_INTERLEAVED:
 			case CLFFT_HERMITIAN_PLANAR:
@@ -517,25 +586,23 @@ static clfftStatus genTransposeKernel( const FFTGeneratedTransposeGCNAction::Sig
 				return CLFFT_TRANSPOSED_NOTIMPLEMENTED;
 			}
 
-			if(branching && !i)
+			if(branchingInAny)
 			{
-				clKernWrite( transKernel, 6 ) << "}" << std::endl;
-				clKernWrite( transKernel, 6 ) << std::endl;
+				clKernWrite( transKernel, 9 ) << "}" << std::endl;
+				clKernWrite( transKernel, 9 ) << std::endl;
 			}
 
-			clKernWrite( transKernel, 6 ) << "// Transpose of Tile data happens here" << std::endl;
+			clKernWrite( transKernel, 9 ) << "// Transpose of Tile data happens here" << std::endl;
 
 
 			// If requested, generate the Twiddle math to multiply constant values
 			if( params.fft_3StepTwiddle )
 				genTwiddleMath( params, transKernel, dtComplex, fwd );
 
-			clKernWrite( transKernel, 6 ) << "lds[ xInd ][ yInd ] = tmp; " << std::endl;
-			clKernWrite( transKernel, 3 ) << "}" << std::endl;
+			clKernWrite( transKernel, 9 ) << "lds[ xInd ][ yInd ] = tmp; " << std::endl;
+			clKernWrite( transKernel, 6 ) << "}" << std::endl;
 
-			if(!branching)
-				break;
-			else
+			if(branchingInAny)
 				clKernWrite( transKernel, 3 ) << "}" << std::endl;
 		}
 
@@ -565,30 +632,135 @@ static clfftStatus genTransposeKernel( const FFTGeneratedTransposeGCNAction::Sig
 		clKernWrite( transKernel, 3 ) << "rowSizeinUnits = " << params.fft_outStride[ 1 ] << ";" << std::endl; 
 		clKernWrite( transKernel, 3 ) << "const size_t transposeRatio = wgTileExtent.x / ( wgTileExtent.y * wgUnroll );" << std::endl;
 		clKernWrite( transKernel, 3 ) << "const size_t groupingPerY = wgUnroll / wgTileExtent.y;" << std::endl;
-		clKernWrite( transKernel, 3 ) << "for( uint t=0; t < wgUnroll; t++ )" << std::endl;
-		clKernWrite( transKernel, 3 ) << "{" << std::endl;
-		clKernWrite( transKernel, 6 ) << "size_t xInd = localIndex.x + localExtent.x * ( localIndex.y % groupingPerY ); " << std::endl;
-		clKernWrite( transKernel, 6 ) << "size_t yInd = localIndex.y/groupingPerY + t * (wgTileExtent.y * transposeRatio); " << std::endl;
-		clKernWrite( transKernel, 6 ) << "tmp = lds[ yInd ][ xInd ]; " << std::endl;
-		clKernWrite( transKernel, 6 ) << "size_t gInd = xInd + rowSizeinUnits * yInd;" << std::endl;
+		clKernWrite( transKernel, 3 ) << std::endl << std::endl;
 
-		switch( params.fft_outputLayout )
+		for(size_t i = 0; i<branchBlocks; i++)
 		{
-		case CLFFT_COMPLEX_INTERLEAVED:
-			clKernWrite( transKernel, 6 ) << "tileOut[ gInd ] = tmp;" << std::endl;
-			break;
-		case CLFFT_COMPLEX_PLANAR:
-			clKernWrite( transKernel, 6 ) << "realTileOut[ gInd ] = tmp.s0;" << std::endl;
-			clKernWrite( transKernel, 6 ) << "imagTileOut[ gInd ] = tmp.s1;" << std::endl;
-			break;
-		case CLFFT_HERMITIAN_INTERLEAVED:
-		case CLFFT_HERMITIAN_PLANAR:
-		case CLFFT_REAL:
-			return CLFFT_TRANSPOSED_NOTIMPLEMENTED;
-		}
+			if(branchingInBoth)
+				if(i == 0)
+				{
+					clKernWrite( transKernel, 3 ) << "if( (groupIndex.x == " << 
+						(params.fft_N[0] / blockSize.x) << ") && (currDimIndex == " <<
+						(params.fft_N[1] / blockSize.y) << ") )" << std::endl;
+					clKernWrite( transKernel, 3 ) << "{" << std::endl;
+				}
+				else if(i == 1)
+				{
+					clKernWrite( transKernel, 3 ) << "else if( groupIndex.x == " << 
+						(params.fft_N[0] / blockSize.x) << " )" << std::endl;
+					clKernWrite( transKernel, 3 ) << "{" << std::endl;
+				}
+				else if(i == 2)
+				{
+					clKernWrite( transKernel, 3 ) << "else if( currDimIndex == " <<
+						(params.fft_N[1] / blockSize.y) << " )" << std::endl;
+					clKernWrite( transKernel, 3 ) << "{" << std::endl;
+				}
+				else
+				{
+					clKernWrite( transKernel, 3 ) << "else" << std::endl;
+					clKernWrite( transKernel, 3 ) << "{" << std::endl;
+				}
+			else if(branchingInAny)
+				if(i == 0)
+				{
+					if(branchingInX)
+					{
+						clKernWrite( transKernel, 3 ) << "if( groupIndex.x == " << 
+							(params.fft_N[0] / blockSize.x) << " )" << std::endl;
+						clKernWrite( transKernel, 3 ) << "{" << std::endl;
+					}
+					else
+					{
+						clKernWrite( transKernel, 3 ) << "if( currDimIndex == " <<
+							(params.fft_N[1] / blockSize.y) << " )" << std::endl;
+						clKernWrite( transKernel, 3 ) << "{" << std::endl;
+					}
+				}
+				else
+				{
+					clKernWrite( transKernel, 3 ) << "else" << std::endl;
+					clKernWrite( transKernel, 3 ) << "{" << std::endl;
+				}
 
-		clKernWrite( transKernel, 3 ) << "}" << std::endl;
-		clKernWrite( transKernel, 3 ) << std::endl;
+
+			clKernWrite( transKernel, 6 ) << "for( uint t=0; t < wgUnroll; t++ )" << std::endl;
+			clKernWrite( transKernel, 6 ) << "{" << std::endl;
+			clKernWrite( transKernel, 9 ) << "size_t xInd = localIndex.x + localExtent.x * ( localIndex.y % groupingPerY ); " << std::endl;
+			clKernWrite( transKernel, 9 ) << "size_t yInd = localIndex.y/groupingPerY + t * (wgTileExtent.y * transposeRatio); " << std::endl;
+			clKernWrite( transKernel, 9 ) << "tmp = lds[ yInd ][ xInd ]; " << std::endl;
+			clKernWrite( transKernel, 9 ) << "size_t gInd = xInd + rowSizeinUnits * yInd;" << std::endl;
+
+			if(branchingInBoth)
+			{
+				if(i == 0)
+				{
+					clKernWrite( transKernel, 9 ) << std::endl;
+					clKernWrite( transKernel, 9 ) << "if( (xInd < " << validX << ") && (yInd < " << validY << ") )" << std::endl;
+					clKernWrite( transKernel, 9 ) << "{" << std::endl;
+				}
+				else if(i == 1)
+				{
+					clKernWrite( transKernel, 9 ) << std::endl;
+					clKernWrite( transKernel, 9 ) << "if( (yInd < " << validX << ") )" << std::endl;
+					clKernWrite( transKernel, 9 ) << "{" << std::endl;
+
+				}
+				else if(i == 2)
+				{
+					clKernWrite( transKernel, 9 ) << std::endl;
+					clKernWrite( transKernel, 9 ) << "if( (xInd < " << validY << ") )" << std::endl;
+					clKernWrite( transKernel, 9 ) << "{" << std::endl;
+				}
+				else
+					clKernWrite( transKernel, 9 ) << "{" << std::endl;
+			}
+			else if(branchingInAny)
+			{
+				if(i == 0)
+				{
+					if(branchingInX)
+					{
+						clKernWrite( transKernel, 9 ) << std::endl;
+						clKernWrite( transKernel, 9 ) << "if( (yInd < " << validX << ") )" << std::endl;
+						clKernWrite( transKernel, 9 ) << "{" << std::endl;
+					}
+					else
+					{
+						clKernWrite( transKernel, 9 ) << std::endl;
+						clKernWrite( transKernel, 9 ) << "if( (xInd < " << validY << ") )" << std::endl;
+						clKernWrite( transKernel, 9 ) << "{" << std::endl;
+					}
+				}
+				else
+					clKernWrite( transKernel, 9 ) << "{" << std::endl;
+			}
+
+			switch( params.fft_outputLayout )
+			{
+			case CLFFT_COMPLEX_INTERLEAVED:
+				clKernWrite( transKernel, 9 ) << "tileOut[ gInd ] = tmp;" << std::endl;
+				break;
+			case CLFFT_COMPLEX_PLANAR:
+				clKernWrite( transKernel, 9 ) << "realTileOut[ gInd ] = tmp.s0;" << std::endl;
+				clKernWrite( transKernel, 9 ) << "imagTileOut[ gInd ] = tmp.s1;" << std::endl;
+				break;
+			case CLFFT_HERMITIAN_INTERLEAVED:
+			case CLFFT_HERMITIAN_PLANAR:
+			case CLFFT_REAL:
+				return CLFFT_TRANSPOSED_NOTIMPLEMENTED;
+			}
+
+			if(branchingInAny)
+			{
+				clKernWrite( transKernel, 9 ) << "}" << std::endl;
+			}
+
+			clKernWrite( transKernel, 6 ) << "}" << std::endl;
+
+			if(branchingInAny)
+				clKernWrite( transKernel, 3 ) << "}" << std::endl;
+		}
 
 		clKernWrite( transKernel, 0 ) << "}\n" << std::endl;
 

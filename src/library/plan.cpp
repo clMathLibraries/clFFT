@@ -612,9 +612,11 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 					ARG_CHECK(clLengths[0] <= Large1DThreshold);
 					ARG_CHECK(clLengths[0]>=32 && clLengths[1]>=32);
 
-					size_t padding = 64;
 					size_t biggerDim = clLengths[0] > clLengths[1] ? clLengths[0] : clLengths[1];
 					size_t smallerDim = biggerDim == clLengths[0] ? clLengths[1] : clLengths[0];
+					size_t padding = 0;
+					if( (smallerDim % 64 == 0) || (biggerDim % 64 == 0) )
+						padding = 64;
 
 					if (fftPlan->tmpBufSize==0 )
 					{
