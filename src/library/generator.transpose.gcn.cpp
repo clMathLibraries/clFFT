@@ -145,17 +145,13 @@ static void OffsetCalc(std::stringstream& transKernel, const FFTKernelGenKeyPara
 
 		if(input)
 		{	
-			clKernWrite( transKernel, 3 ) << offset << " += rowSizeinUnits * wgTileExtent.y * wgUnroll * "
-				<< "(groupIndex.x + " << numBlocksX << "*(currDimIndex%(numGroupsY_1/" << numBlocksX << ")));" << std::endl;
-			clKernWrite( transKernel, 3 ) << offset << " += (currDimIndex/(numGroupsY_1/" << numBlocksX
-				<< ")) * wgTileExtent.x;" << std::endl; 
+			clKernWrite( transKernel, 3 ) << offset << " += rowSizeinUnits * wgTileExtent.y * wgUnroll * groupIndex.x;" << std::endl;
+			clKernWrite( transKernel, 3 ) << offset << " += currDimIndex * wgTileExtent.x;" << std::endl;  
 		}
 		else
 		{
-			clKernWrite( transKernel, 3 ) << offset << " += (currDimIndex/(numGroupsY_1/" << numBlocksX
-				<< ")) * wgTileExtent.x * rowSizeinUnits;" << std::endl; 
-			clKernWrite( transKernel, 3 ) << offset << " += wgTileExtent.y * wgUnroll * "
-				<< "(groupIndex.x + " << numBlocksX << "*(currDimIndex%(numGroupsY_1/" << numBlocksX << ")));" << std::endl;
+			clKernWrite( transKernel, 3 ) << offset << " += rowSizeinUnits * wgTileExtent.x * currDimIndex;" << std::endl;
+			clKernWrite( transKernel, 3 ) << offset << " += groupIndex.x * wgTileExtent.y * wgUnroll;" << std::endl;
 		}
 	}
 	else
@@ -403,7 +399,12 @@ static clfftStatus genTransposeKernel( const FFTGeneratedTransposeGCNAction::Sig
 		//numGroupY_1 is the number of cumulative work groups up to 1st dimension
 		//numGroupY_2 is the number of cumulative work groups up to 2nd dimension and so forth
 
-		size_t numGroupsTemp = DivRoundingUp( params.fft_N[1], lwSize.y / reShapeFactor * loopCount );
+		size_t numGroupsTemp;
+		if(params.transOutHorizontal)
+			numGroupsTemp = DivRoundingUp( params.fft_N[0], lwSize.y / reShapeFactor * loopCount );
+		else
+			numGroupsTemp = DivRoundingUp( params.fft_N[1], lwSize.y / reShapeFactor * loopCount );
+
 		clKernWrite( transKernel, 3 ) << "const size_t numGroupsY_1" << " = " << numGroupsTemp << ";" << std::endl;
 		for(int i = 2; i < params.fft_DataDim - 1; i++)
 		{
@@ -456,35 +457,39 @@ static clfftStatus genTransposeKernel( const FFTGeneratedTransposeGCNAction::Sig
 		clKernWrite( transKernel, 3 ) << "rowSizeinUnits = " << params.fft_inStride[ 1 ] << ";" << std::endl; 
 		clKernWrite( transKernel, 3 ) << std::endl << std::endl;
 
-		bool branchingInX = ((params.fft_N[0] % blockSize.x) != 0);
-		bool branchingInY = ((params.fft_N[1] % blockSize.y) != 0);
+		bool branchingInX = params.transOutHorizontal ? ((params.fft_N[1] % blockSize.x) != 0) : ((params.fft_N[0] % blockSize.x) != 0);
+		bool branchingInY = params.transOutHorizontal ? ((params.fft_N[0] % blockSize.y) != 0) : ((params.fft_N[1] % blockSize.y) != 0);
 		bool branchingInBoth = branchingInX && branchingInY;
 		bool branchingInAny = branchingInX || branchingInY;
 
 		size_t branchBlocks = branchingInBoth ? 4 : ( branchingInAny ? 2 : 1 );
 
-		size_t validX = params.fft_N[0] % blockSize.x;
-		size_t validY = params.fft_N[1] % blockSize.y;
+		size_t validX = params.transOutHorizontal ? params.fft_N[0] % blockSize.y : params.fft_N[0] % blockSize.x;
+		size_t validY = params.transOutHorizontal ? params.fft_N[1] % blockSize.x : params.fft_N[1] % blockSize.y;
+
+		std::string gIndexX = params.transOutHorizontal ? "currDimIndex" : "groupIndex.x";
+		std::string gIndexY = params.transOutHorizontal ? "groupIndex.x" : "currDimIndex";		
+
 
 		for(size_t i = 0; i<branchBlocks; i++)
 		{
 			if(branchingInBoth)
 				if(i == 0)
 				{
-					clKernWrite( transKernel, 3 ) << "if( (groupIndex.x == " << 
-						(params.fft_N[0] / blockSize.x) << ") && (currDimIndex == " <<
+					clKernWrite( transKernel, 3 ) << "if( (" << gIndexX << " == " << 
+						(params.fft_N[0] / blockSize.x) << ") && (" << gIndexY << " == " <<
 						(params.fft_N[1] / blockSize.y) << ") )" << std::endl;
 					clKernWrite( transKernel, 3 ) << "{" << std::endl;
 				}
 				else if(i == 1)
 				{
-					clKernWrite( transKernel, 3 ) << "else if( groupIndex.x == " << 
+					clKernWrite( transKernel, 3 ) << "else if( " << gIndexX << " == " << 
 						(params.fft_N[0] / blockSize.x) << " )" << std::endl;
 					clKernWrite( transKernel, 3 ) << "{" << std::endl;
 				}
 				else if(i == 2)
 				{
-					clKernWrite( transKernel, 3 ) << "else if( currDimIndex == " <<
+					clKernWrite( transKernel, 3 ) << "else if( " << gIndexY << " == " <<
 						(params.fft_N[1] / blockSize.y) << " )" << std::endl;
 					clKernWrite( transKernel, 3 ) << "{" << std::endl;
 				}
@@ -498,13 +503,13 @@ static clfftStatus genTransposeKernel( const FFTGeneratedTransposeGCNAction::Sig
 				{
 					if(branchingInX)
 					{
-						clKernWrite( transKernel, 3 ) << "if( groupIndex.x == " << 
+						clKernWrite( transKernel, 3 ) << "if( " << gIndexX << " == " << 
 							(params.fft_N[0] / blockSize.x) << " )" << std::endl;
 						clKernWrite( transKernel, 3 ) << "{" << std::endl;
 					}
 					else
 					{
-						clKernWrite( transKernel, 3 ) << "if( currDimIndex == " <<
+						clKernWrite( transKernel, 3 ) << "if( " << gIndexY << " == " <<
 							(params.fft_N[1] / blockSize.y) << " )" << std::endl;
 						clKernWrite( transKernel, 3 ) << "{" << std::endl;
 					}
@@ -639,20 +644,20 @@ static clfftStatus genTransposeKernel( const FFTGeneratedTransposeGCNAction::Sig
 			if(branchingInBoth)
 				if(i == 0)
 				{
-					clKernWrite( transKernel, 3 ) << "if( (groupIndex.x == " << 
-						(params.fft_N[0] / blockSize.x) << ") && (currDimIndex == " <<
+					clKernWrite( transKernel, 3 ) << "if( (" << gIndexX << " == " << 
+						(params.fft_N[0] / blockSize.x) << ") && (" << gIndexY << " == " <<
 						(params.fft_N[1] / blockSize.y) << ") )" << std::endl;
 					clKernWrite( transKernel, 3 ) << "{" << std::endl;
 				}
 				else if(i == 1)
 				{
-					clKernWrite( transKernel, 3 ) << "else if( groupIndex.x == " << 
+					clKernWrite( transKernel, 3 ) << "else if( " << gIndexX << " == " << 
 						(params.fft_N[0] / blockSize.x) << " )" << std::endl;
 					clKernWrite( transKernel, 3 ) << "{" << std::endl;
 				}
 				else if(i == 2)
 				{
-					clKernWrite( transKernel, 3 ) << "else if( currDimIndex == " <<
+					clKernWrite( transKernel, 3 ) << "else if( " << gIndexY << " == " <<
 						(params.fft_N[1] / blockSize.y) << " )" << std::endl;
 					clKernWrite( transKernel, 3 ) << "{" << std::endl;
 				}
@@ -666,13 +671,13 @@ static clfftStatus genTransposeKernel( const FFTGeneratedTransposeGCNAction::Sig
 				{
 					if(branchingInX)
 					{
-						clKernWrite( transKernel, 3 ) << "if( groupIndex.x == " << 
+						clKernWrite( transKernel, 3 ) << "if( " << gIndexX << " == " << 
 							(params.fft_N[0] / blockSize.x) << " )" << std::endl;
 						clKernWrite( transKernel, 3 ) << "{" << std::endl;
 					}
 					else
 					{
-						clKernWrite( transKernel, 3 ) << "if( currDimIndex == " <<
+						clKernWrite( transKernel, 3 ) << "if( " << gIndexY << " == " <<
 							(params.fft_N[1] / blockSize.y) << " )" << std::endl;
 						clKernWrite( transKernel, 3 ) << "{" << std::endl;
 					}
@@ -696,7 +701,7 @@ static clfftStatus genTransposeKernel( const FFTGeneratedTransposeGCNAction::Sig
 				if(i == 0)
 				{
 					clKernWrite( transKernel, 9 ) << std::endl;
-					clKernWrite( transKernel, 9 ) << "if( (xInd < " << validX << ") && (yInd < " << validY << ") )" << std::endl;
+					clKernWrite( transKernel, 9 ) << "if( (xInd < " << validY << ") && (yInd < " << validX << ") )" << std::endl;
 					clKernWrite( transKernel, 9 ) << "{" << std::endl;
 				}
 				else if(i == 1)
@@ -912,8 +917,11 @@ clfftStatus FFTGeneratedTransposeGCNAction::getWorkSizes( std::vector< size_t >&
 
     // We need to make sure that the global work size is evenly divisible by the local work size
     // Our transpose works in tiles, so divide tiles in each dimension to get count of blocks, rounding up for remainder items
-    size_t numBlocksX = NumBlocksX(this->signature.fft_N[ 0 ]);
-    size_t numBlocksY = DivRoundingUp( this->signature.fft_N[ 1 ], blockSize.y );
+	size_t numBlocksX = this->signature.transOutHorizontal ?
+							NumBlocksX(this->signature.fft_N[ 1 ]) : NumBlocksX(this->signature.fft_N[ 0 ]);
+    size_t numBlocksY = this->signature.transOutHorizontal ?
+							DivRoundingUp( this->signature.fft_N[ 0 ], blockSize.y ) :
+							DivRoundingUp( this->signature.fft_N[ 1 ], blockSize.y );
     size_t numWIX = numBlocksX * lwSize.x;
 
     // Batches of matrices are lined up along the Y axis, 1 after the other
