@@ -9,6 +9,18 @@ programming.
 
 Pre-built binaries are available [here][binary_release].
 
+## What's New
+
+The [commit](https://github.com/clMathLibraries/clFFT/commit/2a533358c6a559d1a996e1c3077dd05bc8845191) in the
+develop branch has added important updates to the library. They 
+include:
+-   Significant uplift of 1D complex transform performance
+-   1D large size limit relaxation for complex transforms
+-   2D/3D size limit relaxation on real and complex transforms
+-   Binary caching feature
+-   Several minor fixes and improvements
+
+
 ## Introduction to clFFT
 
 The FFT is an implementation of the Discrete Fourier Transform (DFT)

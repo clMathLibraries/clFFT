@@ -83,6 +83,10 @@ class	FFTRepo
             {
                 return a.context < b.context;
             }
+			else if (a.device != b.device)
+			{
+				return a.device < b.device;
+			}
             else
             {
                 return ::memcmp(a.data, b.data, a.data->datasize) < 0;
