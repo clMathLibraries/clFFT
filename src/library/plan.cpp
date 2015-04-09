@@ -1147,6 +1147,14 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 						trans1Plan->gen           = Transpose_GCN;
 						trans1Plan->transflag     = true;
 
+						for (size_t index=1; index < fftPlan->length.size(); index++)
+						{
+							trans1Plan->length.push_back(fftPlan->length[index]);
+							trans1Plan->inStride.push_back(fftPlan->inStride[index]);
+							trans1Plan->outStride.push_back(trans1Plan->oDist);
+							trans1Plan->oDist *= fftPlan->length[index];
+						}
+
 						OPENCL_V(clfftBakePlan(fftPlan->planTX, numQueues, commQueueFFT, NULL, NULL ),
 							_T( "BakePlan large1d trans1 plan failed" ) );
 
@@ -1481,6 +1489,14 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 							trans3Plan->oDist         = fftPlan->oDist;
 							trans3Plan->gen           = Transpose_GCN;
 							trans3Plan->transflag     = true;
+
+							for (size_t index=1; index < fftPlan->length.size(); index++)
+							{
+								trans3Plan->length.push_back(fftPlan->length[index]);
+								trans3Plan->inStride.push_back(trans3Plan->iDist);
+								trans3Plan->iDist *= fftPlan->length[index];
+								trans3Plan->outStride.push_back(fftPlan->outStride[index]);
+							}
 
 							OPENCL_V(clfftBakePlan(fftPlan->planTZ, numQueues, commQueueFFT, NULL, NULL ),
 								_T( "BakePlan large1d trans plan failed" ) );
