@@ -284,7 +284,36 @@ static clfftStatus genTransposePrototype( const FFTGeneratedTransposeGCNAction::
         break;
     case CLFFT_HERMITIAN_INTERLEAVED:
     case CLFFT_HERMITIAN_PLANAR:
+		return CLFFT_TRANSPOSED_NOTIMPLEMENTED;
     case CLFFT_REAL:
+		dtInput = dtPlanar;
+		clKernWrite( transKernel, 0 ) << "global " << dtInput << "* restrict " << pmRealIn;
+
+		switch( params.fft_placeness )
+        {
+        case CLFFT_INPLACE:
+            dtOutput = dtPlanar;
+            break;
+        case CLFFT_OUTOFPLACE:
+            switch( params.fft_outputLayout )
+            {
+            case CLFFT_COMPLEX_INTERLEAVED:
+            case CLFFT_COMPLEX_PLANAR:
+            case CLFFT_HERMITIAN_INTERLEAVED:
+            case CLFFT_HERMITIAN_PLANAR:
+				return CLFFT_TRANSPOSED_NOTIMPLEMENTED;
+            case CLFFT_REAL:
+                dtOutput = dtPlanar;
+                clKernWrite( transKernel, 0 ) << ", global " << dtOutput << "* restrict " << pmRealOut;
+				break;
+            default:
+                return CLFFT_TRANSPOSED_NOTIMPLEMENTED;
+            }
+            break;
+        default:
+            return CLFFT_TRANSPOSED_NOTIMPLEMENTED;
+        }
+		break;
     default:
         return CLFFT_TRANSPOSED_NOTIMPLEMENTED;
     }
