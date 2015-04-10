@@ -1803,7 +1803,11 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 				if (fftPlan->tmpBufSize==0)
 				{
 					fftPlan->tmpBufSize = Nt * length1 * fftPlan->batchsize * fftPlan->ElementSize();
-					if(fftPlan->length.size() > 2) fftPlan->tmpBufSize *= fftPlan->length[2];
+
+					for (size_t index=2; index < fftPlan->length.size(); index++)
+					{
+						fftPlan->tmpBufSize *= fftPlan->length[index];
+					}
 				}
 
 				// create row plan
@@ -1833,7 +1837,7 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 				rowPlan->tmpBufSize    = fftPlan->tmpBufSize;
 
 				rowPlan->gen			= fftPlan->gen;
-				rowPlan->envelope			= fftPlan->envelope;
+				rowPlan->envelope		= fftPlan->envelope;
 
 				rowPlan->batchsize    = fftPlan->batchsize;
 
@@ -1842,74 +1846,248 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 				rowPlan->oDist         = fftPlan->oDist;
 
 				//this 2d is decomposed from 3d
-				if (fftPlan->length.size()>2)
+				for (size_t index=2; index < fftPlan->length.size(); index++)
 				{
-					rowPlan->length.push_back(fftPlan->length[2]);
-					rowPlan->inStride.push_back(fftPlan->inStride[2]);
-					rowPlan->outStride.push_back(fftPlan->outStride[2]);
+					rowPlan->length.push_back(fftPlan->length[index]);
+					rowPlan->inStride.push_back(fftPlan->inStride[index]);
+					rowPlan->outStride.push_back(fftPlan->outStride[index]);
 				}
 
 
 				OPENCL_V(clfftBakePlan(fftPlan->planX, numQueues, commQueueFFT, NULL, NULL ), _T( "BakePlan for planX failed" ) );
 
-				// create col plan
-				// complex to complex
-
-				OPENCL_V(clfftCreateDefaultPlanInternal( &fftPlan->planY, fftPlan->context, CLFFT_1D, &fftPlan->length[ DimY ] ),
-					_T( "CreateDefaultPlan for planY failed" ) );
-
-				FFTPlan* colPlan	= NULL;
-				lockRAII* colLock	= NULL;
-				OPENCL_V( fftRepo.getPlan( fftPlan->planY, colPlan, colLock ), _T( "fftRepo.getPlan failed" ) );
-
-				switch(fftPlan->outputLayout)
+				if( (rowPlan->inStride[0] == 1) && (rowPlan->outStride[0] == 1) &&
+					(rowPlan->inStride[1] == length0) && (rowPlan->outStride[1] == Nt) )
 				{
-				case CLFFT_HERMITIAN_INTERLEAVED:
+					// create first transpose plan
+					
+					//Transpose 
+					// output --> tmp
+					size_t transLengths[2] = { Nt, length1 };
+					OPENCL_V(clfftCreateDefaultPlanInternal( &fftPlan->planTX, fftPlan->context, CLFFT_2D, transLengths ),
+						_T( "CreateDefaultPlan Large1d transpose failed" ) );
+
+					FFTPlan* trans1Plan	= NULL;
+					lockRAII* trans1Lock	= NULL;
+					OPENCL_V( fftRepo.getPlan( fftPlan->planTX, trans1Plan, trans1Lock ), _T( "fftRepo.getPlan failed" ) );
+
+					switch(fftPlan->outputLayout)
 					{
-						colPlan->outputLayout = CLFFT_COMPLEX_INTERLEAVED;
-						colPlan->inputLayout  = CLFFT_COMPLEX_INTERLEAVED;
+					case CLFFT_HERMITIAN_INTERLEAVED:
+						{
+							trans1Plan->outputLayout = CLFFT_COMPLEX_INTERLEAVED;
+							trans1Plan->inputLayout  = CLFFT_COMPLEX_INTERLEAVED;
+						}
+						break;
+					case CLFFT_HERMITIAN_PLANAR:
+						{
+							trans1Plan->outputLayout = CLFFT_COMPLEX_PLANAR;
+							trans1Plan->inputLayout  = CLFFT_COMPLEX_PLANAR;
+						}
+						break;
+					default: assert(false);
 					}
-					break;
-				case CLFFT_HERMITIAN_PLANAR:
+
+					trans1Plan->placeness     = CLFFT_OUTOFPLACE;
+					trans1Plan->precision     = fftPlan->precision;
+					trans1Plan->tmpBufSize    = fftPlan->tmpBufSize;
+					trans1Plan->batchsize     = fftPlan->batchsize;
+					trans1Plan->envelope	  = fftPlan->envelope;
+
+					trans1Plan->inStride[0]   = 1;
+					trans1Plan->inStride[1]   = Nt;
+					trans1Plan->outStride[0]  = 1;
+					trans1Plan->outStride[1]  = length1;
+					trans1Plan->iDist         = fftPlan->iDist;
+					trans1Plan->oDist		  = Nt*length1;
+
+					trans1Plan->gen           = Transpose_GCN;
+					trans1Plan->transflag     = true;
+
+					for (size_t index=2; index < fftPlan->length.size(); index++)
 					{
-						colPlan->outputLayout = CLFFT_COMPLEX_PLANAR;
-						colPlan->inputLayout  = CLFFT_COMPLEX_PLANAR;
+						trans1Plan->length.push_back(fftPlan->length[index]);
+						trans1Plan->inStride.push_back(fftPlan->inStride[index]);
+						trans1Plan->outStride.push_back(trans1Plan->oDist);
+						trans1Plan->oDist *= fftPlan->length[index];
 					}
-					break;
-				default: assert(false);
+
+					OPENCL_V(clfftBakePlan(fftPlan->planTX, numQueues, commQueueFFT, NULL, NULL ),
+						_T( "BakePlan for planTX failed" ) );
+
+
+					// Create column plan as a row plan
+					OPENCL_V(clfftCreateDefaultPlanInternal( &fftPlan->planY, fftPlan->context, CLFFT_1D, &fftPlan->length[ DimY ] ),
+						_T( "CreateDefaultPlan for planY failed" ) );
+
+					FFTPlan* colPlan	= NULL;
+					lockRAII* colLock	= NULL;
+					OPENCL_V( fftRepo.getPlan( fftPlan->planY, colPlan, colLock ), _T( "fftRepo.getPlan failed" ) );
+
+					colPlan->outputLayout  = trans1Plan->outputLayout;
+					colPlan->inputLayout   = trans1Plan->outputLayout;
+					colPlan->placeness     = CLFFT_INPLACE;
+					colPlan->length.push_back(Nt);
+
+					colPlan->inStride[0]  = 1;
+					colPlan->inStride.push_back(length1);
+					colPlan->iDist         = Nt*length1;
+
+					colPlan->outStride[0]  = 1;
+					colPlan->outStride.push_back(length1);
+					colPlan->oDist         = Nt*length1;
+
+					colPlan->precision     = fftPlan->precision;
+					colPlan->forwardScale  = 1.0f;
+					colPlan->backwardScale = 1.0f;
+					colPlan->tmpBufSize    = fftPlan->tmpBufSize;
+
+					colPlan->gen			= fftPlan->gen;
+					colPlan->envelope		= fftPlan->envelope;
+
+					colPlan->batchsize    = fftPlan->batchsize;
+
+					//this 2d is decomposed from 3d
+					for (size_t index=2; index < fftPlan->length.size(); index++)
+					{
+						colPlan->length.push_back(fftPlan->length[index]);
+						colPlan->inStride.push_back(colPlan->iDist);
+						colPlan->outStride.push_back(colPlan->oDist);
+						colPlan->iDist *= fftPlan->length[index];
+						colPlan->oDist *= fftPlan->length[index];
+					}
+
+					OPENCL_V(clfftBakePlan(fftPlan->planY, numQueues, commQueueFFT, NULL, NULL ),
+						_T( "BakePlan for planY failed" ) );
+
+					if (fftPlan->transposed == CLFFT_TRANSPOSED)
+					{
+						fftPlan->baked = true;
+						return	CLFFT_SUCCESS;
+					}
+
+					// create second transpose plan
+					
+					//Transpose 
+					//output --> tmp
+					size_t trans2Lengths[2] = { length1, Nt };
+					OPENCL_V(clfftCreateDefaultPlanInternal( &fftPlan->planTY, fftPlan->context, CLFFT_2D, trans2Lengths ),
+						_T( "CreateDefaultPlan Large1d transpose failed" ) );
+
+					FFTPlan* trans2Plan	= NULL;
+					lockRAII* trans2Lock	= NULL;
+					OPENCL_V( fftRepo.getPlan( fftPlan->planTY, trans2Plan, trans2Lock ), _T( "fftRepo.getPlan failed" ) );
+
+					switch(fftPlan->outputLayout)
+					{
+					case CLFFT_HERMITIAN_INTERLEAVED:
+						{
+							trans2Plan->outputLayout = CLFFT_COMPLEX_INTERLEAVED;
+							trans2Plan->inputLayout  = CLFFT_COMPLEX_INTERLEAVED;
+						}
+						break;
+					case CLFFT_HERMITIAN_PLANAR:
+						{
+							trans2Plan->outputLayout = CLFFT_COMPLEX_PLANAR;
+							trans2Plan->inputLayout  = CLFFT_COMPLEX_PLANAR;
+						}
+						break;
+					default: assert(false);
+					}
+
+					trans2Plan->placeness     = CLFFT_OUTOFPLACE;
+					trans2Plan->precision     = fftPlan->precision;
+					trans2Plan->tmpBufSize    = fftPlan->tmpBufSize;
+					trans2Plan->batchsize     = fftPlan->batchsize;
+					trans2Plan->envelope	  = fftPlan->envelope;
+
+					trans2Plan->inStride[0]   = 1;
+					trans2Plan->inStride[1]   = length1;
+					trans2Plan->outStride[0]  = 1;
+					trans2Plan->outStride[1]  = Nt;
+					trans2Plan->iDist         = Nt*length1;
+					trans2Plan->oDist		  = fftPlan->oDist;
+
+					trans2Plan->gen           = Transpose_GCN;
+					trans2Plan->transflag     = true;
+
+					for (size_t index=2; index < fftPlan->length.size(); index++)
+					{
+						trans2Plan->length.push_back(fftPlan->length[index]);
+						trans2Plan->inStride.push_back(trans2Plan->iDist);
+						trans2Plan->iDist *= fftPlan->length[index];
+						trans2Plan->outStride.push_back(fftPlan->outStride[index]);
+
+					}
+
+					OPENCL_V(clfftBakePlan(fftPlan->planTY, numQueues, commQueueFFT, NULL, NULL ),
+						_T( "BakePlan for planTY failed" ) );
+
+
+					fftPlan->baked = true;
+					return	CLFFT_SUCCESS;
 				}
-
-				colPlan->placeness     = CLFFT_INPLACE;
-				colPlan->length.push_back(Nt);
-
-				colPlan->outStride[0]  = fftPlan->outStride[1];
-				colPlan->outStride.push_back(fftPlan->outStride[0]);
-				colPlan->oDist         = fftPlan->oDist;
-
-
-				colPlan->precision     = fftPlan->precision;
-				colPlan->forwardScale  = fftPlan->forwardScale;
-				colPlan->backwardScale = fftPlan->backwardScale;
-				colPlan->tmpBufSize    = fftPlan->tmpBufSize;
-
-				colPlan->gen			= fftPlan->gen;
-				colPlan->envelope			= fftPlan->envelope;
-
-				colPlan->batchsize = fftPlan->batchsize;
-
-				colPlan->inStride[0]  = rowPlan->outStride[1];
-				colPlan->inStride.push_back(rowPlan->outStride[0]);
-				colPlan->iDist         = rowPlan->oDist;
-
-				//this 2d is decomposed from 3d
-				if (fftPlan->length.size()>2)
+				else
 				{
-					colPlan->length.push_back(fftPlan->length[2]);
-					colPlan->outStride.push_back(fftPlan->outStride[2]);
-					colPlan->inStride.push_back(rowPlan->outStride[2]);
-				}
+					// create col plan
+					// complex to complex
 
-				OPENCL_V(clfftBakePlan(fftPlan->planY, numQueues, commQueueFFT, NULL, NULL ), _T( "BakePlan for planY failed" ) );
+					OPENCL_V(clfftCreateDefaultPlanInternal( &fftPlan->planY, fftPlan->context, CLFFT_1D, &fftPlan->length[ DimY ] ),
+						_T( "CreateDefaultPlan for planY failed" ) );
+
+					FFTPlan* colPlan	= NULL;
+					lockRAII* colLock	= NULL;
+					OPENCL_V( fftRepo.getPlan( fftPlan->planY, colPlan, colLock ), _T( "fftRepo.getPlan failed" ) );
+
+					switch(fftPlan->outputLayout)
+					{
+					case CLFFT_HERMITIAN_INTERLEAVED:
+						{
+							colPlan->outputLayout = CLFFT_COMPLEX_INTERLEAVED;
+							colPlan->inputLayout  = CLFFT_COMPLEX_INTERLEAVED;
+						}
+						break;
+					case CLFFT_HERMITIAN_PLANAR:
+						{
+							colPlan->outputLayout = CLFFT_COMPLEX_PLANAR;
+							colPlan->inputLayout  = CLFFT_COMPLEX_PLANAR;
+						}
+						break;
+					default: assert(false);
+					}
+
+					colPlan->placeness     = CLFFT_INPLACE;
+					colPlan->length.push_back(Nt);
+
+					colPlan->outStride[0]  = fftPlan->outStride[1];
+					colPlan->outStride.push_back(fftPlan->outStride[0]);
+					colPlan->oDist         = fftPlan->oDist;
+
+
+					colPlan->precision     = fftPlan->precision;
+					colPlan->forwardScale  = fftPlan->forwardScale;
+					colPlan->backwardScale = fftPlan->backwardScale;
+					colPlan->tmpBufSize    = fftPlan->tmpBufSize;
+
+					colPlan->gen			= fftPlan->gen;
+					colPlan->envelope			= fftPlan->envelope;
+
+					colPlan->batchsize = fftPlan->batchsize;
+
+					colPlan->inStride[0]  = rowPlan->outStride[1];
+					colPlan->inStride.push_back(rowPlan->outStride[0]);
+					colPlan->iDist         = rowPlan->oDist;
+
+					//this 2d is decomposed from 3d
+					if (fftPlan->length.size()>2)
+					{
+						colPlan->length.push_back(fftPlan->length[2]);
+						colPlan->outStride.push_back(fftPlan->outStride[2]);
+						colPlan->inStride.push_back(rowPlan->outStride[2]);
+					}
+
+					OPENCL_V(clfftBakePlan(fftPlan->planY, numQueues, commQueueFFT, NULL, NULL ), _T( "BakePlan for planY failed" ) );
+				}
 
 			}
 			else if(fftPlan->outputLayout == CLFFT_REAL)
