@@ -1834,7 +1834,7 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 				rowPlan->precision     = fftPlan->precision;
 				rowPlan->forwardScale  = 1.0f;
 				rowPlan->backwardScale = 1.0f;
-				rowPlan->tmpBufSize    = fftPlan->tmpBufSize;
+				rowPlan->tmpBufSize    = 0;
 
 				rowPlan->gen			= fftPlan->gen;
 				rowPlan->envelope		= fftPlan->envelope;
@@ -1898,7 +1898,7 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 
 					trans1Plan->placeness     = CLFFT_OUTOFPLACE;
 					trans1Plan->precision     = fftPlan->precision;
-					trans1Plan->tmpBufSize    = fftPlan->tmpBufSize;
+					trans1Plan->tmpBufSize    = 0;
 					trans1Plan->batchsize     = fftPlan->batchsize;
 					trans1Plan->envelope	  = fftPlan->envelope;
 					trans1Plan->forwardScale  = 1.0f;
@@ -1950,7 +1950,7 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 					colPlan->precision     = fftPlan->precision;
 					colPlan->forwardScale  = fftPlan->forwardScale;
 					colPlan->backwardScale = fftPlan->backwardScale;
-					colPlan->tmpBufSize    = fftPlan->tmpBufSize;
+					colPlan->tmpBufSize    = 0;
 
 					colPlan->gen			= fftPlan->gen;
 					colPlan->envelope		= fftPlan->envelope;
@@ -2013,7 +2013,7 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 
 					trans2Plan->placeness     = CLFFT_OUTOFPLACE;
 					trans2Plan->precision     = fftPlan->precision;
-					trans2Plan->tmpBufSize    = fftPlan->tmpBufSize;
+					trans2Plan->tmpBufSize    = 0;
 					trans2Plan->batchsize     = fftPlan->batchsize;
 					trans2Plan->envelope	  = fftPlan->envelope;
 					trans2Plan->forwardScale  = 1.0f;
