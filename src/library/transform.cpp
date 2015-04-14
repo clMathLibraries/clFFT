@@ -676,7 +676,7 @@ clfftStatus clfftEnqueueTransform(
 							OPENCL_V( clfftEnqueueTransform( fftPlan->planTX, dir, numQueuesAndEvents, commQueues, 1, &rowOutEvents,
 								&transXOutEvents, mybuffers, &localIntBuffer, NULL ),
 								_T("clfftEnqueueTransform for first transpose failed"));
-							clReleaseEvent(rowOutEvents);
+							// clReleaseEvent(rowOutEvents);
 
 #if defined(DEBUGGING)
 							OPENCL_V( clEnqueueReadBuffer( *commQueues, localIntBuffer, CL_TRUE, 0, buffSizeBytes*2, &output2[0], 0,
