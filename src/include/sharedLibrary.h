@@ -53,7 +53,7 @@ inline void* LoadSharedLibrary( std::string unixPrefix, std::string libraryName,
           std::cerr << ::dlerror( ) << std::endl;
   }
 #else
-        #error "unsupported platform""
+        #error "unsupported platform"
 #endif
 
 	return fileHandle;

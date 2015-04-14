@@ -99,11 +99,24 @@ set_target_properties( Test PROPERTIES VERSION ${CLFFT_VERSION} )
 set_target_properties( Test PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIR}/staging" )
 
 # CPack configuration; include the executable into the package
-install( TARGETS Test
-        RUNTIME DESTINATION bin${SUFFIX_BIN}
-        LIBRARY DESTINATION lib${SUFFIX_LIB}
-        ARCHIVE DESTINATION lib${SUFFIX_LIB}/import
-        )
+
+if (WIN32)
+
+    install( TARGETS Test
+    RUNTIME DESTINATION test/bin${SUFFIX_BIN}
+    LIBRARY DESTINATION lib${SUFFIX_LIB}
+    ARCHIVE DESTINATION lib${SUFFIX_LIB}/import
+    )
+
+else()
+
+    install( TARGETS Test
+    RUNTIME DESTINATION share/clFFT/test/bin${SUFFIX_BIN}
+    LIBRARY DESTINATION lib${SUFFIX_LIB}
+    ARCHIVE DESTINATION lib${SUFFIX_LIB}/import
+    )
+
+endif()
 
 get_target_property( testLocation Test LOCATION )
 
