@@ -1857,19 +1857,27 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 				OPENCL_V(clfftBakePlan(fftPlan->planX, numQueues, commQueueFFT, NULL, NULL ), _T( "BakePlan for planX failed" ) );
 
 				if( (rowPlan->inStride[0] == 1) && (rowPlan->outStride[0] == 1) &&
-					(rowPlan->inStride[1] == length0) && (rowPlan->outStride[1] == Nt) )
+					( ((rowPlan->inStride[1] == Nt*2) && (rowPlan->placeness == CLFFT_INPLACE)) ||
+					  ((rowPlan->inStride[1] == length0) && (rowPlan->placeness == CLFFT_OUTOFPLACE)) )
+					&& (rowPlan->outStride[1] == Nt) )
 				{
 					// create first transpose plan
 					
 					//Transpose 
 					// output --> tmp
-					size_t transLengths[2] = { Nt, length1 };
+					size_t transLengths[2] = { length0, length1 };
 					OPENCL_V(clfftCreateDefaultPlanInternal( &fftPlan->planTX, fftPlan->context, CLFFT_2D, transLengths ),
-						_T( "CreateDefaultPlan Large1d transpose failed" ) );
+						_T( "CreateDefaultPlan for planTX transpose failed" ) );
 
 					FFTPlan* trans1Plan	= NULL;
 					lockRAII* trans1Lock	= NULL;
 					OPENCL_V( fftRepo.getPlan( fftPlan->planTX, trans1Plan, trans1Lock ), _T( "fftRepo.getPlan failed" ) );
+
+					trans1Plan->transflag = true;
+
+					transLengths[0] = Nt;
+					OPENCL_V(clfftSetPlanLength( fftPlan->planTX, CLFFT_2D, transLengths ),
+						_T( "clfftSetPlanLength for planTX transpose failed" ) );
 
 					switch(fftPlan->outputLayout)
 					{
@@ -1893,21 +1901,23 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 					trans1Plan->tmpBufSize    = fftPlan->tmpBufSize;
 					trans1Plan->batchsize     = fftPlan->batchsize;
 					trans1Plan->envelope	  = fftPlan->envelope;
+					trans1Plan->forwardScale  = 1.0f;
+					trans1Plan->backwardScale = 1.0f;
 
 					trans1Plan->inStride[0]   = 1;
 					trans1Plan->inStride[1]   = Nt;
 					trans1Plan->outStride[0]  = 1;
 					trans1Plan->outStride[1]  = length1;
-					trans1Plan->iDist         = fftPlan->iDist;
+					trans1Plan->iDist         = rowPlan->oDist;
 					trans1Plan->oDist		  = Nt*length1;
 
 					trans1Plan->gen           = Transpose_GCN;
-					trans1Plan->transflag     = true;
+
 
 					for (size_t index=2; index < fftPlan->length.size(); index++)
 					{
 						trans1Plan->length.push_back(fftPlan->length[index]);
-						trans1Plan->inStride.push_back(fftPlan->inStride[index]);
+						trans1Plan->inStride.push_back(rowPlan->outStride[index]);
 						trans1Plan->outStride.push_back(trans1Plan->oDist);
 						trans1Plan->oDist *= fftPlan->length[index];
 					}
@@ -1938,8 +1948,8 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 					colPlan->oDist         = Nt*length1;
 
 					colPlan->precision     = fftPlan->precision;
-					colPlan->forwardScale  = 1.0f;
-					colPlan->backwardScale = 1.0f;
+					colPlan->forwardScale  = fftPlan->forwardScale;
+					colPlan->backwardScale = fftPlan->backwardScale;
 					colPlan->tmpBufSize    = fftPlan->tmpBufSize;
 
 					colPlan->gen			= fftPlan->gen;
@@ -1970,13 +1980,19 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 					
 					//Transpose 
 					//output --> tmp
-					size_t trans2Lengths[2] = { length1, Nt };
+					size_t trans2Lengths[2] = { length1, length0 };
 					OPENCL_V(clfftCreateDefaultPlanInternal( &fftPlan->planTY, fftPlan->context, CLFFT_2D, trans2Lengths ),
-						_T( "CreateDefaultPlan Large1d transpose failed" ) );
+						_T( "CreateDefaultPlan for planTY transpose failed" ) );
 
 					FFTPlan* trans2Plan	= NULL;
 					lockRAII* trans2Lock	= NULL;
 					OPENCL_V( fftRepo.getPlan( fftPlan->planTY, trans2Plan, trans2Lock ), _T( "fftRepo.getPlan failed" ) );
+
+					trans2Plan->transflag = true;
+
+					trans2Lengths[1] = Nt;
+					OPENCL_V(clfftSetPlanLength( fftPlan->planTY, CLFFT_2D, trans2Lengths ),
+						_T( "clfftSetPlanLength for planTY transpose failed" ) );
 
 					switch(fftPlan->outputLayout)
 					{
@@ -2000,6 +2016,8 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 					trans2Plan->tmpBufSize    = fftPlan->tmpBufSize;
 					trans2Plan->batchsize     = fftPlan->batchsize;
 					trans2Plan->envelope	  = fftPlan->envelope;
+					trans2Plan->forwardScale  = 1.0f;
+					trans2Plan->backwardScale = 1.0f;
 
 					trans2Plan->inStride[0]   = 1;
 					trans2Plan->inStride[1]   = length1;

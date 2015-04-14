@@ -311,9 +311,12 @@ clfftStatus clfftSetPlanLength( clfftPlanHandle plHandle, const clfftDim dim, co
 			if( clLengths[ DimX ] == 0 || clLengths[ DimY ] == 0 )
 				return CLFFT_INVALID_ARG_VALUE;
 
-			if( !IsASupportedLength( clLengths[ DimX ] ) || !IsASupportedLength( clLengths[ DimY ] ) )
+			if(!fftPlan->transflag)
 			{
-				return CLFFT_NOTIMPLEMENTED;
+				if( !IsASupportedLength( clLengths[ DimX ] ) || !IsASupportedLength( clLengths[ DimY ] ) )
+				{
+					return CLFFT_NOTIMPLEMENTED;
+				}
 			}
 
 			fftPlan->length.push_back( clLengths[ DimX ] );
