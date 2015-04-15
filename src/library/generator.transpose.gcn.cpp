@@ -430,9 +430,9 @@ static clfftStatus genTransposeKernel( const FFTGeneratedTransposeGCNAction::Sig
 
 		size_t numGroupsTemp;
 		if(params.transOutHorizontal)
-			numGroupsTemp = DivRoundingUp( params.fft_N[0], lwSize.y / reShapeFactor * loopCount );
+			numGroupsTemp = DivRoundingUp( params.fft_N[0], blockSize.x );
 		else
-			numGroupsTemp = DivRoundingUp( params.fft_N[1], lwSize.y / reShapeFactor * loopCount );
+			numGroupsTemp = DivRoundingUp( params.fft_N[1], blockSize.y );
 
 		clKernWrite( transKernel, 3 ) << "const size_t numGroupsY_1" << " = " << numGroupsTemp << ";" << std::endl;
 		for(int i = 2; i < params.fft_DataDim - 1; i++)
@@ -444,7 +444,7 @@ static clfftStatus genTransposeKernel( const FFTGeneratedTransposeGCNAction::Sig
 
 		// Generate the amount of local data share we need
 		// Assumption: Even for planar data, we will still store values in LDS as interleaved
-		tile ldsSize = { lwSize.x * reShapeFactor, lwSize.y / reShapeFactor * loopCount };
+		tile ldsSize = { blockSize.x, blockSize.y };
 		switch( params.fft_outputLayout )
 		{
 		case CLFFT_COMPLEX_INTERLEAVED:
@@ -486,18 +486,31 @@ static clfftStatus genTransposeKernel( const FFTGeneratedTransposeGCNAction::Sig
 		clKernWrite( transKernel, 3 ) << "rowSizeinUnits = " << params.fft_inStride[ 1 ] << ";" << std::endl; 
 		clKernWrite( transKernel, 3 ) << std::endl << std::endl;
 
-		bool branchingInX = params.transOutHorizontal ? ((params.fft_N[1] % blockSize.x) != 0) : ((params.fft_N[0] % blockSize.x) != 0);
-		bool branchingInY = params.transOutHorizontal ? ((params.fft_N[0] % blockSize.y) != 0) : ((params.fft_N[1] % blockSize.y) != 0);
-		bool branchingInBoth = branchingInX && branchingInY;
-		bool branchingInAny = branchingInX || branchingInY;
+		//
+		// Group index traversal is logical where X direction is horizontal in input buffer and vertical in output buffer
+		// when transOutHorizontal is enabled X direction is vertical in input buffer and horizontal in output buffer
+		// Not to be confused within a tile, where X is horizontal in input and vertical in output always
+		
+
+
+		bool branchingInGroupX = params.transOutHorizontal ? ((params.fft_N[1] % blockSize.y) != 0) : ((params.fft_N[0] % blockSize.x) != 0);
+		bool branchingInGroupY = params.transOutHorizontal ? ((params.fft_N[0] % blockSize.x) != 0) : ((params.fft_N[1] % blockSize.y) != 0);
+		bool branchingInBoth = branchingInGroupX && branchingInGroupY;
+		bool branchingInAny = branchingInGroupX || branchingInGroupY;
 
 		size_t branchBlocks = branchingInBoth ? 4 : ( branchingInAny ? 2 : 1 );
 
-		size_t validX = params.transOutHorizontal ? params.fft_N[0] % blockSize.y : params.fft_N[0] % blockSize.x;
-		size_t validY = params.transOutHorizontal ? params.fft_N[1] % blockSize.x : params.fft_N[1] % blockSize.y;
+		size_t cornerGroupX = params.transOutHorizontal ? (params.fft_N[1] / blockSize.y) : (params.fft_N[0] / blockSize.x);
+		size_t cornerGroupY = params.transOutHorizontal ? (params.fft_N[0] / blockSize.x) : (params.fft_N[1] / blockSize.y);
 
-		std::string gIndexX = params.transOutHorizontal ? "currDimIndex" : "groupIndex.x";
-		std::string gIndexY = params.transOutHorizontal ? "groupIndex.x" : "currDimIndex";		
+		std::string gIndexX = "groupIndex.x"; //params.transOutHorizontal ? "currDimIndex" : "groupIndex.x";
+		std::string gIndexY = "currDimIndex"; //params.transOutHorizontal ? "groupIndex.x" : "currDimIndex";		
+		
+		std::string wIndexX = params.transOutHorizontal ? "yInd" : "xInd";
+		std::string wIndexY = params.transOutHorizontal ? "xInd" : "yInd";
+				
+		size_t wIndexXEnd = params.transOutHorizontal ? params.fft_N[1] % blockSize.y : params.fft_N[0] % blockSize.x;
+		size_t wIndexYEnd = params.transOutHorizontal ? params.fft_N[0] % blockSize.x : params.fft_N[1] % blockSize.y;
 
 
 		for(size_t i = 0; i<branchBlocks; i++)
@@ -506,20 +519,20 @@ static clfftStatus genTransposeKernel( const FFTGeneratedTransposeGCNAction::Sig
 				if(i == 0)
 				{
 					clKernWrite( transKernel, 3 ) << "if( (" << gIndexX << " == " << 
-						(params.fft_N[0] / blockSize.x) << ") && (" << gIndexY << " == " <<
-						(params.fft_N[1] / blockSize.y) << ") )" << std::endl;
+						cornerGroupX << ") && (" << gIndexY << " == " <<
+						cornerGroupY << ") )" << std::endl;
 					clKernWrite( transKernel, 3 ) << "{" << std::endl;
 				}
 				else if(i == 1)
 				{
 					clKernWrite( transKernel, 3 ) << "else if( " << gIndexX << " == " << 
-						(params.fft_N[0] / blockSize.x) << " )" << std::endl;
+						cornerGroupX << " )" << std::endl;
 					clKernWrite( transKernel, 3 ) << "{" << std::endl;
 				}
 				else if(i == 2)
 				{
 					clKernWrite( transKernel, 3 ) << "else if( " << gIndexY << " == " <<
-						(params.fft_N[1] / blockSize.y) << " )" << std::endl;
+						cornerGroupY << " )" << std::endl;
 					clKernWrite( transKernel, 3 ) << "{" << std::endl;
 				}
 				else
@@ -530,16 +543,16 @@ static clfftStatus genTransposeKernel( const FFTGeneratedTransposeGCNAction::Sig
 			else if(branchingInAny)
 				if(i == 0)
 				{
-					if(branchingInX)
+					if(branchingInGroupX)
 					{
 						clKernWrite( transKernel, 3 ) << "if( " << gIndexX << " == " << 
-							(params.fft_N[0] / blockSize.x) << " )" << std::endl;
+							cornerGroupX << " )" << std::endl;
 						clKernWrite( transKernel, 3 ) << "{" << std::endl;
 					}
 					else
 					{
 						clKernWrite( transKernel, 3 ) << "if( " << gIndexY << " == " <<
-							(params.fft_N[1] / blockSize.y) << " )" << std::endl;
+							cornerGroupY << " )" << std::endl;
 						clKernWrite( transKernel, 3 ) << "{" << std::endl;
 					}
 				}
@@ -566,19 +579,19 @@ static clfftStatus genTransposeKernel( const FFTGeneratedTransposeGCNAction::Sig
 				if(i == 0)
 				{
 					clKernWrite( transKernel, 9 ) << std::endl;
-					clKernWrite( transKernel, 9 ) << "if( (xInd < " << validX << ") && (yInd < " << validY << ") )" << std::endl;
+					clKernWrite( transKernel, 9 ) << "if( (" << wIndexX << "< " << wIndexXEnd << ") && (" << wIndexY << " < " << wIndexYEnd << ") )" << std::endl;
 					clKernWrite( transKernel, 9 ) << "{" << std::endl;
 				}
 				else if(i == 1)
 				{
 					clKernWrite( transKernel, 9 ) << std::endl;
-					clKernWrite( transKernel, 9 ) << "if( (xInd < " << validX << ") )" << std::endl;
+					clKernWrite( transKernel, 9 ) << "if( (" << wIndexX << " < " << wIndexXEnd << ") )" << std::endl;
 					clKernWrite( transKernel, 9 ) << "{" << std::endl;
 				}
 				else if(i == 2)
 				{
 					clKernWrite( transKernel, 9 ) << std::endl;
-					clKernWrite( transKernel, 9 ) << "if( (yInd < " << validY << ") )" << std::endl;
+					clKernWrite( transKernel, 9 ) << "if( (" << wIndexY << " < " << wIndexYEnd << ") )" << std::endl;
 					clKernWrite( transKernel, 9 ) << "{" << std::endl;
 				}
 				else
@@ -588,16 +601,16 @@ static clfftStatus genTransposeKernel( const FFTGeneratedTransposeGCNAction::Sig
 			{
 				if(i == 0)
 				{
-					if(branchingInX)
+					if(branchingInGroupX)
 					{
 						clKernWrite( transKernel, 9 ) << std::endl;
-						clKernWrite( transKernel, 9 ) << "if( (xInd < " << validX << ") )" << std::endl;
+						clKernWrite( transKernel, 9 ) << "if( (" << wIndexX << " < " << wIndexXEnd << ") )" << std::endl;
 						clKernWrite( transKernel, 9 ) << "{" << std::endl;
 					}
 					else
 					{
 						clKernWrite( transKernel, 9 ) << std::endl;
-						clKernWrite( transKernel, 9 ) << "if( (yInd < " << validY << ") )" << std::endl;
+						clKernWrite( transKernel, 9 ) << "if( (" << wIndexY << " < " << wIndexYEnd << ") )" << std::endl;
 						clKernWrite( transKernel, 9 ) << "{" << std::endl;
 					}
 				}
@@ -674,20 +687,20 @@ static clfftStatus genTransposeKernel( const FFTGeneratedTransposeGCNAction::Sig
 				if(i == 0)
 				{
 					clKernWrite( transKernel, 3 ) << "if( (" << gIndexX << " == " << 
-						(params.fft_N[0] / blockSize.x) << ") && (" << gIndexY << " == " <<
-						(params.fft_N[1] / blockSize.y) << ") )" << std::endl;
+						cornerGroupX << ") && (" << gIndexY << " == " <<
+						cornerGroupY << ") )" << std::endl;
 					clKernWrite( transKernel, 3 ) << "{" << std::endl;
 				}
 				else if(i == 1)
 				{
 					clKernWrite( transKernel, 3 ) << "else if( " << gIndexX << " == " << 
-						(params.fft_N[0] / blockSize.x) << " )" << std::endl;
+						cornerGroupX << " )" << std::endl;
 					clKernWrite( transKernel, 3 ) << "{" << std::endl;
 				}
 				else if(i == 2)
 				{
 					clKernWrite( transKernel, 3 ) << "else if( " << gIndexY << " == " <<
-						(params.fft_N[1] / blockSize.y) << " )" << std::endl;
+						cornerGroupY << " )" << std::endl;
 					clKernWrite( transKernel, 3 ) << "{" << std::endl;
 				}
 				else
@@ -698,16 +711,16 @@ static clfftStatus genTransposeKernel( const FFTGeneratedTransposeGCNAction::Sig
 			else if(branchingInAny)
 				if(i == 0)
 				{
-					if(branchingInX)
+					if(branchingInGroupX)
 					{
 						clKernWrite( transKernel, 3 ) << "if( " << gIndexX << " == " << 
-							(params.fft_N[0] / blockSize.x) << " )" << std::endl;
+							cornerGroupX << " )" << std::endl;
 						clKernWrite( transKernel, 3 ) << "{" << std::endl;
 					}
 					else
 					{
 						clKernWrite( transKernel, 3 ) << "if( " << gIndexY << " == " <<
-							(params.fft_N[1] / blockSize.y) << " )" << std::endl;
+							cornerGroupY << " )" << std::endl;
 						clKernWrite( transKernel, 3 ) << "{" << std::endl;
 					}
 				}
@@ -730,20 +743,20 @@ static clfftStatus genTransposeKernel( const FFTGeneratedTransposeGCNAction::Sig
 				if(i == 0)
 				{
 					clKernWrite( transKernel, 9 ) << std::endl;
-					clKernWrite( transKernel, 9 ) << "if( (xInd < " << validY << ") && (yInd < " << validX << ") )" << std::endl;
+					clKernWrite( transKernel, 9 ) << "if( (" << wIndexY << " < " << wIndexXEnd << ") && (" << wIndexX << " < " << wIndexYEnd << ") )" << std::endl;
 					clKernWrite( transKernel, 9 ) << "{" << std::endl;
 				}
 				else if(i == 1)
 				{
 					clKernWrite( transKernel, 9 ) << std::endl;
-					clKernWrite( transKernel, 9 ) << "if( (yInd < " << validX << ") )" << std::endl;
+					clKernWrite( transKernel, 9 ) << "if( (" << wIndexY << " < " << wIndexXEnd << ") )" << std::endl;
 					clKernWrite( transKernel, 9 ) << "{" << std::endl;
 
 				}
 				else if(i == 2)
 				{
 					clKernWrite( transKernel, 9 ) << std::endl;
-					clKernWrite( transKernel, 9 ) << "if( (xInd < " << validY << ") )" << std::endl;
+					clKernWrite( transKernel, 9 ) << "if( (" << wIndexX << " < " << wIndexYEnd << ") )" << std::endl;
 					clKernWrite( transKernel, 9 ) << "{" << std::endl;
 				}
 				else
@@ -753,16 +766,16 @@ static clfftStatus genTransposeKernel( const FFTGeneratedTransposeGCNAction::Sig
 			{
 				if(i == 0)
 				{
-					if(branchingInX)
+					if(branchingInGroupX)
 					{
 						clKernWrite( transKernel, 9 ) << std::endl;
-						clKernWrite( transKernel, 9 ) << "if( (yInd < " << validX << ") )" << std::endl;
+						clKernWrite( transKernel, 9 ) << "if( (" << wIndexY << " < " << wIndexXEnd << ") )" << std::endl;
 						clKernWrite( transKernel, 9 ) << "{" << std::endl;
 					}
 					else
 					{
 						clKernWrite( transKernel, 9 ) << std::endl;
-						clKernWrite( transKernel, 9 ) << "if( (xInd < " << validY << ") )" << std::endl;
+						clKernWrite( transKernel, 9 ) << "if( (" << wIndexX << " < " << wIndexYEnd << ") )" << std::endl;
 						clKernWrite( transKernel, 9 ) << "{" << std::endl;
 					}
 				}

@@ -1910,6 +1910,7 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 					trans1Plan->outStride[1]  = length1;
 					trans1Plan->iDist         = rowPlan->oDist;
 					trans1Plan->oDist		  = Nt*length1;
+					trans1Plan->transOutHorizontal = true;
 
 					trans1Plan->gen           = Transpose_GCN;
 
