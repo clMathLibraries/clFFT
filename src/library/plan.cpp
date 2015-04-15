@@ -1889,7 +1889,7 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 						break;
 					case CLFFT_HERMITIAN_PLANAR:
 						{
-							trans1Plan->outputLayout = CLFFT_COMPLEX_PLANAR;
+							trans1Plan->outputLayout = CLFFT_COMPLEX_INTERLEAVED;
 							trans1Plan->inputLayout  = CLFFT_COMPLEX_PLANAR;
 						}
 						break;
@@ -2005,7 +2005,7 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 					case CLFFT_HERMITIAN_PLANAR:
 						{
 							trans2Plan->outputLayout = CLFFT_COMPLEX_PLANAR;
-							trans2Plan->inputLayout  = CLFFT_COMPLEX_PLANAR;
+							trans2Plan->inputLayout  = CLFFT_COMPLEX_INTERLEAVED;
 						}
 						break;
 					default: assert(false);
