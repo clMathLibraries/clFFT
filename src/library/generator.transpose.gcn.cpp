@@ -119,7 +119,6 @@ inline std::stringstream& clKernWrite( std::stringstream& rhs, const size_t tabI
     return rhs;
 }
 
-static size_t NumBlocksX(size_t N);
 
 static void OffsetCalc(std::stringstream& transKernel, const FFTKernelGenKeyParams& params, bool input )
 {
@@ -141,8 +140,6 @@ static void OffsetCalc(std::stringstream& transKernel, const FFTKernelGenKeyPara
 
 	if(params.transOutHorizontal)
 	{
-		size_t numBlocksX = NumBlocksX(params.fft_N[ 0 ]);
-
 		if(input)
 		{	
 			clKernWrite( transKernel, 3 ) << offset << " += rowSizeinUnits * wgTileExtent.y * wgUnroll * groupIndex.x;" << std::endl;
@@ -895,10 +892,6 @@ const size_t outRowPadding = 0;
 size_t loopCount = 0;
 tile blockSize = {0, 0};
 
-static size_t NumBlocksX(size_t N)
-{
-	return DivRoundingUp( N, blockSize.x );
-}
 
 //	OpenCL does not take unicode strings as input, so this routine returns only ASCII strings
 //	Feed this generator the FFTPlan, and it returns the generated program as a string
@@ -960,9 +953,10 @@ clfftStatus FFTGeneratedTransposeGCNAction::getWorkSizes( std::vector< size_t >&
     // We need to make sure that the global work size is evenly divisible by the local work size
     // Our transpose works in tiles, so divide tiles in each dimension to get count of blocks, rounding up for remainder items
 	size_t numBlocksX = this->signature.transOutHorizontal ?
-							NumBlocksX(this->signature.fft_N[ 1 ]) : NumBlocksX(this->signature.fft_N[ 0 ]);
+							DivRoundingUp(this->signature.fft_N[ 1 ], blockSize.y ) :
+							DivRoundingUp(this->signature.fft_N[ 0 ], blockSize.x );
     size_t numBlocksY = this->signature.transOutHorizontal ?
-							DivRoundingUp( this->signature.fft_N[ 0 ], blockSize.y ) :
+							DivRoundingUp( this->signature.fft_N[ 0 ], blockSize.x ) :
 							DivRoundingUp( this->signature.fft_N[ 1 ], blockSize.y );
     size_t numWIX = numBlocksX * lwSize.x;
 
