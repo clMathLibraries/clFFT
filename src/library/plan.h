@@ -369,7 +369,9 @@ public:
 	size_t	tmpBufSizeRC;
 	cl_mem	intBufferRC;
 
-	// for C-to-R transforms with largeness in Y or Z dimension
+	// for C-to-R transforms that are OUTOFPLACE
+	// we need this because the user supplied output buffer is not big enough
+	// to hold intermediate results for any problem other than normal 1D
 	size_t  tmpBufSizeC2R;
 	cl_mem  intBufferC2R;
 

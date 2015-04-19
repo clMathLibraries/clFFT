@@ -742,16 +742,16 @@ clfftStatus clfftEnqueueTransform(
 					{
 						cl_mem *out_local, *int_local, *out_y;
 
-						if(fftPlan->length.size() > 2)
+						if(fftPlan->placeness == CLFFT_INPLACE)
 						{
-							out_local = clOutputBuffers;
+							out_local = NULL;
 							int_local = NULL;
 							out_y = clInputBuffers;
 						}
 						else
 						{
-							out_local = (fftPlan->placeness==CLFFT_INPLACE) ? clInputBuffers : clOutputBuffers;
-							int_local = fftPlan->tmpBufSizeC2R ? &(fftPlan->intBufferC2R) : &localIntBuffer;
+							out_local = clOutputBuffers;
+							int_local = &(fftPlan->intBufferC2R);
 							out_y = int_local;
 						}
 
@@ -904,11 +904,20 @@ clfftStatus clfftEnqueueTransform(
 			}
 			else if(fftPlan->outputLayout == CLFFT_REAL)
 			{
-				cl_mem *out_local;
-				out_local = (fftPlan->placeness==CLFFT_INPLACE) ? clInputBuffers : clOutputBuffers;
+				cl_mem *out_local, *int_local, *out_z;
 
-				cl_mem *int_local;
-				int_local = fftPlan->tmpBufSizeC2R ? &(fftPlan->intBufferC2R) : &localIntBuffer;
+				if(fftPlan->placeness == CLFFT_INPLACE)
+				{
+					out_local = NULL;
+					int_local = NULL;
+					out_z = clInputBuffers;
+				}
+				else
+				{
+					out_local = clOutputBuffers;
+					int_local = &(fftPlan->intBufferC2R);
+					out_z = int_local;
+				}
 
 				//deal with 1D Z column first
 				OPENCL_V( clfftEnqueueTransform( fftPlan->planZ, CLFFT_BACKWARD, numQueuesAndEvents, commQueues, numWaitEvents,
@@ -917,7 +926,7 @@ clfftStatus clfftEnqueueTransform(
 
 				//deal with 2D row
 				OPENCL_V( clfftEnqueueTransform( fftPlan->planX, CLFFT_BACKWARD, numQueuesAndEvents, commQueues, 1, &rowOutEvents,
-					outEvents, int_local, out_local, localIntBuffer ),
+					outEvents, out_z, out_local, localIntBuffer ),
 					_T("clfftEnqueueTransform for 3D-XY row failed"));
 			}
 			else
