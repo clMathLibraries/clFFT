@@ -750,9 +750,18 @@ clfftStatus clfftEnqueueTransform(
 						}
 						else
 						{
-							out_local = clOutputBuffers;
-							int_local = &(fftPlan->intBufferC2R);
-							out_y = int_local;
+							if(fftPlan->length.size() > 2)
+							{
+								out_local = clOutputBuffers;
+								int_local = NULL;
+								out_y = clInputBuffers;
+							}
+							else
+							{
+								out_local = clOutputBuffers;
+								int_local = &(fftPlan->intBufferC2R);
+								out_y = int_local;
+							}
 						}
 
 

@@ -2126,7 +2126,7 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 						fftPlan->tmpBufSize *= fftPlan->length[index];
 				}
 
-				if ((fftPlan->tmpBufSizeC2R==0) && (fftPlan->placeness == CLFFT_OUTOFPLACE))
+				if ((fftPlan->tmpBufSizeC2R==0) && (fftPlan->placeness == CLFFT_OUTOFPLACE) && (fftPlan->length.size() == 2))
 				{
 					fftPlan->tmpBufSizeC2R = fftPlan->tmpBufSize;
 				}
@@ -2170,7 +2170,17 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 				if (fftPlan->placeness == CLFFT_INPLACE)
 				{
 					colPlan->placeness = CLFFT_INPLACE;
+				}
+				else
+				{
+					if(fftPlan->length.size() > 2)
+						colPlan->placeness = CLFFT_INPLACE;
+					else
+						colPlan->placeness = CLFFT_OUTOFPLACE;
+				}
 
+				if(colPlan->placeness == CLFFT_INPLACE)
+				{
 					colPlan->outStride[0]  = colPlan->inStride[0];
 					colPlan->outStride.push_back(colPlan->inStride[1]);
 					colPlan->oDist         = colPlan->iDist;
@@ -2184,8 +2194,6 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 				}
 				else
 				{
-					colPlan->placeness = CLFFT_OUTOFPLACE;
-
 					colPlan->outStride[0]  = Nt;
 					colPlan->outStride.push_back(1);
 					colPlan->oDist         = Nt*length1;
