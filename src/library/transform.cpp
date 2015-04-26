@@ -744,7 +744,8 @@ clfftStatus clfftEnqueueTransform(
 						{
 							cl_mem *mybuffers;
 
-							if (fftPlan->placeness==CLFFT_INPLACE)
+							if ( (fftPlan->placeness==CLFFT_INPLACE) ||
+								 ((fftPlan->placeness==CLFFT_OUTOFPLACE) && (fftPlan->length.size() > 2)) )
 								mybuffers = clInputBuffers;
 							else
 								mybuffers = &(fftPlan->intBufferC2R);
@@ -988,30 +989,105 @@ clfftStatus clfftEnqueueTransform(
 			}
 			else if(fftPlan->outputLayout == CLFFT_REAL)
 			{
-				cl_mem *out_local, *int_local, *out_z;
-
-				if(fftPlan->placeness == CLFFT_INPLACE)
+				if(fftPlan->planTZ)
 				{
-					out_local = NULL;
-					int_local = NULL;
-					out_z = clInputBuffers;
+					cl_mem *mybuffers;
+
+					if (fftPlan->placeness==CLFFT_INPLACE)
+						mybuffers = clInputBuffers;
+					else
+						mybuffers = &(fftPlan->intBufferC2R);
+
+					cl_event transZOutEvents = NULL;
+					cl_event transXOutEvents = NULL;
+
+					//First transpose
+					OPENCL_V( clfftEnqueueTransform( fftPlan->planTZ, dir, numQueuesAndEvents, commQueues, numWaitEvents, 
+						waitEvents, &transZOutEvents, clInputBuffers, &localIntBuffer, NULL ),
+						_T("clfftEnqueueTransform for first transpose failed"));
+					
+
+#if defined(DEBUGGING)
+					OPENCL_V( clEnqueueReadBuffer( *commQueues, mybuffers[0], CL_TRUE, 0, buffSizeBytes*2, &output2[0], 0,
+						NULL, NULL ),
+						_T("Reading the result buffer failed") );
+#endif
+
+					//First row
+					OPENCL_V( clfftEnqueueTransform( fftPlan->planZ, dir, numQueuesAndEvents, commQueues, 1, &transZOutEvents, 
+						&rowOutEvents, &localIntBuffer, NULL, NULL ),
+						_T("clfftEnqueueTransform for col failed"));
+					clReleaseEvent(transZOutEvents);
+
+
+#if defined(DEBUGGING)
+					OPENCL_V( clEnqueueReadBuffer( *commQueues, mybuffers[0], CL_TRUE, 0, buffSizeBytes*2, &output2[ 0 ], 0,
+						NULL, NULL ),
+						_T("Reading the result buffer failed") );
+#endif
+
+					//Second transpose
+					OPENCL_V( clfftEnqueueTransform( fftPlan->planTX, dir, numQueuesAndEvents, commQueues, 1, &rowOutEvents,
+						&transXOutEvents, &localIntBuffer, mybuffers, NULL ),
+						_T("clfftEnqueueTransform for second transpose failed"));
+							
+
+#if defined(DEBUGGING)
+					OPENCL_V( clEnqueueReadBuffer( *commQueues, localIntBuffer, CL_TRUE, 0, buffSizeBytes*2, &output2[0], 0,
+						NULL, NULL ),
+						_T("Reading the result buffer failed") );
+#endif
+
+
+					//Second Row transform
+					if(fftPlan->placeness == CLFFT_INPLACE)
+					{
+						OPENCL_V( clfftEnqueueTransform( fftPlan->planX, dir, numQueuesAndEvents, commQueues, 1, &transXOutEvents,
+							outEvents, clInputBuffers, NULL, NULL ),
+							_T("clfftEnqueueTransform for second row failed"));
+					}
+					else
+					{
+						OPENCL_V( clfftEnqueueTransform( fftPlan->planX, dir, numQueuesAndEvents, commQueues, 1, &transXOutEvents,
+							outEvents, mybuffers, clOutputBuffers, NULL ),
+							_T("clfftEnqueueTransform for second row failed"));
+					}
+					clReleaseEvent(transXOutEvents);
+#if defined(DEBUGGING)
+					OPENCL_V( clEnqueueReadBuffer( *commQueues, localIntBuffer, CL_TRUE, 0, buffSizeBytes*2, &output2[0], 0,
+						NULL, NULL ),
+						_T("Reading the result buffer failed") );
+#endif
+
+
 				}
 				else
 				{
-					out_local = clOutputBuffers;
-					int_local = &(fftPlan->intBufferC2R);
-					out_z = int_local;
+					cl_mem *out_local, *int_local, *out_z;
+
+					if(fftPlan->placeness == CLFFT_INPLACE)
+					{
+						out_local = NULL;
+						int_local = NULL;
+						out_z = clInputBuffers;
+					}
+					else
+					{
+						out_local = clOutputBuffers;
+						int_local = &(fftPlan->intBufferC2R);
+						out_z = int_local;
+					}
+
+					//deal with 1D Z column first
+					OPENCL_V( clfftEnqueueTransform( fftPlan->planZ, CLFFT_BACKWARD, numQueuesAndEvents, commQueues, numWaitEvents,
+						waitEvents, &rowOutEvents, clInputBuffers, int_local, localIntBuffer ),
+						_T("clfftEnqueueTransform for 3D-Z column failed"));
+
+					//deal with 2D row
+					OPENCL_V( clfftEnqueueTransform( fftPlan->planX, CLFFT_BACKWARD, numQueuesAndEvents, commQueues, 1, &rowOutEvents,
+						outEvents, out_z, out_local, localIntBuffer ),
+						_T("clfftEnqueueTransform for 3D-XY row failed"));
 				}
-
-				//deal with 1D Z column first
-				OPENCL_V( clfftEnqueueTransform( fftPlan->planZ, CLFFT_BACKWARD, numQueuesAndEvents, commQueues, numWaitEvents,
-					waitEvents, &rowOutEvents, clInputBuffers, int_local, localIntBuffer ),
-					_T("clfftEnqueueTransform for 3D-Z column failed"));
-
-				//deal with 2D row
-				OPENCL_V( clfftEnqueueTransform( fftPlan->planX, CLFFT_BACKWARD, numQueuesAndEvents, commQueues, 1, &rowOutEvents,
-					outEvents, out_z, out_local, localIntBuffer ),
-					_T("clfftEnqueueTransform for 3D-XY row failed"));
 			}
 			else
 			{
