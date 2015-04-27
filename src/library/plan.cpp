@@ -2129,9 +2129,9 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 				}
 
 				if( (fftPlan->inStride[0] == 1) && (fftPlan->outStride[0] == 1) &&
-					( ((fftPlan->outStride[1] == Nt*2) && (fftPlan->placeness == CLFFT_INPLACE)) ||
-						((fftPlan->outStride[1] == length0) && (fftPlan->placeness == CLFFT_OUTOFPLACE)) )
-					&& (fftPlan->inStride[1] == Nt) )
+					( ((fftPlan->outStride[1] == Nt*2) && (fftPlan->oDist == Nt*2*length1) && (fftPlan->placeness == CLFFT_INPLACE)) ||
+						((fftPlan->outStride[1] == length0) && (fftPlan->oDist == length0*length1) && (fftPlan->placeness == CLFFT_OUTOFPLACE)) )
+					&& (fftPlan->inStride[1] == Nt) && (fftPlan->iDist == Nt*length1) )
 				{
 					// create first transpose plan
 					
@@ -2969,9 +2969,9 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 				}
 
 				if( (fftPlan->inStride[0] == 1) && (fftPlan->outStride[0] == 1) &&
-					( ((fftPlan->outStride[2] == Nt*2*length1) && (fftPlan->placeness == CLFFT_INPLACE)) ||
-						((fftPlan->outStride[2] == length0*length1) && (fftPlan->placeness == CLFFT_OUTOFPLACE)) )
-					&& (fftPlan->inStride[2] == Nt*length1) )
+					( ((fftPlan->outStride[2] == Nt*2*length1) && (fftPlan->oDist == Nt*2*length1*length2) && (fftPlan->placeness == CLFFT_INPLACE)) ||
+						((fftPlan->outStride[2] == length0*length1) && (fftPlan->oDist == length0*length1*length2) && (fftPlan->placeness == CLFFT_OUTOFPLACE)) )
+					&& (fftPlan->inStride[2] == Nt*length1) && (fftPlan->iDist == Nt*length1*length2))
 				{
 					// create first transpose plan
 					
