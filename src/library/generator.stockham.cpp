@@ -605,6 +605,8 @@ namespace StockhamGenerator
 		bool rcFull;
 		bool rcSimple;
 
+		bool realSpecial;
+
 		bool enableGrouping;				
 		bool linearRegs;					// scalar registers (non-vectorized registers) to be used
 		bool halfLds;						// only half the LDS of a complex length need to be used
@@ -983,6 +985,15 @@ namespace StockhamGenerator
 					{
 						for(size_t r=0; r<radix; r++)
 						{
+							if(realSpecial && (nextPass == NULL) && (r > (radix/2)))
+								break;
+
+							if(realSpecial && (nextPass == NULL) && (r == radix/2) && (i != 0))
+								break;
+
+							if(realSpecial && (nextPass == NULL) && (r == radix/2) && (i == 0))
+								passStr += "\n\t}\n\tif( rw && !me)\n\t{";
+
 							for(size_t c=cStart; c<cEnd; c++) // component loop: 0 - real, 1 - imaginary
 							{
 								std::string tail;
@@ -1048,6 +1059,10 @@ namespace StockhamGenerator
 								if(interleaved && (component == SR_COMP_BOTH) && linearRegs)
 									break;
 							}
+
+							if(realSpecial && (nextPass == NULL) && (r == radix/2) && (i == 0))
+								passStr += "\n\t}\n\tif(rw)\n\t{";
+
 						}
 
 						butterflyIndex++;
@@ -1419,10 +1434,11 @@ namespace StockhamGenerator
 
     public:
 		Pass(	size_t positionVal, size_t lengthVal, size_t radixVal, size_t cnPerWIVal,
-				size_t L, size_t LS, size_t R, bool linearRegsVal, bool halfLdsVal, bool r2cVal, bool c2rVal, bool rcFullVal, bool rcSimpleVal) :
+				size_t L, size_t LS, size_t R, bool linearRegsVal, bool halfLdsVal,
+				bool r2cVal, bool c2rVal, bool rcFullVal, bool rcSimpleVal, bool realSpecialVal) :
 			position(positionVal), length(lengthVal), radix(radixVal), cnPerWI(cnPerWIVal),
 			algL(L), algLS(LS), algR(R), linearRegs(linearRegsVal), halfLds(halfLdsVal),
-			r2c(r2cVal), c2r(c2rVal), rcFull(rcFullVal), rcSimple(rcSimpleVal),
+			r2c(r2cVal), c2r(c2rVal), rcFull(rcFullVal), rcSimple(rcSimpleVal), realSpecial(realSpecialVal),
 			enableGrouping(true),
 			numB1(0), numB2(0), numB4(0),
 			nextPass(NULL)
@@ -2053,6 +2069,7 @@ namespace StockhamGenerator
 		BlockComputeType blockComputeType;
 		size_t blockWidth, blockWGS, blockLDS;
 
+		bool realSpecial;
 
 		const FFTKernelGenKeyParams params;		// key params
 
@@ -2082,6 +2099,9 @@ namespace StockhamGenerator
 			const size_t *iStride, *oStride;
 
 			if(r2c2r)
+				return false;
+
+			if(realSpecial)
 				return false;
 
 			if(params.fft_placeness == CLFFT_INPLACE)
@@ -2215,6 +2235,8 @@ namespace StockhamGenerator
 
 			linearRegs = halfLds;
 
+			realSpecial = params.fft_realSpecial;
+
 			blockCompute = params.blockCompute;
 			blockComputeType = params.blockComputeType;
 			// Make sure we can utilize all Lds if we are going to
@@ -2257,7 +2279,7 @@ namespace StockhamGenerator
 					R /= rad;
 
 					radices.push_back(rad);
-					passes.push_back(Pass<PR>(i, length, rad, cnPerWI, L, LS, R, linearRegs, halfLds, r2c, c2r, rcFull, rcSimple));
+					passes.push_back(Pass<PR>(i, length, rad, cnPerWI, L, LS, R, linearRegs, halfLds, r2c, c2r, rcFull, rcSimple, realSpecial));
 
 					LS *= rad;
 				}
@@ -2295,7 +2317,7 @@ namespace StockhamGenerator
 					R /= rad;
 
 					radices.push_back(rad);
-					passes.push_back(Pass<PR>(pid, length, rad, cnPerWI, L, LS, R, linearRegs, halfLds, r2c, c2r, rcFull, rcSimple));
+					passes.push_back(Pass<PR>(pid, length, rad, cnPerWI, L, LS, R, linearRegs, halfLds, r2c, c2r, rcFull, rcSimple, realSpecial));
 
 					pid++;
 					LS *= rad;
@@ -3101,6 +3123,10 @@ namespace StockhamGenerator
 					}
 				}
 
+				if(realSpecial)
+				{
+					str += "\n\tfor(uint t=0; t<2; t++)\n\t{\n\n";
+				}
 
 				// Call passes
 				if(numPasses == 1)
@@ -3118,7 +3144,7 @@ namespace StockhamGenerator
 					for(typename std::vector<Pass<PR> >::const_iterator p = passes.begin(); p != passes.end(); p++)
 					{
 						std::string exTab = "";
-						if(blockCompute) exTab = "\t";
+						if(blockCompute || realSpecial) exTab = "\t";
 
 						str += exTab;
 						str += "\t";
@@ -3183,11 +3209,21 @@ namespace StockhamGenerator
 					}
 				}
 
+				if(realSpecial)
+				{
+					size_t Nt = 1 + length/2;
+					str += 	"\n\t\tif( (batch == 0) || (2*batch == ";
+					str += SztToStr(params.fft_realSpecial_Nr); str += ") ) break;\n";
 
-				if(blockCompute)
+					str += "\t\tlwbOut += ("; str += SztToStr(params.fft_realSpecial_Nr);
+					str += " - 2*batch)*"; str += SztToStr(Nt); str += ";\n\n";
+				}
+
+				if(blockCompute || realSpecial)
 				{
 					str += "\n\t}\n\n";
 				}
+
 
 
 				// Write data from LDS for blocked access
@@ -3302,6 +3338,9 @@ clfftStatus FFTGeneratedStockhamAction::initParams ()
 
 
 	this->signature.fft_RCsimple = this->plan->RCsimple;
+
+	this->signature.fft_realSpecial = this->plan->realSpecial;
+	this->signature.fft_realSpecial_Nr = this->plan->realSpecial_Nr;
 
 	this->signature.blockCompute = this->plan->blockCompute;
 	this->signature.blockComputeType = this->plan->blockComputeType;

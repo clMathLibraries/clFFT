@@ -122,8 +122,11 @@ struct FFTKernelGenKeyParams {
 	                                            // so extra twiddles are applied on output.
 	bool					 fft_twiddleFront;	// do twiddle scaling at the beginning pass
 
+	bool					 fft_realSpecial;	// this is the flag to control the special case step (4th step)
+	                                            // in the 5-step real 1D large breakdown
+	size_t					 fft_realSpecial_Nr;
 
-	bool                     fft_RCsimple;
+	bool                     fft_RCsimple; 
 
 	bool					 transOutHorizontal;	// tiles traverse the output buffer in horizontal direction
 
@@ -158,7 +161,11 @@ struct FFTKernelGenKeyParams {
 
 		transOutHorizontal = false;
 
+		fft_realSpecial = false;
+		fft_realSpecial_Nr = 0;
+
 		fft_RCsimple = false;
+
 		blockCompute = false;
 		blockComputeType = BCT_C2C;
 		blockSIMD = 0;
@@ -406,6 +413,11 @@ public:
 	// where imaginary of input is set to zero in forward and imaginary not written in backward
 	bool RCsimple;
 
+	// Real FFT special flag
+	// if this is set it means we are doing the 4th step in the 5-step real FFT breakdown algorithm
+	bool realSpecial;
+	
+	size_t realSpecial_Nr;
 
 	// User created plan
 	bool userPlan;
@@ -452,6 +464,8 @@ public:
 	,   transflag(false)
 	,	transOutHorizontal(false)
 	,	RCsimple(false)
+	,	realSpecial(false)
+	,	realSpecial_Nr(0)
 	,	userPlan(false)
 	,	blockCompute(false)
 	,	blockComputeType(BCT_C2C)
