@@ -126,6 +126,10 @@ clfftStatus clfftEnqueueTransform(
 	{
 		case CLFFT_1D:
 		{
+			// Local memory isn't enough for all variables.
+			if ( Large1DThreshold <= 2048 )
+				Large1DThreshold /= 2;
+
 			if (fftPlan->length[0] <= Large1DThreshold)
 				break;
 

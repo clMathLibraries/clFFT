@@ -493,6 +493,10 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 	{
 	case CLFFT_1D:
 		{
+			// Local memory isn't enough for all variables.
+			if ( Large1DThreshold <= 2048 )
+				Large1DThreshold /= 2;
+
 			if ( fftPlan->length[0] > Large1DThreshold )
 			{
 				size_t clLengths[] = { 1, 1, 0 };
@@ -513,6 +517,7 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 						{
 							switch(fftPlan->length[0])
 							{
+							case 2048:		clLengths[1] = 64;	break;
 							case 8192:		clLengths[1] = 64;	break;
 							case 16384:		clLengths[1] = 64;	break;
 							case 32768:		clLengths[1] = 128;	break;
