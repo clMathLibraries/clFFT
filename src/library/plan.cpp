@@ -793,7 +793,202 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 				size_t length0 = clLengths[0];
 				size_t length1 = clLengths[1];
 
-				if(fftPlan->inputLayout == CLFFT_REAL)
+
+				// For real transforms
+				// Special case optimization with 5-step algorithm
+				if( (fftPlan->inputLayout == CLFFT_REAL) && IsPo2(fftPlan->length[0]) )
+				{
+					if (fftPlan->length.size() > 1) break;
+					if (fftPlan->inStride[0] != 1 || fftPlan->outStride[0] != 1) break;
+
+					ARG_CHECK(clLengths[0] <= Large1DThreshold);
+
+
+					size_t biggerDim = clLengths[0] > clLengths[1] ? clLengths[0] : clLengths[1];
+					size_t smallerDim = biggerDim == clLengths[0] ? clLengths[1] : clLengths[0];
+					size_t padding = 0;
+					if( (smallerDim % 64 == 0) || (biggerDim % 64 == 0) )
+						padding = 64;
+
+					if (fftPlan->tmpBufSize==0 )
+					{
+						fftPlan->tmpBufSize = (smallerDim + padding) * biggerDim *
+							fftPlan->batchsize * fftPlan->ElementSize() / 2;
+					}
+
+					//Transpose
+					//Input --> tmp buffer
+					OPENCL_V(clfftCreateDefaultPlanInternal( &fftPlan->planTX, fftPlan->context, CLFFT_2D, clLengths ),
+						_T( "CreateDefaultPlan Large1d transpose 1 failed" ) );
+
+					FFTPlan* trans1Plan	= NULL;
+					lockRAII* trans1Lock	= NULL;
+					OPENCL_V( fftRepo.getPlan( fftPlan->planTX, trans1Plan, trans1Lock ), _T( "fftRepo.getPlan failed" ) );
+
+					trans1Plan->placeness     = CLFFT_OUTOFPLACE;
+					trans1Plan->precision     = fftPlan->precision;
+					trans1Plan->tmpBufSize    = 0;
+					trans1Plan->batchsize     = fftPlan->batchsize;
+					trans1Plan->envelope	  = fftPlan->envelope;
+					trans1Plan->inputLayout   = fftPlan->inputLayout;
+					trans1Plan->outputLayout  = CLFFT_REAL;
+					trans1Plan->inStride[0]   = fftPlan->inStride[0];
+					trans1Plan->inStride[1]   = clLengths[0];
+					trans1Plan->outStride[0]  = 1;
+					trans1Plan->outStride[1]  = clLengths[1] + padding;
+					trans1Plan->iDist         = fftPlan->iDist;
+					trans1Plan->oDist         = clLengths[0] * trans1Plan->outStride[1];
+					trans1Plan->gen           = Transpose_GCN;
+					trans1Plan->transflag     = true;
+
+					OPENCL_V(clfftBakePlan(fftPlan->planTX, numQueues, commQueueFFT, NULL, NULL ),
+						_T( "BakePlan large1d trans1 plan failed" ) );
+
+					//Row transform
+					//tmp->output
+					//size clLengths[1], batch clLengths[0], with length[0] twiddle factor multiplication
+					OPENCL_V(clfftCreateDefaultPlanInternal( &fftPlan->planX, fftPlan->context, CLFFT_1D, &clLengths[1] ),
+						_T( "CreateDefaultPlan Large1d column failed" ) );
+
+					FFTPlan* row1Plan	= NULL;
+					lockRAII* row1Lock	= NULL;
+					OPENCL_V( fftRepo.getPlan( fftPlan->planX, row1Plan, row1Lock ), _T( "fftRepo.getPlan failed" ) );
+
+					row1Plan->placeness     = CLFFT_OUTOFPLACE;
+					row1Plan->precision     = fftPlan->precision;
+					row1Plan->forwardScale  = 1.0f;
+					row1Plan->backwardScale = 1.0f;
+					row1Plan->tmpBufSize    = 0;
+					row1Plan->batchsize     = fftPlan->batchsize;
+
+					row1Plan->gen			= fftPlan->gen;
+					row1Plan->envelope		= fftPlan->envelope;
+
+					// twiddling is done in row2
+					row1Plan->large1D		= 0;
+
+					row1Plan->length.push_back(clLengths[0]);
+					row1Plan->inputLayout   = CLFFT_REAL;
+					row1Plan->outputLayout  = CLFFT_HERMITIAN_INTERLEAVED;
+					row1Plan->inStride[0]   = 1;
+					row1Plan->outStride[0]  = 1;
+					row1Plan->inStride.push_back(clLengths[1]+padding);
+					row1Plan->outStride.push_back(1 + clLengths[1]/2);
+					row1Plan->iDist         = clLengths[0] * row1Plan->inStride[1];
+					row1Plan->oDist         = clLengths[0] * row1Plan->outStride[1]; // tmp buf distance fix
+
+
+					OPENCL_V(clfftBakePlan(fftPlan->planX, numQueues, commQueueFFT, NULL, NULL ),
+						_T( "BakePlan large1d first row plan failed" ) );
+
+					//Transpose 2
+					//Output --> tmp buffer
+					clLengths[2] = clLengths[0];
+					OPENCL_V(clfftCreateDefaultPlanInternal( &fftPlan->planTY, fftPlan->context, CLFFT_2D, &clLengths[1] ),
+						_T( "CreateDefaultPlan Large1d transpose 2 failed" ) );
+
+					FFTPlan* trans2Plan	= NULL;
+					lockRAII* trans2Lock	= NULL;
+					OPENCL_V( fftRepo.getPlan( fftPlan->planTY, trans2Plan, trans2Lock ), _T( "fftRepo.getPlan failed" ) );
+
+					size_t transLengths[2];
+					transLengths[0] = 1 + clLengths[1]/2;
+					transLengths[1] = clLengths[0];
+					OPENCL_V(clfftSetPlanLength( fftPlan->planTY, CLFFT_2D, transLengths ),
+						_T( "clfftSetPlanLength for planTY transpose failed" ) );
+
+
+
+					trans2Plan->placeness     = CLFFT_OUTOFPLACE;
+					trans2Plan->precision     = fftPlan->precision;
+					trans2Plan->tmpBufSize    = 0;
+					trans2Plan->batchsize     = fftPlan->batchsize;
+					trans2Plan->envelope	  = fftPlan->envelope;
+					trans2Plan->inputLayout   = CLFFT_COMPLEX_INTERLEAVED;
+					trans2Plan->outputLayout  = CLFFT_COMPLEX_INTERLEAVED;
+					trans2Plan->inStride[0]   = 1;
+					trans2Plan->inStride[1]   = 1 + clLengths[1]/2;
+					trans2Plan->outStride[0]  = 1;
+					trans2Plan->outStride[1]  = clLengths[0] + padding;
+					trans2Plan->iDist         = clLengths[0] * trans2Plan->inStride[1];
+					trans2Plan->oDist         = (1 + clLengths[1]/2) * trans2Plan->outStride[1];
+                    trans2Plan->gen           = Transpose_GCN;
+					trans2Plan->transflag     = true;
+
+					OPENCL_V(clfftBakePlan(fftPlan->planTY, numQueues, commQueueFFT, NULL, NULL ),
+						_T( "BakePlan large1d trans2 plan failed" ) );
+
+					//Row transform 2
+					//tmp->tmp
+					//size clLengths[0], batch clLengths[1]
+					OPENCL_V(clfftCreateDefaultPlanInternal( &fftPlan->planY, fftPlan->context, CLFFT_1D, &clLengths[0] ),
+						_T( "CreateDefaultPlan Large1d second row plan failed" ) );
+
+					FFTPlan* row2Plan	= NULL;
+					lockRAII* row2Lock	= NULL;
+					OPENCL_V( fftRepo.getPlan( fftPlan->planY, row2Plan, row2Lock ), _T( "fftRepo.getPlan failed" ) );
+
+					row2Plan->placeness     = CLFFT_OUTOFPLACE;
+					row2Plan->precision     = fftPlan->precision;
+					row2Plan->forwardScale  = fftPlan->forwardScale;
+					row2Plan->backwardScale = fftPlan->backwardScale;
+					row2Plan->tmpBufSize    = 0;
+					row2Plan->batchsize     = fftPlan->batchsize;
+
+					row2Plan->gen			= fftPlan->gen;
+					row2Plan->envelope		= fftPlan->envelope;
+
+
+					row2Plan->length.push_back(1+clLengths[1]/2);
+					row2Plan->inputLayout   = CLFFT_COMPLEX_INTERLEAVED;
+					row2Plan->outputLayout  = CLFFT_COMPLEX_INTERLEAVED;
+					row2Plan->inStride[0]   = 1;
+					row2Plan->outStride[0]  = 1;
+					row2Plan->inStride.push_back(clLengths[0] + padding);
+					row2Plan->outStride.push_back(1 + clLengths[0]/2);
+					row2Plan->iDist         = (1 + clLengths[1]/2) * row2Plan->inStride[1];
+					row2Plan->oDist         = clLengths[1] * row2Plan->outStride[1];
+
+					row2Plan->realSpecial = true;
+					row2Plan->realSpecial_Nr = clLengths[1];
+
+					OPENCL_V(clfftBakePlan(fftPlan->planY, numQueues, commQueueFFT, NULL, NULL ),
+						_T( "BakePlan large1d second row plan failed" ) );
+
+					//Transpose 3
+					//tmp --> output
+					OPENCL_V(clfftCreateDefaultPlanInternal( &fftPlan->planTZ, fftPlan->context, CLFFT_2D, clLengths ),
+						_T( "CreateDefaultPlan Large1d transpose 3 failed" ) );
+
+					FFTPlan* trans3Plan	= NULL;
+					lockRAII* trans3Lock	= NULL;
+					OPENCL_V( fftRepo.getPlan( fftPlan->planTZ, trans3Plan, trans3Lock ), _T( "fftRepo.getPlan failed" ) );
+
+					trans3Plan->placeness     = CLFFT_OUTOFPLACE;
+					trans3Plan->precision     = fftPlan->precision;
+					trans3Plan->tmpBufSize    = 0;
+					trans3Plan->batchsize     = fftPlan->batchsize;
+					trans3Plan->envelope	  = fftPlan->envelope;
+					trans3Plan->inputLayout   = CLFFT_COMPLEX_INTERLEAVED;
+					trans3Plan->outputLayout  = CLFFT_COMPLEX_INTERLEAVED;
+					trans3Plan->inStride[0]   = 1;
+					trans3Plan->inStride[1]   = 1 + clLengths[0]/2;
+					trans3Plan->outStride[0]  = 1;
+					trans3Plan->outStride[1]  = clLengths[1];
+					trans3Plan->iDist         = clLengths[1] * trans3Plan->inStride[1];
+					trans3Plan->oDist         = fftPlan->oDist;
+                    trans3Plan->gen           = Transpose_GCN;
+					trans3Plan->transflag     = true;
+					trans3Plan->transOutHorizontal = true;
+
+					OPENCL_V(clfftBakePlan(fftPlan->planTZ, numQueues, commQueueFFT, NULL, NULL ),
+						_T( "BakePlan large1d trans3 plan failed" ) );
+
+					fftPlan->transflag = true;
+					fftPlan->baked = true;
+					return	CLFFT_SUCCESS;
+				}
+				else if(fftPlan->inputLayout == CLFFT_REAL)
 				{
 					if (fftPlan->tmpBufSizeRC==0 )
 					{
@@ -1622,7 +1817,7 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 				rowPlan->length.push_back(fftPlan->length[1]);
 				rowPlan->inStride.push_back(fftPlan->inStride[1]);
 				rowPlan->iDist           = fftPlan->iDist;
-
+				
 				OPENCL_V(clfftBakePlan(fftPlan->planX, numQueues, commQueueFFT, NULL, NULL ),
 					_T( "BakePlan for planX failed" ) );
 

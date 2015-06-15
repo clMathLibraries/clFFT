@@ -417,7 +417,8 @@ public:
 	// if this is set it means we are doing the 4th step in the 5-step real FFT breakdown algorithm
 	bool realSpecial;
 	
-	size_t realSpecial_Nr;
+	size_t realSpecial_Nr; // this value stores the logical column height (N0) of matrix in the 4th step
+	                       // length[1] should be 1 + N0/2
 
 	// User created plan
 	bool userPlan;

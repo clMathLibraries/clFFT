@@ -129,7 +129,91 @@ clfftStatus clfftEnqueueTransform(
 			if (fftPlan->length[0] <= Large1DThreshold)
 				break;
 
-			if( fftPlan->inputLayout == CLFFT_REAL )
+			if( ( fftPlan->inputLayout == CLFFT_REAL ) && ( fftPlan->planTZ != 0) )
+			{
+					//First transpose
+					// Input->tmp
+					cl_event transTXOutEvents = NULL;
+					OPENCL_V( clfftEnqueueTransform( fftPlan->planTX, dir, numQueuesAndEvents, commQueues, numWaitEvents,
+						waitEvents, &transTXOutEvents, clInputBuffers, &localIntBuffer, NULL ),
+						_T("clfftEnqueueTransform for large1D transTX failed"));
+
+					cl_mem *mybuffers;
+					if (fftPlan->placeness==CLFFT_INPLACE)
+						mybuffers = clInputBuffers;
+					else
+						mybuffers = clOutputBuffers;
+
+#if defined(DEBUGGING)
+								//  For debugging interleave data only,
+								//  read the input buffer back into memory.
+						clFinish(*commQueues);
+								OPENCL_V( clEnqueueReadBuffer( *commQueues, localIntBuffer, CL_TRUE, 0, buffSizeBytes_complex, &temp[ 0 ], 0,
+									NULL, NULL ),
+									_T("Reading the result buffer failed") );
+#endif
+
+					//First Row
+					//tmp->output
+					cl_event rowXOutEvents = NULL;
+					OPENCL_V( clfftEnqueueTransform( fftPlan->planX, dir, numQueuesAndEvents, commQueues, 1,
+						&transTXOutEvents, &rowXOutEvents, &localIntBuffer, mybuffers, NULL ),
+						_T("clfftEnqueueTransform for large1D rowX failed"));
+					clReleaseEvent(transTXOutEvents);
+
+
+#if defined(DEBUGGING)
+								//  For debugging interleave data only,
+								//  read the input buffer back into memory.
+						clFinish(*commQueues);
+								OPENCL_V( clEnqueueReadBuffer( *commQueues, *mybuffers, CL_TRUE, 0, 536870912, &temp[ 0 ], 0,
+									NULL, NULL ),
+									_T("Reading the result buffer failed") );
+#endif
+
+					//Second Transpose
+					// output->tmp
+					cl_event transTYOutEvents = NULL;
+					OPENCL_V( clfftEnqueueTransform( fftPlan->planTY, dir, numQueuesAndEvents, commQueues, 1,
+						&rowXOutEvents, &transTYOutEvents, mybuffers, &localIntBuffer, NULL ),
+						_T("clfftEnqueueTransform for large1D transTY failed"));
+					clReleaseEvent(rowXOutEvents);
+
+
+#if defined(DEBUGGING)
+								//  For debugging interleave data only,
+								//  read the input buffer back into memory.
+						clFinish(*commQueues);
+								OPENCL_V( clEnqueueReadBuffer( *commQueues, localIntBuffer, CL_TRUE, 0, buffSizeBytes_complex, &temp[ 0 ], 0,
+									NULL, NULL ),
+									_T("Reading the result buffer failed") );
+#endif
+
+					//Second Row
+					//tmp->tmp, inplace
+					cl_event rowYOutEvents = NULL;
+					OPENCL_V( clfftEnqueueTransform( fftPlan->planY, dir, numQueuesAndEvents, commQueues, 1,
+						&transTYOutEvents, &rowYOutEvents, &localIntBuffer, NULL, NULL ),
+						_T("clfftEnqueueTransform for large1D rowY failed"));
+					clReleaseEvent(transTYOutEvents);
+
+#if defined(DEBUGGING)
+								//  For debugging interleave data only,
+								//  read the input buffer back into memory.
+						clFinish(*commQueues);
+								OPENCL_V( clEnqueueReadBuffer( *commQueues, localIntBuffer, CL_TRUE, 0, buffSizeBytes_complex, &temp[ 0 ], 0,
+									NULL, NULL ),
+									_T("Reading the result buffer failed") );
+#endif
+
+					//Third Transpose
+					// tmp->output
+					OPENCL_V( clfftEnqueueTransform( fftPlan->planTZ, dir, numQueuesAndEvents, commQueues, 1,
+						&rowYOutEvents, outEvents, &localIntBuffer, mybuffers, NULL ),
+						_T("clfftEnqueueTransform for large1D transTZ failed"));
+					clReleaseEvent(rowYOutEvents);
+			}
+			else if ( fftPlan->inputLayout == CLFFT_REAL )
 			{
 				cl_event colOutEvents = NULL;
 				cl_event copyInEvents = NULL;

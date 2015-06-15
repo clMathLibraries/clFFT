@@ -3216,7 +3216,9 @@ namespace StockhamGenerator
 					str += SztToStr(params.fft_realSpecial_Nr); str += ") ) break;\n";
 
 					str += "\t\tlwbOut += ("; str += SztToStr(params.fft_realSpecial_Nr);
-					str += " - 2*batch)*"; str += SztToStr(Nt); str += ";\n\n";
+					str += " - 2*batch)*"; str += SztToStr(Nt); str += ";\n";
+					str += "\t\tb = "; str += SztToStr(params.fft_realSpecial_Nr);
+					str += " - b;\n\n";
 				}
 
 				if(blockCompute || realSpecial)
@@ -3400,7 +3402,8 @@ clfftStatus FFTGeneratedStockhamAction::initParams ()
         ARG_CHECK (this->signature.fft_N[0] != 0)
         ARG_CHECK ((this->plan->large1D % this->signature.fft_N[0]) == 0)
         this->signature.fft_3StepTwiddle = true;
-		ARG_CHECK ( this->plan->large1D  == (this->signature.fft_N[1] * this->signature.fft_N[0]) );
+		if(!(this->plan->realSpecial))
+			ARG_CHECK ( this->plan->large1D  == (this->signature.fft_N[1] * this->signature.fft_N[0]) );
     }
 
     this->signature.fft_fwdScale  = this->plan->forwardScale;
