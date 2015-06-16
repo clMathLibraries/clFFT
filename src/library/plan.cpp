@@ -891,6 +891,8 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 					lockRAII* trans2Lock	= NULL;
 					OPENCL_V( fftRepo.getPlan( fftPlan->planTY, trans2Plan, trans2Lock ), _T( "fftRepo.getPlan failed" ) );
 
+					trans2Plan->transflag = true;
+
 					size_t transLengths[2];
 					transLengths[0] = 1 + clLengths[1]/2;
 					transLengths[1] = clLengths[0];
@@ -909,11 +911,12 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 					trans2Plan->inStride[0]   = 1;
 					trans2Plan->inStride[1]   = 1 + clLengths[1]/2;
 					trans2Plan->outStride[0]  = 1;
-					trans2Plan->outStride[1]  = clLengths[0] + padding;
+					trans2Plan->outStride[1]  = clLengths[0];
 					trans2Plan->iDist         = clLengths[0] * trans2Plan->inStride[1];
-					trans2Plan->oDist         = (1 + clLengths[1]/2) * trans2Plan->outStride[1];
+					trans2Plan->oDist         = fftPlan->oDist;
                     trans2Plan->gen           = Transpose_GCN;
 					trans2Plan->transflag     = true;
+					trans2Plan->transOutHorizontal = true;
 
 					OPENCL_V(clfftBakePlan(fftPlan->planTY, numQueues, commQueueFFT, NULL, NULL ),
 						_T( "BakePlan large1d trans2 plan failed" ) );
@@ -963,6 +966,13 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 					FFTPlan* trans3Plan	= NULL;
 					lockRAII* trans3Lock	= NULL;
 					OPENCL_V( fftRepo.getPlan( fftPlan->planTZ, trans3Plan, trans3Lock ), _T( "fftRepo.getPlan failed" ) );
+
+					trans3Plan->transflag = true;
+
+					transLengths[0] = 1 + clLengths[0]/2;
+					transLengths[1] = clLengths[1];
+					OPENCL_V(clfftSetPlanLength( fftPlan->planTZ, CLFFT_2D, transLengths ),
+						_T( "clfftSetPlanLength for planTZ transpose failed" ) );
 
 					trans3Plan->placeness     = CLFFT_OUTOFPLACE;
 					trans3Plan->precision     = fftPlan->precision;
@@ -1707,6 +1717,20 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 		break;
 	case CLFFT_2D:
 		{
+
+			if (fftPlan->transflag) //Transpose for 2D
+			{
+                clfftStatus err;
+				if(fftPlan->gen == Transpose_GCN)
+					fftPlan->action = new FFTGeneratedTransposeGCNAction(plHandle, fftPlan, *commQueueFFT, err);
+				else
+					fftPlan->action = new FFTGeneratedTransposeVLIWAction(plHandle, fftPlan, *commQueueFFT, err);
+                OPENCL_V( err, "FFTGeneratedTransposeVLIWAction failed");
+
+				fftPlan->baked		= true;
+				return	CLFFT_SUCCESS;
+			}
+
 			size_t length0 = fftPlan->length[0];
 			size_t length1 = fftPlan->length[1];
 
@@ -1740,18 +1764,7 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 			while (1 && (fftPlan->inputLayout != CLFFT_REAL) && (fftPlan->outputLayout != CLFFT_REAL))
 			{
 				//break;
-				if (fftPlan->transflag) //Transpose for 2D
-				{
-                    clfftStatus err;
-					if(fftPlan->gen == Transpose_GCN)
-						fftPlan->action = new FFTGeneratedTransposeGCNAction(plHandle, fftPlan, *commQueueFFT, err);
-					else
-						fftPlan->action = new FFTGeneratedTransposeVLIWAction(plHandle, fftPlan, *commQueueFFT, err);
-                    OPENCL_V( err, "FFTGeneratedTransposeVLIWAction failed");
 
-					fftPlan->baked		= true;
-					return	CLFFT_SUCCESS;
-				}
 
                 // TODO : Check for a better way to do this.
                 bool isnvidia = false;

@@ -451,8 +451,10 @@ static clfftStatus genTransposeKernel( const FFTGeneratedTransposeGCNAction::Sig
 			break;
 		case CLFFT_HERMITIAN_INTERLEAVED:
 		case CLFFT_HERMITIAN_PLANAR:
-		case CLFFT_REAL:
 			return CLFFT_TRANSPOSED_NOTIMPLEMENTED;
+		case CLFFT_REAL:
+			clKernWrite( transKernel, 3 ) << "local " << dtPlanar << " lds[ " << ldsSize.x << " ][ " << ldsSize.y << " ];" << std::endl << std::endl;
+			break;
 		}
 
 
@@ -474,12 +476,23 @@ static clfftStatus genTransposeKernel( const FFTGeneratedTransposeGCNAction::Sig
 			break;
 		case CLFFT_HERMITIAN_INTERLEAVED:
 		case CLFFT_HERMITIAN_PLANAR:
-		case CLFFT_REAL:
 			return CLFFT_TRANSPOSED_NOTIMPLEMENTED;
+		case CLFFT_REAL:
+			clKernWrite( transKernel, 3 ) << "global " << dtInput << "* tileIn = " << pmRealIn << " + iOffset;" << std::endl;
+			break;
+			
 		}
 
 		// This is the loop reading through the Tile
-		clKernWrite( transKernel, 3 ) << dtComplex << " tmp;" << std::endl;
+		if( params.fft_inputLayout == CLFFT_REAL )
+		{
+			clKernWrite( transKernel, 3 ) << dtPlanar << " tmp;" << std::endl;
+		}
+		else
+		{
+			clKernWrite( transKernel, 3 ) << dtComplex << " tmp;" << std::endl;
+		}
+
 		clKernWrite( transKernel, 3 ) << "rowSizeinUnits = " << params.fft_inStride[ 1 ] << ";" << std::endl; 
 		clKernWrite( transKernel, 3 ) << std::endl << std::endl;
 
@@ -626,8 +639,11 @@ static clfftStatus genTransposeKernel( const FFTGeneratedTransposeGCNAction::Sig
 				break;
 			case CLFFT_HERMITIAN_INTERLEAVED:
 			case CLFFT_HERMITIAN_PLANAR:
-			case CLFFT_REAL:
 				return CLFFT_TRANSPOSED_NOTIMPLEMENTED;
+			case CLFFT_REAL:
+				clKernWrite( transKernel, 9 ) << "tmp = tileIn[ gInd ];" << std::endl;
+				break;
+
 			}
 
 			if(branchingInAny)
@@ -668,8 +684,10 @@ static clfftStatus genTransposeKernel( const FFTGeneratedTransposeGCNAction::Sig
 			break;
 		case CLFFT_HERMITIAN_INTERLEAVED:
 		case CLFFT_HERMITIAN_PLANAR:
-		case CLFFT_REAL:
 			return CLFFT_TRANSPOSED_NOTIMPLEMENTED;
+		case CLFFT_REAL:
+			clKernWrite( transKernel, 3 ) << "global " << dtOutput << "* tileOut = " << pmRealOut << " + oOffset;" << std::endl << std::endl;
+			break;
 		}
 
 		// Write the transposed values from LDS into global memory
@@ -791,8 +809,10 @@ static clfftStatus genTransposeKernel( const FFTGeneratedTransposeGCNAction::Sig
 				break;
 			case CLFFT_HERMITIAN_INTERLEAVED:
 			case CLFFT_HERMITIAN_PLANAR:
-			case CLFFT_REAL:
 				return CLFFT_TRANSPOSED_NOTIMPLEMENTED;
+			case CLFFT_REAL:
+				clKernWrite( transKernel, 9 ) << "tileOut[ gInd ] = tmp;" << std::endl;
+				break;
 			}
 
 			if(branchingInAny)
