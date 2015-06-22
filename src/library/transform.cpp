@@ -157,7 +157,7 @@ clfftStatus clfftEnqueueTransform(
 					//tmp->output
 					cl_event rowXOutEvents = NULL;
 					OPENCL_V( clfftEnqueueTransform( fftPlan->planX, dir, numQueuesAndEvents, commQueues, 1,
-						&transTXOutEvents, &rowXOutEvents, &localIntBuffer, mybuffers, NULL ),
+						&transTXOutEvents, &rowXOutEvents, &localIntBuffer, &(fftPlan->intBufferRC), NULL ),
 						_T("clfftEnqueueTransform for large1D rowX failed"));
 					clReleaseEvent(transTXOutEvents);
 
@@ -175,7 +175,7 @@ clfftStatus clfftEnqueueTransform(
 					// output->tmp
 					cl_event transTYOutEvents = NULL;
 					OPENCL_V( clfftEnqueueTransform( fftPlan->planTY, dir, numQueuesAndEvents, commQueues, 1,
-						&rowXOutEvents, &transTYOutEvents, mybuffers, &localIntBuffer, NULL ),
+						&rowXOutEvents, &transTYOutEvents, &(fftPlan->intBufferRC), &localIntBuffer, NULL ),
 						_T("clfftEnqueueTransform for large1D transTY failed"));
 					clReleaseEvent(rowXOutEvents);
 
@@ -193,7 +193,7 @@ clfftStatus clfftEnqueueTransform(
 					//tmp->tmp, inplace
 					cl_event rowYOutEvents = NULL;
 					OPENCL_V( clfftEnqueueTransform( fftPlan->planY, dir, numQueuesAndEvents, commQueues, 1,
-						&transTYOutEvents, &rowYOutEvents, &localIntBuffer, NULL, NULL ),
+						&transTYOutEvents, &rowYOutEvents, &localIntBuffer, &(fftPlan->intBufferRC), NULL ),
 						_T("clfftEnqueueTransform for large1D rowY failed"));
 					clReleaseEvent(transTYOutEvents);
 
@@ -209,7 +209,7 @@ clfftStatus clfftEnqueueTransform(
 					//Third Transpose
 					// tmp->output
 					OPENCL_V( clfftEnqueueTransform( fftPlan->planTZ, dir, numQueuesAndEvents, commQueues, 1,
-						&rowYOutEvents, outEvents, &localIntBuffer, mybuffers, NULL ),
+						&rowYOutEvents, outEvents, &(fftPlan->intBufferRC), mybuffers, NULL ),
 						_T("clfftEnqueueTransform for large1D transTZ failed"));
 					clReleaseEvent(rowYOutEvents);
 			}

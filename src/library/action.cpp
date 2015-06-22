@@ -486,8 +486,23 @@ clfftStatus FFTAction::selectBufferArguments(FFTPlan * fftPlan,
         }
         default:
         {
-            //	Don't recognize output layout
-            return CLFFT_INVALID_ARG_VALUE;
+			if(fftPlan->transflag)
+			{
+				if( fftPlan->placeness == CLFFT_INPLACE )
+				{
+					return CLFFT_INVALID_ARG_VALUE;
+				}
+				else
+				{
+					inputBuff.push_back( clInputBuffers[ 0 ] );
+					outputBuff.push_back( clOutputBuffers[ 0 ] );
+				}
+			}
+			else
+			{
+				//	Don't recognize output layout
+				return CLFFT_INVALID_ARG_VALUE;
+			}
         }
         }
 

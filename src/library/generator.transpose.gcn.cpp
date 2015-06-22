@@ -784,13 +784,29 @@ static clfftStatus genTransposeKernel( const FFTGeneratedTransposeGCNAction::Sig
 					if(branchingInGroupX)
 					{
 						clKernWrite( transKernel, 9 ) << std::endl;
-						clKernWrite( transKernel, 9 ) << "if( (" << wIndexY << " < " << wIndexXEnd << ") )" << std::endl;
+						if(params.fft_realSpecial)
+						{
+							clKernWrite( transKernel, 9 ) << "if( (" << wIndexY << " < " << wIndexXEnd << ") && (" <<
+								wIndexX << " < 1) )" << std::endl;
+						}
+						else
+						{
+							clKernWrite( transKernel, 9 ) << "if( (" << wIndexY << " < " << wIndexXEnd << ") )" << std::endl;
+						}
 						clKernWrite( transKernel, 9 ) << "{" << std::endl;
 					}
 					else
 					{
 						clKernWrite( transKernel, 9 ) << std::endl;
-						clKernWrite( transKernel, 9 ) << "if( (" << wIndexX << " < " << wIndexYEnd << ") )" << std::endl;
+						if(params.fft_realSpecial)
+						{
+							clKernWrite( transKernel, 9 ) << "if( (" << wIndexX << " < " << wIndexYEnd << ") && (" <<
+								wIndexY << " < 1) )" << std::endl;
+						}
+						else
+						{
+							clKernWrite( transKernel, 9 ) << "if( (" << wIndexX << " < " << wIndexYEnd << ") )" << std::endl;
+						}
 						clKernWrite( transKernel, 9 ) << "{" << std::endl;
 					}
 				}
@@ -847,6 +863,8 @@ clfftStatus FFTGeneratedTransposeGCNAction::initParams ()
     this->signature.fft_inputLayout  = this->plan->inputLayout;
     this->signature.fft_outputLayout = this->plan->outputLayout;
     this->signature.fft_3StepTwiddle = false;
+
+	this->signature.fft_realSpecial  = this->plan->realSpecial;
 
 	this->signature.transOutHorizontal = this->plan->transOutHorizontal;	// using the twiddle front flag to specify horizontal write
 														// we do this so as to reuse flags in FFTKernelGenKeyParams

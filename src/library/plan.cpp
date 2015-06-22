@@ -796,7 +796,8 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 
 				// For real transforms
 				// Special case optimization with 5-step algorithm
-				if( (fftPlan->inputLayout == CLFFT_REAL) && IsPo2(fftPlan->length[0]) )
+				if( (fftPlan->inputLayout == CLFFT_REAL) && IsPo2(fftPlan->length[0])
+					&& (fftPlan->inStride[0] == 1) && (fftPlan->outStride[0] == 1) )
 				{
 					if (fftPlan->length.size() > 1) break;
 					if (fftPlan->inStride[0] != 1 || fftPlan->outStride[0] != 1) break;
@@ -814,6 +815,16 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 					{
 						fftPlan->tmpBufSize = (smallerDim + padding) * biggerDim *
 							fftPlan->batchsize * fftPlan->ElementSize() / 2;
+
+						for (size_t index=1; index < fftPlan->length.size(); index++)
+						{
+							fftPlan->tmpBufSizeRC *= fftPlan->length[index];
+						}
+					}
+
+					if (fftPlan->tmpBufSizeRC==0 )
+					{
+						fftPlan->tmpBufSizeRC = fftPlan->tmpBufSize;
 					}
 
 					//Transpose
@@ -947,7 +958,7 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 					row2Plan->outputLayout  = CLFFT_COMPLEX_INTERLEAVED;
 					row2Plan->inStride[0]   = 1;
 					row2Plan->outStride[0]  = 1;
-					row2Plan->inStride.push_back(clLengths[0] + padding);
+					row2Plan->inStride.push_back(clLengths[0]);
 					row2Plan->outStride.push_back(1 + clLengths[0]/2);
 					row2Plan->iDist         = (1 + clLengths[1]/2) * row2Plan->inStride[1];
 					row2Plan->oDist         = clLengths[1] * row2Plan->outStride[1];
@@ -989,6 +1000,7 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 					trans3Plan->oDist         = fftPlan->oDist;
                     trans3Plan->gen           = Transpose_GCN;
 					trans3Plan->transflag     = true;
+					trans3Plan->realSpecial	  = true;
 					trans3Plan->transOutHorizontal = true;
 
 					OPENCL_V(clfftBakePlan(fftPlan->planTZ, numQueues, commQueueFFT, NULL, NULL ),
