@@ -956,19 +956,62 @@ namespace StockhamGenerator
 							}
 
 							passStr += rType; passStr += " TR, TI;\n\t\t";
-							if(fwd)
+
+							if(realSpecial)
 							{
-								passStr += "TR = (W.x * "; passStr += regRealIndex; passStr += ") - (W.y * ";
-								passStr += regImagIndex; passStr += ");\n\t\t";
-								passStr += "TI = (W.y * "; passStr += regRealIndex; passStr += ") + (W.x * ";
-								passStr += regImagIndex; passStr += ");\n\t\t";
+								if(fwd)
+								{
+									passStr += "if(t==0)\n\t\t{\n\t\t";
+
+									passStr += "TR = (W.x * "; passStr += regRealIndex; passStr += ") - (W.y * ";
+									passStr += regImagIndex; passStr += ");\n\t\t";
+									passStr += "TI = (W.y * "; passStr += regRealIndex; passStr += ") + (W.x * ";
+									passStr += regImagIndex; passStr += ");\n\t\t";
+
+									passStr += "}\n\t\telse\n\t\t{\n\t\t";
+
+									passStr += "TR =  (W.x * "; passStr += regRealIndex; passStr += ") + (W.y * ";
+									passStr += regImagIndex; passStr += ");\n\t\t";
+									passStr += "TI = -(W.y * "; passStr += regRealIndex; passStr += ") + (W.x * ";
+									passStr += regImagIndex; passStr += ");\n\t\t";
+
+									passStr += "}\n\t\t";
+								}
+								else
+								{
+									passStr += "if(t==0)\n\t\t{\n\t\t";
+
+									passStr += "TR =  (W.x * "; passStr += regRealIndex; passStr += ") + (W.y * ";
+									passStr += regImagIndex; passStr += ");\n\t\t";
+									passStr += "TI = -(W.y * "; passStr += regRealIndex; passStr += ") + (W.x * ";
+									passStr += regImagIndex; passStr += ");\n\t\t";
+
+									passStr += "}\n\t\telse\n\t\t{\n\t\t";
+
+									passStr += "TR = (W.x * "; passStr += regRealIndex; passStr += ") - (W.y * ";
+									passStr += regImagIndex; passStr += ");\n\t\t";
+									passStr += "TI = (W.y * "; passStr += regRealIndex; passStr += ") + (W.x * ";
+									passStr += regImagIndex; passStr += ");\n\t\t";
+
+									passStr += "}\n\t\t";
+								}
 							}
 							else
 							{
-								passStr += "TR =  (W.x * "; passStr += regRealIndex; passStr += ") + (W.y * ";
-								passStr += regImagIndex; passStr += ");\n\t\t";
-								passStr += "TI = -(W.y * "; passStr += regRealIndex; passStr += ") + (W.x * ";
-								passStr += regImagIndex; passStr += ");\n\t\t";
+								if(fwd)
+								{
+									passStr += "TR = (W.x * "; passStr += regRealIndex; passStr += ") - (W.y * ";
+									passStr += regImagIndex; passStr += ");\n\t\t";
+									passStr += "TI = (W.y * "; passStr += regRealIndex; passStr += ") + (W.x * ";
+									passStr += regImagIndex; passStr += ");\n\t\t";
+								}
+								else
+								{
+									passStr += "TR =  (W.x * "; passStr += regRealIndex; passStr += ") + (W.y * ";
+									passStr += regImagIndex; passStr += ");\n\t\t";
+									passStr += "TI = -(W.y * "; passStr += regRealIndex; passStr += ") + (W.x * ";
+									passStr += regImagIndex; passStr += ");\n\t\t";
+								}
 							}
 
 							passStr += regRealIndex; passStr += " = TR;\n\t\t";
@@ -1526,7 +1569,9 @@ namespace StockhamGenerator
 
 			// Function arguments
 			passStr += "(";
-			passStr += "uint rw, uint b, uint me, uint inOffset, uint outOffset, ";
+			passStr += "uint rw, uint b, ";
+			if(realSpecial) passStr += "uint t, ";
+			passStr += "uint me, uint inOffset, uint outOffset, ";
 
 			if(r2c || c2r)
 			{
@@ -3180,7 +3225,9 @@ namespace StockhamGenerator
 						else		{	if(ldsInterleaved) { ldsArgs += "lds"; }
 										else { ldsArgs += "lds, lds + "; ldsArgs += SztToStr(length*numTrans); } }
 
-						str += rw; str += me;
+						str += rw;
+						if(params.fft_realSpecial) str += "t, ";
+						str += me;
 						if(p == passes.begin()) // beginning pass
 						{
 							str += blockCompute ? ldsOff : "0";
