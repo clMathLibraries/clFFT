@@ -818,7 +818,7 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 
 						for (size_t index=1; index < fftPlan->length.size(); index++)
 						{
-							fftPlan->tmpBufSizeRC *= fftPlan->length[index];
+							fftPlan->tmpBufSize *= fftPlan->length[index];
 						}
 					}
 
@@ -886,7 +886,7 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 					row1Plan->inStride.push_back(clLengths[1]+padding);
 					row1Plan->outStride.push_back(1 + clLengths[1]/2);
 					row1Plan->iDist         = clLengths[0] * row1Plan->inStride[1];
-					row1Plan->oDist         = clLengths[0] * row1Plan->outStride[1]; // tmp buf distance fix
+					row1Plan->oDist         = clLengths[0] * row1Plan->outStride[1]; 
 
 
 					OPENCL_V(clfftBakePlan(fftPlan->planX, numQueues, commQueueFFT, NULL, NULL ),
@@ -924,7 +924,7 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 					trans2Plan->outStride[0]  = 1;
 					trans2Plan->outStride[1]  = clLengths[0];
 					trans2Plan->iDist         = clLengths[0] * trans2Plan->inStride[1];
-					trans2Plan->oDist         = fftPlan->oDist;
+					trans2Plan->oDist         = (1 + clLengths[1]/2) * trans2Plan->outStride[1];
                     trans2Plan->gen           = Transpose_GCN;
 					trans2Plan->transflag     = true;
 					trans2Plan->transOutHorizontal = true;
@@ -962,6 +962,9 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 					row2Plan->outStride.push_back(1 + clLengths[0]/2);
 					row2Plan->iDist         = (1 + clLengths[1]/2) * row2Plan->inStride[1];
 					row2Plan->oDist         = clLengths[1] * row2Plan->outStride[1];
+
+					row2Plan->large1D		= fftPlan->length[0];
+					row2Plan->twiddleFront  = true;
 
 					row2Plan->realSpecial = true;
 					row2Plan->realSpecial_Nr = clLengths[1];

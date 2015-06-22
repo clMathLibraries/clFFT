@@ -2891,6 +2891,11 @@ namespace StockhamGenerator
 					}
 
 					str += SztToStr(params.fft_N[1]); str += ";\n\n";
+
+					if(params.fft_realSpecial)
+					{
+						str += "\tuint bt = b;\n\n";
+					}
 				}
 				else
 				{
@@ -3212,11 +3217,11 @@ namespace StockhamGenerator
 				if(realSpecial)
 				{
 					size_t Nt = 1 + length/2;
-					str += 	"\n\t\tif( (batch == 0) || (2*batch == ";
+					str += 	"\n\t\tif( (bt == 0) || (2*bt == ";
 					str += SztToStr(params.fft_realSpecial_Nr); str += ") ) break;\n";
 
 					str += "\t\tlwbOut += ("; str += SztToStr(params.fft_realSpecial_Nr);
-					str += " - 2*batch)*"; str += SztToStr(Nt); str += ";\n";
+					str += " - 2*bt)*"; str += SztToStr(Nt); str += ";\n";
 					str += "\t\tb = "; str += SztToStr(params.fft_realSpecial_Nr);
 					str += " - b;\n\n";
 				}
