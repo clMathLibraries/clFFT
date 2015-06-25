@@ -957,7 +957,7 @@ namespace StockhamGenerator
 
 							passStr += rType; passStr += " TR, TI;\n\t\t";
 
-							if(realSpecial)
+							if(realSpecial && (flag == SR_TWMUL_3STEP))
 							{
 								if(fwd)
 								{
@@ -969,21 +969,21 @@ namespace StockhamGenerator
 									passStr += regImagIndex; passStr += ");\n\t\t";
 
 									passStr += "}\n\t\telse\n\t\t{\n\t\t";
-
-									passStr += "TR =  (W.x * "; passStr += regRealIndex; passStr += ") + (W.y * ";
+									
+									passStr += "TR = (W.x * "; passStr += regRealIndex; passStr += ") + (W.y * ";
 									passStr += regImagIndex; passStr += ");\n\t\t";
-									passStr += "TI = -(W.y * "; passStr += regRealIndex; passStr += ") + (W.x * ";
+									passStr += "TI = (W.y * "; passStr += regRealIndex; passStr += ") - (W.x * ";
 									passStr += regImagIndex; passStr += ");\n\t\t";
-
+									
 									passStr += "}\n\t\t";
 								}
 								else
 								{
 									passStr += "if(t==0)\n\t\t{\n\t\t";
 
-									passStr += "TR =  (W.x * "; passStr += regRealIndex; passStr += ") + (W.y * ";
+									passStr += "TR = (W.x * "; passStr += regRealIndex; passStr += ") + (W.y * ";
 									passStr += regImagIndex; passStr += ");\n\t\t";
-									passStr += "TI = -(W.y * "; passStr += regRealIndex; passStr += ") + (W.x * ";
+									passStr += "TI = (W.y * "; passStr += regRealIndex; passStr += ") - (W.x * ";
 									passStr += regImagIndex; passStr += ");\n\t\t";
 
 									passStr += "}\n\t\telse\n\t\t{\n\t\t";
@@ -2502,7 +2502,11 @@ namespace StockhamGenerator
 			inReal  = (params.fft_inputLayout == CLFFT_REAL) ? true : false;
 			outReal = (params.fft_outputLayout == CLFFT_REAL) ? true : false;
 
-			size_t large1D = params.fft_N[0] * params.fft_N[1];
+			size_t large1D = 0;
+			if(params.fft_realSpecial)
+				large1D = params.fft_N[0] * params.fft_realSpecial_Nr;
+			else
+				large1D = params.fft_N[0] * params.fft_N[1];
 
 			// Pragma
 			str += ClPragma<PR>();

@@ -811,10 +811,16 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 					if( (smallerDim % 64 == 0) || (biggerDim % 64 == 0) )
 						padding = 64;
 
+
 					if (fftPlan->tmpBufSize==0 )
 					{
-						fftPlan->tmpBufSize = (smallerDim + padding) * biggerDim *
-							fftPlan->batchsize * fftPlan->ElementSize() / 2;
+						size_t Nf = (1 + smallerDim/2) * biggerDim;
+						fftPlan->tmpBufSize = (smallerDim + padding) * biggerDim / 2;
+
+						if(fftPlan->tmpBufSize < Nf) 
+							fftPlan->tmpBufSize = Nf;
+
+						fftPlan->tmpBufSize *= ( fftPlan->batchsize * fftPlan->ElementSize() );
 
 						for (size_t index=1; index < fftPlan->length.size(); index++)
 						{
