@@ -30,14 +30,12 @@ set( Client.Headers client.h
 
 set( Client.Files ${Client.Source} ${Client.Headers} )
 
-set( DL_LIB "" )
+set( RT_LIB "" )
 if( WIN32 )
 	add_definitions( "/D_CONSOLE" )
-elseif( APPLE )
-	set( CMAKE_CXX_FLAGS "-std=c++11 -stdlib=libc++ ${CMAKE_CXX_FLAGS}" )	
-else( )
+elseif( NOT APPLE )
 	# To use the dlopen() and dlclose() functions, we should link with libdl
-	set( DL_LIB "-ldl -lrt" )
+	set( RT_LIB "-lrt" )
 endif( )
 
 # Include standard OpenCL headers
@@ -45,7 +43,7 @@ include_directories( ${Boost_INCLUDE_DIRS} ${OPENCL_INCLUDE_DIRS} ../../../commo
 
 add_executable( clFFT-client ${Client.Files} )
 
-target_link_libraries( clFFT-client clFFT ${Boost_LIBRARIES} ${OPENCL_LIBRARIES} ${DL_LIB} )
+target_link_libraries( clFFT-client clFFT ${Boost_LIBRARIES} ${OPENCL_LIBRARIES} ${CMAKE_DL_LIBS} ${RT_LIB} )
 
 set_target_properties( clFFT-client PROPERTIES VERSION ${CLFFT_VERSION} )
 set_target_properties( clFFT-client PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIR}/staging" )

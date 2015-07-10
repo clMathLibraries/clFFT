@@ -157,8 +157,6 @@ find_package( OpenCL )
 # This will define FFTW_FOUND
 find_package( FFTW )
 
-include(gtest.cmake)
-
 # Enable building of the clACML client if both requested and all dependencies are found
 if( BUILD_CLIENT AND Boost_FOUND )
 	set( FFT_CLIENT ON )
@@ -167,11 +165,14 @@ else( )
 endif( )
 
 # Enable building of the googletest unit test framework if requested and all dependencies are found
-if( BUILD_TEST AND GTEST_FOUND AND Boost_FOUND AND FFTW_FOUND )
-	set( UNIT_TEST ON )
-else( )
-	message( "GoogleTest unit testing will NOT be built" )
-	set( UNIT_TEST OFF )
+set( UNIT_TEST OFF )
+if( BUILD_TEST )
+    include(gtest.cmake)
+    if( GTEST_FOUND AND Boost_FOUND AND FFTW_FOUND )
+		set( UNIT_TEST ON )
+	else( )
+		message( "GoogleTest unit testing will NOT be built" )
+    endif( )
 endif( )
 
 # FFLAGS depend on the compiler, grab the compiler name from the path
