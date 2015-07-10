@@ -799,6 +799,14 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 				if( (fftPlan->inputLayout == CLFFT_REAL) && IsPo2(fftPlan->length[0])
 					&& (fftPlan->inStride[0] == 1) && (fftPlan->outStride[0] == 1) )
 				{
+
+					if(fftPlan->length[0] == 8192)
+					{
+						size_t tmp = length0;
+						clLengths[0] = length0 = length1;
+						clLengths[1] = length1 = tmp;
+					}
+
 					if (fftPlan->length.size() > 1) break;
 					if (fftPlan->inStride[0] != 1 || fftPlan->outStride[0] != 1) break;
 
