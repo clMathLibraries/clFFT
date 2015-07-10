@@ -1008,7 +1008,10 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 					trans3Plan->batchsize     = fftPlan->batchsize;
 					trans3Plan->envelope	  = fftPlan->envelope;
 					trans3Plan->inputLayout   = CLFFT_COMPLEX_INTERLEAVED;
-					trans3Plan->outputLayout  = CLFFT_COMPLEX_INTERLEAVED;
+					if(fftPlan->outputLayout == CLFFT_HERMITIAN_PLANAR)
+						trans3Plan->outputLayout  = CLFFT_COMPLEX_PLANAR;
+					else
+						trans3Plan->outputLayout  = CLFFT_COMPLEX_INTERLEAVED;
 					trans3Plan->inStride[0]   = 1;
 					trans3Plan->inStride[1]   = 1 + clLengths[0]/2;
 					trans3Plan->outStride[0]  = 1;
