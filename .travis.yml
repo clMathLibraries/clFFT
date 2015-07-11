@@ -5,24 +5,16 @@ compiler:
 
 before_install:
   - sudo apt-get update -qq
-  - sudo apt-get install -qq fglrx opencl-headers libboost-program-options-dev libfftw3-dev libgtest-dev
+  - sudo apt-get install -qq fglrx opencl-headers libboost-program-options-dev libfftw3-dev
 # Uncomment below to help verify the installs above work
 #  - ls -la /usr/lib/libboost*
 #  - ls -la /usr/include/boost
-#  - ls -la /usr/src/gtest
-
-install:
-  - mkdir -p bin/gTest
-  - cd bin/gTest
-  - cmake -DCMAKE_BUILD_TYPE=Release /usr/src/gtest
-  - make
-  - sudo mv libg* /usr/lib
 
 before_script:
   - cd ${TRAVIS_BUILD_DIR}
   - mkdir -p bin/clFFT
   - cd bin/clFFT
-  - cmake -DBoost_NO_SYSTEM_PATHS=OFF ../../src
+  - cmake -DBoost_NO_SYSTEM_PATHS=OFF -DCMAKE_INSTALL_PREFIX:PATH=$PWD/package ../../src
 
 script: 
   - make install
@@ -30,7 +22,7 @@ script:
 # Run a simple test to validate that the build works; CPU device in a VM
   - cd package/bin
   - export LD_LIBRARY_PATH=${TRAVIS_BUILD_DIR}/bin/clFFT/package/lib64:${LD_LIBRARY_PATH}
-  - ./Client -i
+  - ./clFFT-client -i
 
 after_success:
   - cd ${TRAVIS_BUILD_DIR}/bin/clFFT

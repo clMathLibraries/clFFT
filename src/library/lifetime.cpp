@@ -34,6 +34,8 @@ clfftStatus	clfftSetup( const clfftSetupData* sData )
 	//	First invocation of this function will allocate the FFTRepo singleton; thereafter the object always exists
 	FFTRepo& fftRepo	= FFTRepo::getInstance( );
 
+	clfftInitBinaryCache();
+
 	//	Discover and load the timer module if present
 	fftRepo.timerHandle = LoadSharedLibrary( "lib", "StatTimer", true );
 	if( fftRepo.timerHandle )

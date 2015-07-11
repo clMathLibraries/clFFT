@@ -23,6 +23,8 @@
 #include "lock.h"
 #include "generator.h"
 
+std::string getKernelName(const clfftGenerators gen, const clfftPlanHandle plHandle, bool withPlHandle);
+
 namespace ARBITRARY {
 	// TODO:  These arbitrary parameters should be tuned for the type of GPU
 	//	being used.  These values are probably OK for Radeon 58xx and 68xx.
@@ -70,56 +72,24 @@ namespace ARBITRARY {
 			//  The latter uses half as much LDS space, so twice as many wavefronts can be run
 			//  in parallel.
 
-		TWIDDLE_DEE = 4,
-			//  4 bits per row of matrix.
+		TWIDDLE_DEE = 8,
+			//  number of bits per row of matrix.
 	};
+
 };
 
-enum eConstantBuffer {
-	/*	Layout of a constant buffer passed to the generated kernel
-	 *	This needs to be know by the kernel generator and by the
-	 *	framework code that creates the buffer and fills it at execution time.
-	*/
 
-	//	 [0] uint  NY   This is the batchsize for a 1D Array,
-	//                    or the 2nd (Y dimension) for a 2D.
-	//	 [1] uint  NZ   This is the batchsize for a 2D Array,
-	//                    or the 3rd (Z dimension) for a 3D.
-	//	 [2] uint  NW   This is the batchsize for a 3D Array,
-	//                    or the 4th (W dimension) for a 4D.
-	//	 [3] uint  N5   This is the batchsize for a 4D Array,
-	//
-	CLFFT_CB_NY = 0,
-	CLFFT_CB_NZ,
-	CLFFT_CB_NW,
-	CLFFT_CB_N5,
-
-	//	 [4] uint  ISX  Input data X stride (== 1 for row-major compact data)
-	//	 [5] uint  ISY  Input data Y stride (== X for row-major compact data)
-	//	 [6] uint  ISZ  Input data Z stride (== X*Y for row-major compact data)
-	//	 [7] uint  ISW  Input data W stride (== X*Y*Z for row-major compact data)
-	//	 [8] uint  IS5  Input data 5th stride
-	//
-	CLFFT_CB_ISX,
-	CLFFT_CB_ISY,
-	CLFFT_CB_ISZ,
-	CLFFT_CB_ISW,
-	CLFFT_CB_IS5,
-
-	//	 [9] uint  OSX  Output data X stride
-	//	[10] uint  OSY  Output data Y stride
-	//	[11] uint  OSZ  Output data Z stride
-	//	[12] uint  OSW  Output data W stride
-	//	[13] uint  OS5  Output data 5th stride
-	//
-	CLFFT_CB_OSX,
-	CLFFT_CB_OSY,
-	CLFFT_CB_OSZ,
-	CLFFT_CB_OSW,
-	CLFFT_CB_OS5,
-
-	CLFFT_CB_SIZE  = 32,
+enum BlockComputeType
+{
+	BCT_C2C,	// Column to column
+	BCT_C2R,	// Column to row
+	BCT_R2C,	// Row to column
 };
+
+
+
+#define CLFFT_CB_SIZE 32
+#define CLFFT_MAX_INTERNAL_DIM 16
 
 struct FFTKernelGenKeyParams {
 	/*
@@ -129,10 +99,10 @@ struct FFTKernelGenKeyParams {
 	 *	been compiled.
 	 */
 	size_t                   fft_DataDim;       // Dimensionality of the data
-	size_t                   fft_N[5];          // [0] is FFT size, e.g. 1024
+	size_t                   fft_N[CLFFT_MAX_INTERNAL_DIM];          // [0] is FFT size, e.g. 1024
 	                                            // This must be <= size of LDS!
-	size_t                   fft_inStride [5];  // input strides
-	size_t                   fft_outStride[5];  // output strides
+	size_t                   fft_inStride [CLFFT_MAX_INTERNAL_DIM];  // input strides
+	size_t                   fft_outStride[CLFFT_MAX_INTERNAL_DIM];  // output strides
 
 	clfftResultLocation   fft_placeness;
 	clfftLayout           fft_inputLayout;
@@ -145,23 +115,191 @@ struct FFTKernelGenKeyParams {
 	size_t                   fft_LDSsize;       // Limit the use of LDS to this many bytes.
 	size_t                   fft_R;             // # of complex values to keep in working registers
 	                                            // SIMD size * R must be <= size of LDS!
-	size_t                   fft_MaxRadix;      // Limit the radix to this value.
+
 	size_t					 fft_MaxWorkGroupSize; // Limit for work group size
-	bool                     fft_LdsComplex;    // If true, store complex values in LDS memory
-	                                            // If false, store scalare values in LDS.
-	                                            // Generally, false will provide more efficient kernels,
-	                                            // but not always.
-	                                            // see FFTPlan::bLdsComplex and ARBITRARY::LDS_COMPLEX
-	bool                     fft_ldsPadding;    // default padding is false
+
 	bool                     fft_3StepTwiddle;  // This is one pass of the "3-step" algorithm;
 	                                            // so extra twiddles are applied on output.
-	bool                     fft_UseFMA;        // *** TODO
-	bool                     fft_RCsimple;
+	bool					 fft_twiddleFront;	// do twiddle scaling at the beginning pass
+
+	bool					 fft_realSpecial;	// this is the flag to control the special case step (4th step)
+	                                            // in the 5-step real 1D large breakdown
+	size_t					 fft_realSpecial_Nr;
+
+	bool                     fft_RCsimple; 
+
+	bool					 transOutHorizontal;	// tiles traverse the output buffer in horizontal direction
+
+	bool					 blockCompute;
+	BlockComputeType		 blockComputeType;
+	size_t					 blockSIMD;
+	size_t					 blockLDS;
+
+
+	// Default constructor
+	FFTKernelGenKeyParams()
+	{
+		fft_DataDim = 0;
+		for(int i=0; i<CLFFT_MAX_INTERNAL_DIM; i++)
+		{
+			fft_N[i] = 0;
+			fft_inStride[i] = 0;
+			fft_outStride[i] = 0;
+		}
+
+		fft_placeness = CLFFT_OUTOFPLACE;
+		fft_inputLayout = CLFFT_COMPLEX_INTERLEAVED;
+		fft_outputLayout = CLFFT_COMPLEX_INTERLEAVED;
+		fft_precision = CLFFT_SINGLE;
+		fft_fwdScale = fft_backScale = 0.0;
+		fft_SIMD = 0;
+		fft_LDSsize = 0;
+		fft_R = 0;
+		fft_MaxWorkGroupSize = 0;
+		fft_3StepTwiddle = false;
+		fft_twiddleFront = false;
+
+		transOutHorizontal = false;
+
+		fft_realSpecial = false;
+		fft_realSpecial_Nr = 0;
+
+		fft_RCsimple = false;
+
+		blockCompute = false;
+		blockComputeType = BCT_C2C;
+		blockSIMD = 0;
+		blockLDS = 0;
+	}
 };
 
 
 //	Sorting operator for struct FFTKernelGenKeyParams, such that it can be used in a map
 bool operator<( const FFTKernelGenKeyParams& lhs, const FFTKernelGenKeyParams& rhs);
+
+class	FFTPlan;
+class   FFTRepo;
+
+// Action ID
+enum FFTActionImplID
+{
+    FFT_DEFAULT_STOCKHAM_ACTION,
+    FFT_DEFAULT_TRANSPOSE_ACTION,
+    FFT_DEFAULT_COPY_ACTION,
+    FFT_STATIC_STOCKHAM_ACTION
+};
+
+// 
+// FFTKernelSignatureHeader
+// 
+// This structure is a wrapper for the FFTKernelSignature.  
+// It stores the signature size and the action ID. This ensure that every 
+// FFTKernelSignature (even with an empty DATA) is unique
+// 
+// This class is used as the return type of FFTAction::getSignatureData()
+// 
+struct FFTKernelSignatureHeader
+{
+    int datasize;
+    FFTActionImplID id;
+
+    //clfftLayout           fft_inputLayout;
+    //clfftLayout           fft_outputLayout;
+
+    FFTKernelSignatureHeader(int size_, FFTActionImplID id_)
+    {
+        // Set to 0 the whole signature structure
+        ::memset(this, 0, size_);
+        datasize = size_;
+        id = id_;
+    }
+};
+
+// 
+// FFTKernelSignature
+// 
+// This struct represents the signature of an action. An action signature 
+// stores (by inheritage):
+//  - the action ID
+//  - its signature data size
+//  - a set of bytes caracterizes a FFT action
+// 
+// This template class FFTKernelSignature provides a simple mechanism to
+// build a proper signature (see also in src/library/repo.h) from any POD type.
+//  
+// It is used as a key in the different cache mecanisms (binary cache and
+// dynamic cache managed by FFTRepo)
+// 
+template <typename DATA, FFTActionImplID ID>
+struct FFTKernelSignature : public FFTKernelSignatureHeader, public DATA
+{
+    FFTKernelSignature()
+        : FFTKernelSignatureHeader(sizeof(FFTKernelSignature<DATA, ID>), ID)
+    {
+    }
+};
+
+
+
+// 
+// FFTAction is the base class for all actions used to implement FFT computes
+// 
+// An action basically implements some OpenCL related actions, for instance:
+//  - Generating a kernel source code from kernel characteristics
+//  - Computing the work-group local sizes according to a kernel
+//  - Enqueuing arguments to the kernel call
+// 
+// Kernels generated and compiled by an action are stored in the different
+// cache mechanism (see repo.h for the dynamic cache and fft_binary_lookup.h
+// for disk cache for more information). Each cache entry can be obtained from
+// the action signature which is set of byte characterizing the action itself.
+// 
+// At the moment, FFTAction only implements the enqueue method which is
+// inherited by every action subclasses. But it may change in the time. There
+// are no clear rules and the choices made until now are still subject to
+// change.
+// 
+class FFTAction
+{
+public:
+    FFTAction(FFTPlan * plan, clfftStatus & err);
+
+    virtual clfftStatus enqueue(clfftPlanHandle plHandle,
+                                clfftDirection dir,
+                                cl_uint numQueuesAndEvents,
+                                cl_command_queue* commQueues,
+                                cl_uint numWaitEvents,
+                                const cl_event* waitEvents,
+                                cl_event* outEvents,
+                                cl_mem* clInputBuffers,
+                                cl_mem* clOutputBuffers);
+
+protected:
+
+    virtual clfftGenerators                getGenerator() = 0;
+
+    clfftStatus                            compileKernels  ( const cl_command_queue commQueueFFT, const clfftPlanHandle plHandle, FFTPlan* fftPlan);
+    clfftStatus                            writeKernel     ( const clfftPlanHandle plHandle, const clfftGenerators gen, const FFTKernelSignatureHeader* data, const cl_context& context, const cl_device_id &device);
+
+    virtual clfftStatus                    generateKernel  ( FFTRepo & fftRepo, const cl_command_queue commQueueFFT) = 0;
+    virtual clfftStatus                    getWorkSizes    ( std::vector<size_t> & globalws, std::vector<size_t> & localws) = 0;
+
+    virtual const FFTKernelSignatureHeader * getSignatureData() = 0;
+
+    FFTPlan * plan;
+
+private:
+
+    clfftStatus selectBufferArguments(FFTPlan * plan,
+                                      cl_mem* clInputBuffers,
+                                      cl_mem* clOutputBuffers,
+                                      std::vector< cl_mem > &inputBuff,
+                                      std::vector< cl_mem > &outputBuff);
+
+    virtual bool buildForwardKernel() = 0;
+    virtual bool buildBackwardKernel() = 0;
+};
+
 
 //	The "envelope" is a set of limits imposed by the hardware
 //	This will depend on the GPU(s) in the OpenCL context.
@@ -185,31 +323,19 @@ struct FFTEnvelope {
 	,	limit_Dimensions (0)
 	,	limit_WorkGroupSize (0)
 	{
-		::memset (& limit_Size, 0, sizeof (limit_Size));
+		::memset( &limit_Size, 0, sizeof( limit_Size ) );
 	}
 };
 
-class FFTRepo;
 
 //	This class contains objects that are specific to a particular FFT transform, and the data herein is useful
 //	for us to know ahead of transform time such that we can optimize for these settings
 class	FFTPlan
 {
-	template <clfftGenerators G>
-	clfftStatus GetWorkSizesPvt (std::vector<size_t> & globalws, std::vector<size_t> & localws) const;
-
-	template <clfftGenerators G>
-	clfftStatus GetKernelGenKeyPvt (FFTKernelGenKeyParams & params) const;
-
-	template <clfftGenerators G>
-	clfftStatus GenerateKernelPvt (FFTRepo& fftRepo,  const cl_command_queue commQueueFFT ) const;
-
-	template <clfftGenerators G>
-	clfftStatus GetMax1DLengthPvt (size_t *longest ) const;
 
 public:
+
 	bool baked;
-	bool readFromFile;
 
 	//	Properties provided by the user.
 	clfftDim             dim;
@@ -227,8 +353,9 @@ public:
 	// TODO, change this logic for handling multiple GPUs/devices
 	cl_device_id bakeDevice;
 
+	// Disabling devices member, plan has 1-on-1 mapping with single device as identified by bakeDevice
 	//	Devices that the user specified in the context passed to the create function
-	std::vector< cl_device_id > devices;
+	// std::vector< cl_device_id > devices;
 
 	//	Length of the FFT in each dimension
 	std::vector< size_t >	length;
@@ -239,38 +366,39 @@ public:
 	//	Hardware Limits
 	FFTEnvelope                 envelope;
 
-	//	Performance Tuning parameters
-	bool                    bLdsComplex;	// see ARBITRARY::LDS_COMPLEX
-	bool                    ldsPadding;     // see ARBITRARY::LDS_PADDING
-	unsigned                uLdsFraction;	// see ARBITRARY::LDS_FRACTION_IDEAL
 
 	// Reserved copy for large 1d, 2d, and 3d plan
 	size_t tmpBufSize;
 	cl_mem intBuffer;
+	bool libCreatedIntBuffer;
 
 	// for RC copies
 	size_t	tmpBufSizeRC;
 	cl_mem	intBufferRC;
 
-	// for C-to-R transforms with largeness in Y or Z dimension
+	// for C-to-R transforms that are OUTOFPLACE
+	// we need this because the user supplied output buffer is not big enough
+	// to hold intermediate results for any problem other than normal 1D
 	size_t  tmpBufSizeC2R;
 	cl_mem  intBufferC2R;
 
-	//extra cache size for 2d and 3d
-	size_t  cacheSize;
+
 	size_t  large1D;
 	bool    large2D;
-	size_t  large1D_Xfactor;
+	bool	twiddleFront;
+
 	clfftPlanHandle planX;
 	clfftPlanHandle planY;
 	clfftPlanHandle planZ;
 
 	bool transflag;
+	bool transOutHorizontal;
 	clfftPlanHandle planTX;
 	clfftPlanHandle planTY;
 	clfftPlanHandle planTZ; //reserve for 3D transpose
 
 	clfftPlanHandle planRCcopy;
+	clfftPlanHandle planCopy;
 
 	// Plan resources
 	//
@@ -279,23 +407,37 @@ public:
 	// Generator type
 	clfftGenerators gen;
 
-	// stored binaries
-	size_t number_of_devices;
-
-//TODO caching kernel binaries for later reload
-#if 0
-	std::unique_ptr<size_t[]> binary_sizes;
-	std::vector< std::unique_ptr<char[]> > binaries;
-#endif
 
 	// Real-Complex simple flag
 	// if this is set we do real to-and-from full complex using simple algorithm
 	// where imaginary of input is set to zero in forward and imaginary not written in backward
 	bool RCsimple;
 
+	// Real FFT special flag
+	// if this is set it means we are doing the 4th step in the 5-step real FFT breakdown algorithm
+	bool realSpecial;
+	
+	size_t realSpecial_Nr; // this value stores the logical column height (N0) of matrix in the 4th step
+	                       // length[1] should be 1 + N0/2
+
+	// User created plan
+	bool userPlan;
+
+	// A flag to say that blocked FFTs are going to be performed
+	// It can only be one of these: column to row, row to column or column to column
+	// row to row is just the normal case where blocking is not needed
+	bool blockCompute;
+	BlockComputeType blockComputeType;
+
+
+    clfftPlanHandle plHandle;
+
+    // The action
+    FFTAction * action;
+
+
 	FFTPlan ()
 	:	baked (false)
-	,	readFromFile (false)
 	,	dim (CLFFT_1D)
 	,	inputLayout (CLFFT_COMPLEX_INTERLEAVED)
 	,	outputLayout (CLFFT_COMPLEX_INTERLEAVED)
@@ -309,29 +451,34 @@ public:
 	,	batchsize (1)
 	,   tmpBufSize (0)
 	,	intBuffer( NULL )
+	,	libCreatedIntBuffer(false)
 	,	tmpBufSizeRC (0)
 	,	intBufferRC( NULL )
 	,	tmpBufSizeC2R (0)
 	,	intBufferC2R( NULL )
 	,   large1D(0)
 	,   large2D(false)
+	,	twiddleFront(false)
 	,   planX( 0 )
 	,   planY( 0 )
 	,   planZ( 0 )
 	,   transflag(false)
+	,	transOutHorizontal(false)
 	,	RCsimple(false)
+	,	realSpecial(false)
+	,	realSpecial_Nr(0)
+	,	userPlan(false)
+	,	blockCompute(false)
+	,	blockComputeType(BCT_C2C)
 	,   planTX( 0 )
 	,   planTY( 0 )
 	,   planTZ( 0 )
 	,	planRCcopy(0)
+	,	planCopy(0)
 	,	const_buffer( NULL )
-	,	bLdsComplex (ARBITRARY::LDS_COMPLEX)
-	,   ldsPadding  (ARBITRARY::LDS_PADDING)
-	,	uLdsFraction (0/*ARBITRARY::LDS_FRACTION_IDEAL*/)
-	,   large1D_Xfactor(0)
-	,   cacheSize(0)
-	,	number_of_devices(0)
 	,	gen(Stockham)
+    ,   action(0)
+    ,   plHandle(0)
 	{};
 
 
@@ -340,9 +487,6 @@ public:
 	clfftStatus AllocateBuffers ();
 	clfftStatus ReleaseBuffers ();
 
-	clfftStatus GetWorkSizes (std::vector<size_t> & globalws, std::vector<size_t> & localws) const;
-	clfftStatus GetKernelGenKey (FFTKernelGenKeyParams & params) const;
-	clfftStatus GenerateKernel (FFTRepo & fftRepo, const cl_command_queue commQueueFFT) const;
 	clfftStatus GetMax1DLength (size_t *longest ) const;
 
 	void ResetBinarySizes();
@@ -353,6 +497,8 @@ public:
 
 	clfftStatus GetEnvelope (const FFTEnvelope **) const;
 	clfftStatus SetEnvelope ();
+
+	clfftStatus GetMax1DLengthStockham (size_t *longest ) const;
 
 	~FFTPlan ()
 	{

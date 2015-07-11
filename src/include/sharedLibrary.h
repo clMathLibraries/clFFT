@@ -29,21 +29,31 @@
 	#include <dlfcn.h>
 #endif
 
-inline void* LoadSharedLibrary( std::string linuxPrefix, std::string libraryName, bool quiet )
+inline void* LoadSharedLibrary( std::string unixPrefix, std::string libraryName, bool quiet )
 {
 #if defined( _WIN32 )
 	libraryName += ".dll";
 
 	//	HMODULE is actually the load address; function returns NULL if it cannot find the shared library
 	HMODULE fileHandle	= ::LoadLibraryExA( libraryName.c_str( ), NULL, NULL );
-#else
-	tstring linuxName = linuxPrefix;
+#elif defined(__linux__)
+        tstring linuxName = unixPrefix;
 	linuxName += libraryName += ".so";
 	void* fileHandle = ::dlopen( linuxName.c_str( ), RTLD_NOW );
 	if( !quiet && !fileHandle )
 	{
 		std::cerr << ::dlerror( ) << std::endl;
 	}
+#elif defined(__APPLE__)
+  tstring appleName = unixPrefix;
+  appleName += libraryName += ".dylib";
+  void* fileHandle = ::dlopen( appleName.c_str( ), RTLD_NOW );
+  if( !quiet && !fileHandle )
+  {
+          std::cerr << ::dlerror( ) << std::endl;
+  }
+#else
+        #error "unsupported platform"
 #endif
 
 	return fileHandle;

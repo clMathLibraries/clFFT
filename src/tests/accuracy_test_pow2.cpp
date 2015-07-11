@@ -1291,6 +1291,91 @@ TEST_F(accuracy_test_pow2_double, large_1D_forward_in_place_complex_planar_to_co
 	catch( const std::exception& err ) { handle_exception(err);	}
 }
 
+// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ //
+// ^^^^^^^^^^^^^^^^^^^^^^^ huge 1D ^^^^^^^^^^^^^^^^^^^^^^^ //
+// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ //
+
+// *****************************************************
+// *****************************************************
+
+//#define CLFFT_TEST_HUGE
+#ifdef CLFFT_TEST_HUGE
+
+#define HUGE_TEST_MAKE(test_name, len, bat) \
+template< class T, class cl_T, class fftw_T > \
+void test_name() \
+{ \
+	std::vector<size_t> lengths; \
+	lengths.push_back( len ); \
+	size_t batch = bat; \
+\
+	std::vector<size_t> input_strides; \
+	std::vector<size_t> output_strides; \
+	size_t input_distance = 0; \
+	size_t output_distance = 0; \
+	layout::buffer_layout_t in_layout = layout::complex_planar; \
+	layout::buffer_layout_t out_layout = layout::complex_planar; \
+	placeness::placeness_t placeness = placeness::in_place; \
+	direction::direction_t direction = direction::forward; \
+\
+	data_pattern pattern = sawtooth; \
+	complex_to_complex<T, cl_T, fftw_T>( pattern, direction, lengths, batch, input_strides, output_strides, input_distance, output_distance, in_layout, out_layout, placeness ); \
+}
+
+#define SP_HUGE_TEST(test_name, len, bat) \
+\
+	HUGE_TEST_MAKE(test_name, len, bat) \
+\
+	TEST_F(accuracy_test_pow2_single, test_name) \
+	{ \
+		try { test_name< float, cl_float, fftwf_complex >(); } \
+		catch( const std::exception& err ) { handle_exception(err);	} \
+	}
+
+#define DP_HUGE_TEST(test_name, len, bat) \
+\
+	HUGE_TEST_MAKE(test_name, len, bat) \
+\
+	TEST_F(accuracy_test_pow2_double, test_name) \
+	{ \
+		try { test_name< double, cl_double, fftw_complex >(); } \
+		catch( const std::exception& err ) { handle_exception(err);	} \
+	}
+
+SP_HUGE_TEST( huge_sp_test_1, 1048576,    11 )
+SP_HUGE_TEST( huge_sp_test_2, 1048576*2,  7  )
+SP_HUGE_TEST( huge_sp_test_3, 1048576*4,  3  )
+SP_HUGE_TEST( huge_sp_test_4, 1048576*8,  5  )
+SP_HUGE_TEST( huge_sp_test_5, 1048576*16, 3  )
+SP_HUGE_TEST( huge_sp_test_6, 1048576*32, 2  )
+SP_HUGE_TEST( huge_sp_test_7, 1048576*64, 1  )
+
+DP_HUGE_TEST( huge_dp_test_1, 524288,    11 )
+DP_HUGE_TEST( huge_dp_test_2, 524288*2,  7  )
+DP_HUGE_TEST( huge_dp_test_3, 524288*4,  3  )
+DP_HUGE_TEST( huge_dp_test_4, 524288*8,  5  )
+DP_HUGE_TEST( huge_dp_test_5, 524288*16, 3  )
+DP_HUGE_TEST( huge_dp_test_6, 524288*32, 2  )
+DP_HUGE_TEST( huge_dp_test_7, 524288*64, 1  )
+
+SP_HUGE_TEST( large_sp_test_1, 8192,    11 )
+SP_HUGE_TEST( large_sp_test_2, 8192*2,  7  )
+SP_HUGE_TEST( large_sp_test_3, 8192*4,  3  )
+SP_HUGE_TEST( large_sp_test_4, 8192*8,  5  )
+SP_HUGE_TEST( large_sp_test_5, 8192*16, 3  )
+SP_HUGE_TEST( large_sp_test_6, 8192*32, 21  )
+SP_HUGE_TEST( large_sp_test_7, 8192*64, 17  )
+
+DP_HUGE_TEST( large_dp_test_1, 4096,    11 )
+DP_HUGE_TEST( large_dp_test_2, 4096*2,  7  )
+DP_HUGE_TEST( large_dp_test_3, 4096*4,  3  )
+DP_HUGE_TEST( large_dp_test_4, 4096*8,  5  )
+DP_HUGE_TEST( large_dp_test_5, 4096*16, 3  )
+DP_HUGE_TEST( large_dp_test_6, 4096*32, 21  )
+DP_HUGE_TEST( large_dp_test_7, 4096*64, 17  )
+
+#endif
+
 // *****************************************************
 // *****************************************************
 template< class T, class cl_T, class fftw_T >
@@ -1685,6 +1770,36 @@ TEST_F(accuracy_test_pow2_double, large_1D_in_place_real_to_hermitian_interleave
 	catch( const std::exception& err ) { handle_exception(err);	}
 }
 
+// *****************************************************
+// *****************************************************
+template< class T, class cl_T, class fftw_T >
+void large_1D_4M_in_place_real_to_hermitian_interleaved()
+{
+	std::vector<size_t> lengths;
+	lengths.push_back( 4194304 );
+	size_t batch = 1;
+	std::vector<size_t> input_strides;
+	std::vector<size_t> output_strides;
+	size_t input_distance = 0;
+	size_t output_distance = 0;
+	layout::buffer_layout_t layout = layout::hermitian_interleaved;
+	placeness::placeness_t placeness = placeness::in_place;
+
+	data_pattern pattern = sawtooth;
+	real_to_complex<T, cl_T, fftw_T>( pattern, lengths, batch, input_strides, output_strides, input_distance, output_distance, layout, placeness );
+}
+
+TEST_F(accuracy_test_pow2_single, large_1D_4M_in_place_real_to_hermitian_interleaved)
+{
+	try { large_1D_4M_in_place_real_to_hermitian_interleaved< float, cl_float, fftwf_complex >(); }
+	catch( const std::exception& err ) { handle_exception(err);	}
+}
+
+TEST_F(accuracy_test_pow2_double, large_1D_4M_in_place_real_to_hermitian_interleaved)
+{
+	try { large_1D_4M_in_place_real_to_hermitian_interleaved< double, cl_double, fftw_complex >(); }
+	catch( const std::exception& err ) { handle_exception(err);	}
+}
 // *****************************************************
 // *****************************************************
 template< class T, class cl_T, class fftw_T >

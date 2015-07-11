@@ -40,11 +40,13 @@
 		#define inline __inline
 	#endif
 
-	#if defined( STATTIMER_EXPORTS )
-		#define STATTIMER_API __declspec( dllexport )
-	#else
-		#define STATTIMER_API __declspec( dllimport )
-	#endif
+    #if defined( CLFFT_STATIC )
+        #define STATTIMER_API
+    #elif defined( STATTIMER_EXPORTS )
+        #define STATTIMER_API __declspec( dllexport )
+    #else
+        #define STATTIMER_API __declspec( dllimport )
+    #endif
 #else
 	#define STATTIMER_API
 #endif

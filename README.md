@@ -9,6 +9,16 @@ programming.
 
 Pre-built binaries are available [here][binary_release].
 
+## What's New
+
+-   Significant uplift of 1D complex transform performance
+-   Significant uplift of 1D real transform performance for power-of-2 sizes
+-   1D large size limit relaxation for complex transforms
+-   2D/3D size limit relaxation on real and complex transforms
+-   Binary caching feature
+-   Several minor fixes and improvements
+
+
 ## Introduction to clFFT
 
 The FFT is an implementation of the Discrete Fourier Transform (DFT)

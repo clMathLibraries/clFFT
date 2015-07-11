@@ -19,6 +19,73 @@
 #include <math.h>
 #include "generator.stockham.h"
 #include <list>
+#include "action.h"
+
+
+FFTGeneratedStockhamAction::FFTGeneratedStockhamAction(clfftPlanHandle plHandle, FFTPlan * plan, cl_command_queue queue, clfftStatus & err)
+    : FFTStockhamAction(plHandle, plan, queue, err)
+{
+    if (err != CLFFT_SUCCESS)
+    {
+        // FFTAction() failed, exit
+        fprintf(stderr, "FFTStockhamAction() failed!\n");
+        return;
+    }
+
+    // Initialize the FFTAction::FFTKernelGenKeyParams member
+    err = this->initParams();
+
+    if (err != CLFFT_SUCCESS)
+    {
+        fprintf(stderr, "FFTGeneratedStockhamAction::initParams() failed!\n");
+        return;
+    }
+
+    FFTRepo &fftRepo = FFTRepo::getInstance();
+
+    err = this->generateKernel(fftRepo, queue);
+
+    if (err != CLFFT_SUCCESS)
+    {
+        fprintf(stderr, "FFTGeneratedStockhamAction::generateKernel failed\n");
+        return;
+    }
+
+    err = compileKernels( queue, plHandle, plan);
+
+    if (err != CLFFT_SUCCESS)
+    {
+        fprintf(stderr, "FFTGeneratedStockhamAction::compileKernels failed\n");
+        return;
+    }
+
+    err = CLFFT_SUCCESS;
+}
+
+bool FFTGeneratedStockhamAction::buildForwardKernel()
+{
+    clfftLayout inputLayout = this->getSignatureData()->fft_inputLayout;
+    clfftLayout outputLayout = this->getSignatureData()->fft_outputLayout;
+
+    bool r2c_transform = (inputLayout == CLFFT_REAL);
+    bool c2r_transform = (outputLayout == CLFFT_REAL);
+    bool real_transform = (r2c_transform || c2r_transform);
+
+    return (!real_transform) || r2c_transform;
+}
+
+bool FFTGeneratedStockhamAction::buildBackwardKernel()
+{
+    clfftLayout inputLayout = this->getSignatureData()->fft_inputLayout;
+    clfftLayout outputLayout = this->getSignatureData()->fft_outputLayout;
+
+    bool r2c_transform = (inputLayout == CLFFT_REAL);
+    bool c2r_transform = (outputLayout == CLFFT_REAL);
+    bool real_transform = (r2c_transform || c2r_transform);
+
+    return (!real_transform) || c2r_transform;
+}
+
 
 // FFT Stockham Autosort Method
 //
@@ -272,7 +339,6 @@ namespace StockhamGenerator
 
 					//  Length, WorkGroupSize, NumTransforms, NumPasses,  Radices
 					{     1024,           128,             1,         4,     8, 8, 4, 4, 0, 0, 0, 0, 0, 0, 0, 0 },
-					//{      128,            64,             1,         7,     2, 2, 2, 2, 2, 2, 2, 0, 0, 0, 0, 0 },
 					{      128,            64,             4,         3,     8, 8, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
 					{        8,            64,            16,         3,     2, 2, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
 
@@ -334,21 +400,17 @@ namespace StockhamGenerator
 		size_t baseRadixSize = sizeof(baseRadix)/sizeof(baseRadix[0]);
 
 		size_t l = length;
-		std::map<size_t, size_t> primeFactors;
 		std::map<size_t, size_t> primeFactorsExpanded;
 		for(size_t r=0; r<baseRadixSize; r++)
 		{
 			size_t rad = baseRadix[r];
-			size_t p = 0;
 			size_t e = 1;
 			while(!(l%rad))
 			{
 				l /= rad;
 				e *= rad;
-				p++;
 			}
 
-			primeFactors[rad] = p;
 			primeFactorsExpanded[rad] = e;
 		}
 
@@ -515,117 +577,6 @@ namespace StockhamGenerator
     };
 
 
-	// Twiddle factors table for large N
-	// used in 3-step algorithm
-    class TwiddleTableLarge
-    {
-        size_t N; // length
-		size_t X, Y;
-		size_t tableSize;
-		double *wc, *ws; // cosine, sine arrays
-
-	public:
-		TwiddleTableLarge(size_t length) : N(length)
-		{
-			X = size_t(1) << ARBITRARY::TWIDDLE_DEE;
-			Y = DivRoundingUp<size_t> (CeilPo2(N), ARBITRARY::TWIDDLE_DEE);
-			tableSize = X * Y;
-
-			// Allocate memory for the tables
-			wc = new double[tableSize];
-			ws = new double[tableSize];
-		}
-
-		~TwiddleTableLarge()
-		{
-			// Free
-			delete[] wc;
-			delete[] ws;
-		}
-
-		template <Precision PR>
-		void GenerateTwiddleTable(std::string &twStr)
-		{
-			const double TWO_PI = -6.283185307179586476925286766559;
-
-			// Generate the table
-			size_t nt = 0;
-			double phi = TWO_PI / double (N);
-			for (size_t iY = 0; iY < Y; ++iY)
-			{
-				size_t i = size_t(1) << (iY * ARBITRARY::TWIDDLE_DEE);
-				for (size_t iX = 0; iX < X; ++iX)
-				{
-					size_t j = i * iX;
-
-					double c = cos(phi * (double)j);
-					double s = sin(phi * (double)j);
-
-					//if (fabs(c) < 1.0E-12)	c = 0.0;
-					//if (fabs(s) < 1.0E-12)	s = 0.0;
-
-					wc[nt]   = c;
-					ws[nt++] = s;
-				}
-			}
-
-			std::string sfx = FloatSuffix<PR>();
-
-			// Stringize the table
-			std::stringstream ss;
-			nt = 0;
-
-			ss << "\n __constant ";
-			ss << RegBaseType<PR>(2);
-			ss << " " << TwTableLargeName();
-			ss << "[" << Y << "][" << X << "] = {\n";
-			for (size_t iY = 0; iY < Y; ++iY)
-			{
-				ss << "{ ";
-				for (size_t iX = 0; iX < X; ++iX)
-				{
-					char cv[64], sv[64];
-					sprintf(cv, "%036.34lf", wc[nt]);
-					sprintf(sv, "%036.34lf", ws[nt++]);
-					ss << "("; ss << RegBaseType<PR>(2); ss << ")(";
-					ss << cv; ss << sfx; ss << ", ";
-					ss << sv; ss << sfx; ss << ")";
-					ss << ", ";
-				}
-				ss << " },\n";
-			}
-			ss << "};\n\n";
-
-
-			// Twiddle calc function
-			ss << "__attribute__((always_inline)) ";
-			ss << RegBaseType<PR>(2);
-			ss << "\n" << TwTableLargeFunc() << "(uint u)\n{\n";
-
-			ss << "\t" "uint j = u & " << unsigned(X-1) << ";\n";
-			ss << "\t" ; ss << RegBaseType<PR>(2); ss << " result = ";
-			ss << TwTableLargeName();
-			ss << "[0][j];\n";
-
-			for (size_t iY = 1; iY < Y; ++iY)
-			{
-				std::string phasor = TwTableLargeName();
-				phasor += "[";
-				phasor += SztToStr(iY);
-				phasor += "][j]";
-
-				stringpair product = ComplexMul((RegBaseType<PR>(2)).c_str(), "result", phasor.c_str());
-
-				ss << "\t" "u >>= " << unsigned (ARBITRARY::TWIDDLE_DEE) << ";\n";
-				ss << "\t" "j = u & " << unsigned(X-1) << ";\n";
-				ss << "\t" "result = " << product.first << "\n";
-				ss << "\t" "\t" << product.second <<";\n";
-			}
-			ss << "\t" "return result;\n}\n\n";
-
-			twStr += ss.str();
-		}
-    };
 
     // A pass inside an FFT kernel
     template <Precision PR>
@@ -654,8 +605,11 @@ namespace StockhamGenerator
 		bool rcFull;
 		bool rcSimple;
 
-		bool enableGrouping;
-		bool linearRegs;
+		bool realSpecial;
+
+		bool enableGrouping;				
+		bool linearRegs;					// scalar registers (non-vectorized registers) to be used
+		bool halfLds;						// only half the LDS of a complex length need to be used
 		Pass<PR> *nextPass;
 
 		inline void RegBase(size_t regC, std::string &str) const
@@ -767,7 +721,7 @@ namespace StockhamGenerator
 		// SweepRegs is to iterate through the registers to do the three basic operations:
 		// reading, twiddle multiplication, writing
 		void SweepRegs(	size_t flag, bool fwd, bool interleaved, size_t stride, size_t component,
-						double scale,
+						double scale, bool frontTwiddle,
 						const std::string &bufferRe, const std::string &bufferIm, const std::string &offset,
 						size_t regC, size_t numB, size_t numPrev, std::string &passStr) const
 		{
@@ -982,26 +936,82 @@ namespace StockhamGenerator
 							{
 								passStr += "\n\t{\n\t\t"; passStr += twType; passStr += " W = ";
 								passStr += tw3StepFunc; passStr += "( ";
-								passStr += "(("; passStr += SztToStr(numButterfly); passStr += "*me + ";
-								passStr += SztToStr(butterflyIndex);
-								passStr += ")%"; passStr += SztToStr(algLS); passStr += " + ";
-								passStr += SztToStr(r*algLS); passStr += ") * b "; passStr += ");\n\t\t";
+
+								if(frontTwiddle)
+								{
+									assert(linearRegs);
+									passStr += "("; passStr += "me*"; passStr += SztToStr(numButterfly);
+									passStr += " + "; passStr += SztToStr(i); passStr += " + ";
+									passStr += SztToStr(r*length/radix); passStr += ") * b";
+								}
+								else
+								{
+									passStr += "(("; passStr += SztToStr(numButterfly); passStr += "*me + ";
+									passStr += SztToStr(butterflyIndex);
+									passStr += ")%"; passStr += SztToStr(algLS); passStr += " + ";
+									passStr += SztToStr(r*algLS); passStr += ") * b";
+								}
+
+								passStr += " );\n\t\t";
 							}
 
 							passStr += rType; passStr += " TR, TI;\n\t\t";
-							if(fwd)
+
+							if(realSpecial && (flag == SR_TWMUL_3STEP))
 							{
-								passStr += "TR = (W.x * "; passStr += regRealIndex; passStr += ") - (W.y * ";
-								passStr += regImagIndex; passStr += ");\n\t\t";
-								passStr += "TI = (W.y * "; passStr += regRealIndex; passStr += ") + (W.x * ";
-								passStr += regImagIndex; passStr += ");\n\t\t";
+								if(fwd)
+								{
+									passStr += "if(t==0)\n\t\t{\n\t\t";
+
+									passStr += "TR = (W.x * "; passStr += regRealIndex; passStr += ") - (W.y * ";
+									passStr += regImagIndex; passStr += ");\n\t\t";
+									passStr += "TI = (W.y * "; passStr += regRealIndex; passStr += ") + (W.x * ";
+									passStr += regImagIndex; passStr += ");\n\t\t";
+
+									passStr += "}\n\t\telse\n\t\t{\n\t\t";
+									
+									passStr += "TR = (W.x * "; passStr += regRealIndex; passStr += ") + (W.y * ";
+									passStr += regImagIndex; passStr += ");\n\t\t";
+									passStr += "TI = (W.y * "; passStr += regRealIndex; passStr += ") - (W.x * ";
+									passStr += regImagIndex; passStr += ");\n\t\t";
+									
+									passStr += "}\n\t\t";
+								}
+								else
+								{
+									passStr += "if(t==0)\n\t\t{\n\t\t";
+
+									passStr += "TR = (W.x * "; passStr += regRealIndex; passStr += ") + (W.y * ";
+									passStr += regImagIndex; passStr += ");\n\t\t";
+									passStr += "TI = (W.y * "; passStr += regRealIndex; passStr += ") - (W.x * ";
+									passStr += regImagIndex; passStr += ");\n\t\t";
+
+									passStr += "}\n\t\telse\n\t\t{\n\t\t";
+
+									passStr += "TR = (W.x * "; passStr += regRealIndex; passStr += ") - (W.y * ";
+									passStr += regImagIndex; passStr += ");\n\t\t";
+									passStr += "TI = (W.y * "; passStr += regRealIndex; passStr += ") + (W.x * ";
+									passStr += regImagIndex; passStr += ");\n\t\t";
+
+									passStr += "}\n\t\t";
+								}
 							}
 							else
 							{
-								passStr += "TR =  (W.x * "; passStr += regRealIndex; passStr += ") + (W.y * ";
-								passStr += regImagIndex; passStr += ");\n\t\t";
-								passStr += "TI = -(W.y * "; passStr += regRealIndex; passStr += ") + (W.x * ";
-								passStr += regImagIndex; passStr += ");\n\t\t";
+								if(fwd)
+								{
+									passStr += "TR = (W.x * "; passStr += regRealIndex; passStr += ") - (W.y * ";
+									passStr += regImagIndex; passStr += ");\n\t\t";
+									passStr += "TI = (W.y * "; passStr += regRealIndex; passStr += ") + (W.x * ";
+									passStr += regImagIndex; passStr += ");\n\t\t";
+								}
+								else
+								{
+									passStr += "TR =  (W.x * "; passStr += regRealIndex; passStr += ") + (W.y * ";
+									passStr += regImagIndex; passStr += ");\n\t\t";
+									passStr += "TI = -(W.y * "; passStr += regRealIndex; passStr += ") + (W.x * ";
+									passStr += regImagIndex; passStr += ");\n\t\t";
+								}
 							}
 
 							passStr += regRealIndex; passStr += " = TR;\n\t\t";
@@ -1018,6 +1028,15 @@ namespace StockhamGenerator
 					{
 						for(size_t r=0; r<radix; r++)
 						{
+							if(realSpecial && (nextPass == NULL) && (r > (radix/2)))
+								break;
+
+							if(realSpecial && (nextPass == NULL) && (r == radix/2) && (i != 0))
+								break;
+
+							if(realSpecial && (nextPass == NULL) && (r == radix/2) && (i == 0))
+								passStr += "\n\t}\n\tif( rw && !me)\n\t{";
+
 							for(size_t c=cStart; c<cEnd; c++) // component loop: 0 - real, 1 - imaginary
 							{
 								std::string tail;
@@ -1083,6 +1102,10 @@ namespace StockhamGenerator
 								if(interleaved && (component == SR_COMP_BOTH) && linearRegs)
 									break;
 							}
+
+							if(realSpecial && (nextPass == NULL) && (r == radix/2) && (i == 0))
+								passStr += "\n\t}\n\tif(rw)\n\t{";
+
 						}
 
 						butterflyIndex++;
@@ -1454,10 +1477,11 @@ namespace StockhamGenerator
 
     public:
 		Pass(	size_t positionVal, size_t lengthVal, size_t radixVal, size_t cnPerWIVal,
-				size_t L, size_t LS, size_t R, bool linearRegsVal, bool r2cVal, bool c2rVal, bool rcFullVal, bool rcSimpleVal) :
+				size_t L, size_t LS, size_t R, bool linearRegsVal, bool halfLdsVal,
+				bool r2cVal, bool c2rVal, bool rcFullVal, bool rcSimpleVal, bool realSpecialVal) :
 			position(positionVal), length(lengthVal), radix(radixVal), cnPerWI(cnPerWIVal),
-			algL(L), algLS(LS), algR(R), linearRegs(linearRegsVal),
-			r2c(r2cVal), c2r(c2rVal), rcFull(rcFullVal), rcSimple(rcSimpleVal),
+			algL(L), algLS(LS), algR(R), linearRegs(linearRegsVal), halfLds(halfLdsVal),
+			r2c(r2cVal), c2r(c2rVal), rcFull(rcFullVal), rcSimple(rcSimpleVal), realSpecial(realSpecialVal),
 			enableGrouping(true),
 			numB1(0), numB2(0), numB4(0),
 			nextPass(NULL)
@@ -1488,6 +1512,10 @@ namespace StockhamGenerator
 
 				assert(numButterfly == (numB4*4 + numB2*2 + numB1));
 			}
+
+			// if only half LDS can be used, we need the passes to share registers
+			// and hence they need to be linear registers
+			if(halfLds) assert(linearRegs);
 		}
 
 		size_t GetNumB1() const { return numB1; }
@@ -1541,15 +1569,14 @@ namespace StockhamGenerator
 
 			// Function arguments
 			passStr += "(";
-			passStr += "uint rw, uint b, uint me, uint inOffset, uint outOffset, ";
-
-			// For now, interleaved support is there for only global buffers
-			// TODO : add support for LDS interleaved
-			if(inInterleaved)  assert(gIn);
-			if(outInterleaved) assert(gOut);
+			passStr += "uint rw, uint b, ";
+			if(realSpecial) passStr += "uint t, ";
+			passStr += "uint me, uint inOffset, uint outOffset, ";
 
 			if(r2c || c2r)
 			{
+				assert(halfLds);
+
 				if(gIn)
 				{
 					if(inInterleaved)
@@ -1618,8 +1645,15 @@ namespace StockhamGenerator
 				}
 				else
 				{
-					passStr += "__local "; passStr += regB1Type; passStr += " *"; passStr += bufferInRe; passStr += ", ";
-					passStr += "__local "; passStr += regB1Type; passStr += " *"; passStr += bufferInIm; passStr += ", ";
+					if(inInterleaved)
+					{
+						passStr += "__local "; passStr += regB2Type; passStr += " *"; passStr += bufferInRe;  passStr += ", ";
+					}
+					else
+					{
+						passStr += "__local "; passStr += regB1Type; passStr += " *"; passStr += bufferInRe; passStr += ", ";
+						passStr += "__local "; passStr += regB1Type; passStr += " *"; passStr += bufferInIm; passStr += ", ";
+					}
 				}
 
 
@@ -1637,8 +1671,15 @@ namespace StockhamGenerator
 				}
 				else
 				{
-					passStr += "__local "; passStr += regB1Type; passStr += " *"; passStr += bufferOutRe; passStr += ", ";
-					passStr += "__local "; passStr += regB1Type; passStr += " *"; passStr += bufferOutIm;
+					if(outInterleaved)
+					{
+						passStr += "__local "; passStr += regB2Type; passStr += " *"; passStr += bufferOutRe;
+					}
+					else
+					{
+						passStr += "__local "; passStr += regB1Type; passStr += " *"; passStr += bufferOutRe; passStr += ", ";
+						passStr += "__local "; passStr += regB1Type; passStr += " *"; passStr += bufferOutIm;
+					}
 				}
 			}
 
@@ -1690,7 +1731,7 @@ namespace StockhamGenerator
 				if(position == 0)
 				{
 					passStr += "\n\tif(rw)\n\t{";
-					SweepRegs(SR_READ, fwd, inInterleaved, inStride, SR_COMP_REAL, 1.0f, bufferInRe, bufferInIm, "inOffset", 1, numB1, 0, passStr);
+					SweepRegs(SR_READ, fwd, inInterleaved, inStride, SR_COMP_REAL, 1.0f, false, bufferInRe, bufferInIm, "inOffset", 1, numB1, 0, passStr);
 					passStr += "\n\t}\n";
 
 					if(rcSimple)
@@ -1702,7 +1743,7 @@ namespace StockhamGenerator
 					else
 					{
 						passStr += "\n\tif(rw > 1)\n\t{";
-						SweepRegs(SR_READ, fwd, inInterleaved, inStride, SR_COMP_IMAG, 1.0f, bufferInRe2, bufferInIm2, "inOffset", 1, numB1, 0, passStr);
+						SweepRegs(SR_READ, fwd, inInterleaved, inStride, SR_COMP_IMAG, 1.0f, false, bufferInRe2, bufferInIm2, "inOffset", 1, numB1, 0, passStr);
 						passStr += "\n\t}\n";
 
 						passStr += "\telse\n\t{";
@@ -1773,7 +1814,7 @@ namespace StockhamGenerator
 					}
 
 					passStr += "\n\n\tbarrier(CLK_LOCAL_MEM_FENCE);\n";
-					SweepRegs(SR_READ, fwd, outInterleaved, processBufStride, SR_COMP_REAL, 1.0f, processBufRe, processBufIm, processBufOffset, 1, numB1, 0, passStr);
+					SweepRegs(SR_READ, fwd, outInterleaved, processBufStride, SR_COMP_REAL, 1.0f, false, processBufRe, processBufIm, processBufOffset, 1, numB1, 0, passStr);
 					passStr += "\n\n\tbarrier(CLK_LOCAL_MEM_FENCE);\n";
 
 
@@ -1823,31 +1864,49 @@ namespace StockhamGenerator
 					}
 
 					passStr += "\n\n\tbarrier(CLK_LOCAL_MEM_FENCE);\n";
-					SweepRegs(SR_READ, fwd, outInterleaved, processBufStride, SR_COMP_IMAG, 1.0f, processBufRe, processBufIm, processBufOffset, 1, numB1, 0, passStr);
+					SweepRegs(SR_READ, fwd, outInterleaved, processBufStride, SR_COMP_IMAG, 1.0f, false, processBufRe, processBufIm, processBufOffset, 1, numB1, 0, passStr);
 					passStr += "\n\n\tbarrier(CLK_LOCAL_MEM_FENCE);\n";
 				}
 			}
 			else
 			{
-				if( (!linearRegs) || (linearRegs && (position == 0)) )
+				if( (!halfLds) || (halfLds && (position == 0)) )
 				{
 					passStr += "\n\tif(rw)\n\t{";
-					SweepRegs(SR_READ, fwd, inInterleaved, inStride, SR_COMP_BOTH, 1.0f, bufferInRe, bufferInIm, "inOffset", 1, numB1, 0, passStr);
-					SweepRegs(SR_READ, fwd, inInterleaved, inStride, SR_COMP_BOTH, 1.0f, bufferInRe, bufferInIm, "inOffset", 2, numB2, numB1, passStr);
-					SweepRegs(SR_READ, fwd, inInterleaved, inStride, SR_COMP_BOTH, 1.0f, bufferInRe, bufferInIm, "inOffset", 4, numB4, 2*numB2 + numB1, passStr);
+					SweepRegs(SR_READ, fwd, inInterleaved, inStride, SR_COMP_BOTH, 1.0f, false, bufferInRe, bufferInIm, "inOffset", 1, numB1, 0, passStr);
+					SweepRegs(SR_READ, fwd, inInterleaved, inStride, SR_COMP_BOTH, 1.0f, false, bufferInRe, bufferInIm, "inOffset", 2, numB2, numB1, passStr);
+					SweepRegs(SR_READ, fwd, inInterleaved, inStride, SR_COMP_BOTH, 1.0f, false, bufferInRe, bufferInIm, "inOffset", 4, numB4, 2*numB2 + numB1, passStr);
 					passStr += "\n\t}\n";
 				}
 			}
 
+			passStr += "\n";
+
+			// 3-step twiddle multiplies done in the front
+			bool tw3Done = false;
+			if(fft_3StepTwiddle && (position == 0))
+			{
+				tw3Done = true;
+				if(linearRegs)
+				{
+					SweepRegs(SR_TWMUL_3STEP, fwd, false, 1, SR_COMP_BOTH, 1.0f, true, bufferInRe, bufferInIm, "", 1, numB1, 0, passStr);
+				}
+				else
+				{
+					SweepRegs(SR_TWMUL_3STEP, fwd, false, 1, SR_COMP_BOTH, 1.0f, true, bufferInRe, bufferInIm, "", 1, numB1, 0, passStr);
+					SweepRegs(SR_TWMUL_3STEP, fwd, false, 1, SR_COMP_BOTH, 1.0f, true, bufferInRe, bufferInIm, "", 2, numB2, numB1, passStr);
+					SweepRegs(SR_TWMUL_3STEP, fwd, false, 1, SR_COMP_BOTH, 1.0f, true, bufferInRe, bufferInIm, "", 4, numB4, 2*numB2 + numB1, passStr);
+				}
+			}
 
 			passStr += "\n";
 
 			// Twiddle multiply
 			if( (position > 0) && (radix > 1) )
 			{
-				SweepRegs(SR_TWMUL, fwd, false, 1, SR_COMP_BOTH, 1.0f, bufferInRe, bufferInIm, "", 1, numB1, 0, passStr);
-				SweepRegs(SR_TWMUL, fwd, false, 1, SR_COMP_BOTH, 1.0f, bufferInRe, bufferInIm, "", 2, numB2, numB1, passStr);
-				SweepRegs(SR_TWMUL, fwd, false, 1, SR_COMP_BOTH, 1.0f, bufferInRe, bufferInIm, "", 4, numB4, 2*numB2 + numB1, passStr);
+				SweepRegs(SR_TWMUL, fwd, false, 1, SR_COMP_BOTH, 1.0f, false, bufferInRe, bufferInIm, "", 1, numB1, 0, passStr);
+				SweepRegs(SR_TWMUL, fwd, false, 1, SR_COMP_BOTH, 1.0f, false, bufferInRe, bufferInIm, "", 2, numB2, numB1, passStr);
+				SweepRegs(SR_TWMUL, fwd, false, 1, SR_COMP_BOTH, 1.0f, false, bufferInRe, bufferInIm, "", 4, numB4, 2*numB2 + numB1, passStr);
 			}
 
 			// Butterfly calls
@@ -1858,31 +1917,30 @@ namespace StockhamGenerator
 				if(numB4) CallButterfly(ButterflyName(radix, 4, fwd), 4, numB4, passStr);
 			}
 
-			passStr += "\n";
 
 			if( (position != 0) && (!linearRegs) && (nextPass != NULL) )
 				passStr += "\n\n\tbarrier(CLK_LOCAL_MEM_FENCE);\n";
 
-			passStr += "\n";
+			passStr += "\n\n";
 
 			// 3-step twiddle multiplies
-			if(fft_3StepTwiddle)
+			if(fft_3StepTwiddle && !tw3Done)
 			{
 				assert(nextPass == NULL);
 				if(linearRegs)
 				{
-					SweepRegs(SR_TWMUL_3STEP, fwd, false, 1, SR_COMP_BOTH, 1.0f, bufferInRe, bufferInIm, "", 1, numB1, 0, passStr);
+					SweepRegs(SR_TWMUL_3STEP, fwd, false, 1, SR_COMP_BOTH, 1.0f, false, bufferInRe, bufferInIm, "", 1, numB1, 0, passStr);
 				}
 				else
 				{
-					SweepRegs(SR_TWMUL_3STEP, fwd, false, 1, SR_COMP_BOTH, 1.0f, bufferInRe, bufferInIm, "", 1, numB1, 0, passStr);
-					SweepRegs(SR_TWMUL_3STEP, fwd, false, 1, SR_COMP_BOTH, 1.0f, bufferInRe, bufferInIm, "", 2, numB2, numB1, passStr);
-					SweepRegs(SR_TWMUL_3STEP, fwd, false, 1, SR_COMP_BOTH, 1.0f, bufferInRe, bufferInIm, "", 4, numB4, 2*numB2 + numB1, passStr);
+					SweepRegs(SR_TWMUL_3STEP, fwd, false, 1, SR_COMP_BOTH, 1.0f, false, bufferInRe, bufferInIm, "", 1, numB1, 0, passStr);
+					SweepRegs(SR_TWMUL_3STEP, fwd, false, 1, SR_COMP_BOTH, 1.0f, false, bufferInRe, bufferInIm, "", 2, numB2, numB1, passStr);
+					SweepRegs(SR_TWMUL_3STEP, fwd, false, 1, SR_COMP_BOTH, 1.0f, false, bufferInRe, bufferInIm, "", 4, numB4, 2*numB2 + numB1, passStr);
 				}
 			}
 
 			// Write back from registers
-			if(linearRegs)
+			if(halfLds)
 			{
 				// In this case, we have to write & again read back for the next pass since we are
 				// using only half the lds. Number of barriers will increase at the cost of halving the lds.
@@ -1893,7 +1951,7 @@ namespace StockhamGenerator
 					{
 						if(!singlePass)
 						{
-							SweepRegs(SR_WRITE, fwd, inInterleaved, inStride, SR_COMP_REAL, 1.0f, bufferInRe, bufferInIm, "inOffset", 1, numB1, 0, passStr);
+							SweepRegs(SR_WRITE, fwd, inInterleaved, inStride, SR_COMP_REAL, 1.0f, false, bufferInRe, bufferInIm, "inOffset", 1, numB1, 0, passStr);
 							passStr += "\n\n\tbarrier(CLK_LOCAL_MEM_FENCE);\n";
 							SweepRegsRC(SR_READ, fwd, inInterleaved, inStride, SR_COMP_REAL, 1.0f, false, false, false, bufferInRe, bufferInIm, "inOffset", passStr);
 							if(oddp)
@@ -1919,7 +1977,7 @@ namespace StockhamGenerator
 							passStr += "\n\n\tbarrier(CLK_LOCAL_MEM_FENCE);\n";
 
 
-							SweepRegs(SR_WRITE, fwd, inInterleaved, inStride, SR_COMP_IMAG, 1.0f, bufferInRe, bufferInIm, "inOffset", 1, numB1, 0, passStr);
+							SweepRegs(SR_WRITE, fwd, inInterleaved, inStride, SR_COMP_IMAG, 1.0f, false, bufferInRe, bufferInIm, "inOffset", 1, numB1, 0, passStr);
 							passStr += "\n\n\tbarrier(CLK_LOCAL_MEM_FENCE);\n";
 							SweepRegsRC(SR_READ, fwd, inInterleaved, inStride, SR_COMP_IMAG, 1.0f, false, false, false, bufferInRe, bufferInIm, "inOffset", passStr);
 							if(oddp)
@@ -1972,39 +2030,39 @@ namespace StockhamGenerator
 					else if(c2r)
 					{
 						passStr += "\n\tif(rw)\n\t{";
-						SweepRegs(SR_WRITE, fwd, outInterleaved, outStride, SR_COMP_REAL, scale, bufferOutRe, bufferOutIm, "outOffset", 1, numB1, 0, passStr);
+						SweepRegs(SR_WRITE, fwd, outInterleaved, outStride, SR_COMP_REAL, scale, false, bufferOutRe, bufferOutIm, "outOffset", 1, numB1, 0, passStr);
 						passStr += "\n\t}\n";
 
 						if(!rcSimple)
 						{
 							passStr += "\n\tif(rw > 1)\n\t{";
-							SweepRegs(SR_WRITE, fwd, outInterleaved, outStride, SR_COMP_IMAG, scale, bufferOutRe2, bufferOutIm2, "outOffset", 1, numB1, 0, passStr);
+							SweepRegs(SR_WRITE, fwd, outInterleaved, outStride, SR_COMP_IMAG, scale, false, bufferOutRe2, bufferOutIm2, "outOffset", 1, numB1, 0, passStr);
 							passStr += "\n\t}\n";
 						}
 					}
 					else
 					{
 						passStr += "\n\tif(rw)\n\t{";
-						SweepRegs(SR_WRITE, fwd, outInterleaved, outStride, SR_COMP_BOTH, scale, bufferOutRe, bufferOutIm, "outOffset", 1, numB1, 0, passStr);
+						SweepRegs(SR_WRITE, fwd, outInterleaved, outStride, SR_COMP_BOTH, scale, false, bufferOutRe, bufferOutIm, "outOffset", 1, numB1, 0, passStr);
 						passStr += "\n\t}\n";
 					}
 				}
 				else
 				{
 					passStr += "\n\tif(rw)\n\t{";
-					SweepRegs(SR_WRITE, fwd, outInterleaved, outStride, SR_COMP_REAL, scale, bufferOutRe, bufferOutIm, "outOffset", 1, numB1, 0, passStr);
+					SweepRegs(SR_WRITE, fwd, outInterleaved, outStride, SR_COMP_REAL, scale, false, bufferOutRe, bufferOutIm, "outOffset", 1, numB1, 0, passStr);
 					passStr += "\n\t}\n";
 					passStr += "\n\n\tbarrier(CLK_LOCAL_MEM_FENCE);\n";
 					passStr += "\n\tif(rw)\n\t{";
-					nextPass->SweepRegs(SR_READ, fwd, outInterleaved, outStride, SR_COMP_REAL, scale, bufferOutRe, bufferOutIm, "outOffset", 1, nextPass->GetNumB1(), 0, passStr);
+					nextPass->SweepRegs(SR_READ, fwd, outInterleaved, outStride, SR_COMP_REAL, scale, false, bufferOutRe, bufferOutIm, "outOffset", 1, nextPass->GetNumB1(), 0, passStr);
 					passStr += "\n\t}\n";
 					passStr += "\n\n\tbarrier(CLK_LOCAL_MEM_FENCE);\n";
 					passStr += "\n\tif(rw)\n\t{";
-					SweepRegs(SR_WRITE, fwd, outInterleaved, outStride, SR_COMP_IMAG, scale, bufferOutRe, bufferOutIm, "outOffset", 1, numB1, 0, passStr);
+					SweepRegs(SR_WRITE, fwd, outInterleaved, outStride, SR_COMP_IMAG, scale, false, bufferOutRe, bufferOutIm, "outOffset", 1, numB1, 0, passStr);
 					passStr += "\n\t}\n";
 					passStr += "\n\n\tbarrier(CLK_LOCAL_MEM_FENCE);\n";
 					passStr += "\n\tif(rw)\n\t{";
-					nextPass->SweepRegs(SR_READ, fwd, outInterleaved, outStride, SR_COMP_IMAG, scale, bufferOutRe, bufferOutIm, "outOffset", 1, nextPass->GetNumB1(), 0, passStr);
+					nextPass->SweepRegs(SR_READ, fwd, outInterleaved, outStride, SR_COMP_IMAG, scale, false, bufferOutRe, bufferOutIm, "outOffset", 1, nextPass->GetNumB1(), 0, passStr);
 					passStr += "\n\t}\n";
 					passStr += "\n\n\tbarrier(CLK_LOCAL_MEM_FENCE);\n";
 				}
@@ -2012,9 +2070,9 @@ namespace StockhamGenerator
 			else
 			{
 				passStr += "\n\tif(rw)\n\t{";
-				SweepRegs(SR_WRITE, fwd, outInterleaved, outStride, SR_COMP_BOTH, scale, bufferOutRe, bufferOutIm, "outOffset", 1, numB1, 0, passStr);
-				SweepRegs(SR_WRITE, fwd, outInterleaved, outStride, SR_COMP_BOTH, scale, bufferOutRe, bufferOutIm, "outOffset", 2, numB2, numB1, passStr);
-				SweepRegs(SR_WRITE, fwd, outInterleaved, outStride, SR_COMP_BOTH, scale, bufferOutRe, bufferOutIm, "outOffset", 4, numB4, 2*numB2 + numB1, passStr);
+				SweepRegs(SR_WRITE, fwd, outInterleaved, outStride, SR_COMP_BOTH, scale, false, bufferOutRe, bufferOutIm, "outOffset", 1, numB1, 0, passStr);
+				SweepRegs(SR_WRITE, fwd, outInterleaved, outStride, SR_COMP_BOTH, scale, false, bufferOutRe, bufferOutIm, "outOffset", 2, numB2, numB1, passStr);
+				SweepRegs(SR_WRITE, fwd, outInterleaved, outStride, SR_COMP_BOTH, scale, false, bufferOutRe, bufferOutIm, "outOffset", 4, numB4, 2*numB2 + numB1, passStr);
 				passStr += "\n\t}\n";
 			}
 
@@ -2041,6 +2099,8 @@ namespace StockhamGenerator
 												// for passing intermediate data between the passes, if this is set
 												// then each pass-function should accept same set of registers
 
+		bool linearRegs;						// scalar registers
+
 		// Future optimization ideas
 		// bool limitRegs;							// TODO: Incrementally write to LDS, thereby using same set of registers for more than 1 butterflies
 		// bool combineReadTwMul;					// TODO: Combine reading into registers and Twiddle multiply
@@ -2050,6 +2110,12 @@ namespace StockhamGenerator
 		bool rcFull;
 		bool rcSimple;
 
+		bool blockCompute;						// When we have to compute FFT in blocks (either read or write is along columns)
+		BlockComputeType blockComputeType;
+		size_t blockWidth, blockWGS, blockLDS;
+
+		bool realSpecial;
+
 		const FFTKernelGenKeyParams params;		// key params
 
 
@@ -2057,7 +2123,7 @@ namespace StockhamGenerator
 		{
 			std::string str = "";
 
-			if(halfLds)
+			if(linearRegs)
 			{
 				if(initComma) str += ", ";
 
@@ -2080,6 +2146,9 @@ namespace StockhamGenerator
 			if(r2c2r)
 				return false;
 
+			if(realSpecial)
+				return false;
+
 			if(params.fft_placeness == CLFFT_INPLACE)
 			{
 				iStride = oStride = params.fft_inStride;
@@ -2097,6 +2166,38 @@ namespace StockhamGenerator
 			}
 
 			return possible;
+		}
+
+		inline std::string OffsetCalcBlock(const std::string &off, bool input = true)
+		{
+			std::string str;
+
+			const size_t *pStride = input ? params.fft_inStride : params.fft_outStride;
+
+			str += "\t"; str += off; str += " = ";
+			std::string nextBatch = "batch";
+			for(size_t i=(params.fft_DataDim - 1); i>2; i--)
+			{
+				size_t currentLength = 1;
+				for(int j=2; j<i; j++) currentLength *= params.fft_N[j];
+				currentLength *= (params.fft_N[1]/blockWidth);
+
+				str += "("; str += nextBatch; str += "/"; str += SztToStr(currentLength);
+				str += ")*"; str += SztToStr(pStride[i]); str += " + ";
+
+				nextBatch = "(" + nextBatch + "%" + SztToStr(currentLength) + ")";
+			}
+
+			str += "("; str += nextBatch; str += "/"; str += SztToStr(params.fft_N[1]/blockWidth);
+			str += ")*"; str += SztToStr(pStride[2]); str += " + ("; str += nextBatch;
+			str += "%"; str += SztToStr(params.fft_N[1]/blockWidth); str += ")*";
+			if( (input && (blockComputeType == BCT_R2C)) || (!input && (blockComputeType == BCT_C2R)) )
+				str += SztToStr(blockWidth*length);
+			else
+				str += SztToStr(blockWidth);
+			str += ";\n";
+
+			return str;
 		}
 
 		inline std::string OffsetCalc(const std::string &off, bool input = true, bool rc_second_index = false)
@@ -2122,76 +2223,27 @@ namespace StockhamGenerator
 										batch += " + (me/"; batch += SztToStr(workGroupSizePerTrans); batch += "))"; }
 			}
 
-			switch(params.fft_DataDim)
+			str += "\t"; str += off; str += " = ";
+			std::string nextBatch = batch;
+			for(size_t i=(params.fft_DataDim - 1); i>1; i--)
 			{
-			case 5:
-				{
-					str += "\t{\n\tuint ocalc1 = ";
-					str += batch; str += "%"; str += SztToStr(params.fft_N[1] * params.fft_N[2] * params.fft_N[3]);
-					str += ";\n";
+				size_t currentLength = 1;
+				for(int j=1; j<i; j++) currentLength *= params.fft_N[j];
 
-					str += "\tuint ocalc0 = ";
-					str += "ocalc1"; str += "%"; str += SztToStr(params.fft_N[1] * params.fft_N[2]);
-					str += ";\n";
+				str += "("; str += nextBatch; str += "/"; str += SztToStr(currentLength);
+				str += ")*"; str += SztToStr(pStride[i]); str += " + ";
 
-					str += "\t"; str += off; str += " = ";
-					str += "("; str += batch; str += "/"; str += SztToStr(params.fft_N[1] * params.fft_N[2] * params.fft_N[3]);
-					str += ")*"; str += SztToStr(pStride[4]); str += " + ";
-
-					str += "(ocalc1"; str += "/"; str += SztToStr(params.fft_N[1] * params.fft_N[2]); str += ")*";
-					str += SztToStr(pStride[3]); str += " + ";
-
-					str += "(ocalc0"; str += "/"; str += SztToStr(params.fft_N[1]); str += ")*";
-					str += SztToStr(pStride[2]); str += " + ";
-					str += "(ocalc0"; str += "%"; str += SztToStr(params.fft_N[1]); str += ")*";
-					str += SztToStr(pStride[1]); str += ";\n";
-
-					str += "\t}\n";
-				}
-				break;
-			case 4:
-				{
-					str += "\t{\n\tuint ocalc0 = ";
-					str += batch; str += "%"; str += SztToStr(params.fft_N[1] * params.fft_N[2]);
-					str += ";\n";
-
-					str += "\t"; str += off; str += " = ";
-					str += "("; str += batch; str += "/"; str += SztToStr(params.fft_N[1] * params.fft_N[2]); str += ")*";
-					str += SztToStr(pStride[3]); str += " + ";
-
-					str += "(ocalc0"; str += "/"; str += SztToStr(params.fft_N[1]); str += ")*";
-					str += SztToStr(pStride[2]); str += " + ";
-					str += "(ocalc0"; str += "%"; str += SztToStr(params.fft_N[1]); str += ")*";
-					str += SztToStr(pStride[1]); str += ";\n";
-
-					str += "\t}\n";
-				}
-				break;
-			case 3:
-				{
-					str += "\t"; str += off; str += " = ";
-					str += "("; str += batch; str += "/"; str += SztToStr(params.fft_N[1]); str += ")*";
-					str += SztToStr(pStride[2]); str += " + ";
-					str += "("; str += batch; str += "%"; str += SztToStr(params.fft_N[1]); str += ")*";
-					str += SztToStr(pStride[1]); str += ";\n";
-				}
-				break;
-			case 2:
-				{
-					str += "\t"; str += off; str += " = ";
-					str += batch; str += "*"; str += SztToStr(pStride[1]); str += ";\n";
-				}
-				break;
-			default:
-				assert(false);
+				nextBatch = "(" + nextBatch + "%" + SztToStr(currentLength) + ")";
 			}
+
+			str += nextBatch; str += "*"; str += SztToStr(pStride[1]); str += ";\n";
 
 			return str;
 		}
 
     public:
         Kernel( const FFTKernelGenKeyParams &paramsVal) :
-					params(paramsVal), r2c2r(false)
+			params(paramsVal), r2c2r(false)
 
         {
 			length = params.fft_N[0];
@@ -2222,12 +2274,26 @@ namespace StockhamGenerator
 			halfLds = ( (params.fft_inputLayout == CLFFT_COMPLEX_INTERLEAVED) &&
 						(params.fft_outputLayout == CLFFT_COMPLEX_INTERLEAVED) ) ? true : false;
 			halfLds = halfLds ? ((length & (length-1)) ? false : true) : false;
-			//halfLds = false;
 
 			// Set half lds for real transforms
 			halfLds = r2c2r ? true : halfLds;
 
-			bool linearRegs = halfLds ? true : false;
+			linearRegs = halfLds;
+
+			realSpecial = params.fft_realSpecial;
+
+			blockCompute = params.blockCompute;
+			blockComputeType = params.blockComputeType;
+			// Make sure we can utilize all Lds if we are going to
+			// use blocked columns to compute FFTs
+			if(blockCompute)
+			{
+				assert(length <= 256);  // 256 parameter comes from prototype experiments
+										// largest length at which block column possible given 32KB LDS limit
+										// if LDS limit is different this number need to be changed appropriately
+				halfLds = false;
+				linearRegs = true;
+			}
 
 			assert( ((length*numTrans)%workGroupSize) == 0 );
 			cnPerWI = (numTrans * length) / workGroupSize;
@@ -2258,7 +2324,7 @@ namespace StockhamGenerator
 					R /= rad;
 
 					radices.push_back(rad);
-					passes.push_back(Pass<PR>(i, length, rad, cnPerWI, L, LS, R, linearRegs, r2c, c2r, rcFull, rcSimple));
+					passes.push_back(Pass<PR>(i, length, rad, cnPerWI, L, LS, R, linearRegs, halfLds, r2c, c2r, rcFull, rcSimple, realSpecial));
 
 					LS *= rad;
 				}
@@ -2271,16 +2337,17 @@ namespace StockhamGenerator
 				size_t cRad[] = {10,8,6,5,4,3,2,1}; // Must be in descending order
 				size_t cRadSize = (sizeof(cRad)/sizeof(cRad[0]));
 
+				// Generate the radix and pass objects
 				while(true)
 				{
 					size_t rad;
 
 					assert(cRadSize >= 1);
+
+					// Picks the radices in descending order (biggest radix first)
 					for(size_t r=0; r<cRadSize; r++)
 					{
 						rad = cRad[r];
-
-						if( (rad == 16) && !linearRegs ) continue; // temporary - fix this !!!
 
 						if((rad > cnPerWI) || (cnPerWI%rad))
 							continue;
@@ -2295,7 +2362,7 @@ namespace StockhamGenerator
 					R /= rad;
 
 					radices.push_back(rad);
-					passes.push_back(Pass<PR>(pid, length, rad, cnPerWI, L, LS, R, linearRegs, r2c, c2r, rcFull, rcSimple));
+					passes.push_back(Pass<PR>(pid, length, rad, cnPerWI, L, LS, R, linearRegs, halfLds, r2c, c2r, rcFull, rcSimple, realSpecial));
 
 					pid++;
 					LS *= rad;
@@ -2346,7 +2413,71 @@ namespace StockhamGenerator
 				for(size_t i=0; i < (numPasses - 1); i++)
 					passes[i].SetNextPass(&passes[i+1]);
 
+
+			if(blockCompute)
+			{
+				blockWidth = BlockSizes::BlockWidth(length);
+				blockWGS = BlockSizes::BlockWorkGroupSize(length);
+				blockLDS = BlockSizes::BlockLdsSize(length);
+			}
+			else
+			{
+				blockWidth = blockWGS = blockLDS = 0;
+			}
 		}
+
+		class BlockSizes
+		{
+		public:
+			enum ValType
+			{
+				BS_VT_WGS,
+				BS_VT_BWD,
+				BS_VT_LDS,
+			};
+
+			static size_t BlockLdsSize(size_t N) { return GetValue(N, BS_VT_LDS); }
+			static size_t BlockWidth(size_t N) { return GetValue(N, BS_VT_BWD); }
+			static size_t BlockWorkGroupSize(size_t N) { return GetValue(N, BS_VT_WGS); }
+
+		private:
+
+			static size_t GetValue(size_t N, ValType vt)
+			{
+				size_t wgs; // preferred work group size
+				size_t bwd; // block width to be used
+				size_t lds; // LDS size to be used for the block
+
+
+				KernelCoreSpecs<PR> kcs;
+				size_t t_wgs, t_nt;
+				kcs.GetWGSAndNT(N, t_wgs, t_nt);
+
+				switch(N)
+				{
+				case 256:	bwd = 8/PrecisionWidth<PR>();   wgs = (bwd > t_nt) ? 256 : t_wgs; break;
+				case 128:	bwd = 8/PrecisionWidth<PR>();   wgs = (bwd > t_nt) ? 128 : t_wgs; break;
+				case 64:	bwd = 16/PrecisionWidth<PR>();  wgs = (bwd > t_nt) ? 128 : t_wgs; break;
+				case 32:	bwd = 32/PrecisionWidth<PR>();  wgs = (bwd > t_nt) ? 64  : t_wgs; break;
+				case 16:	bwd = 64/PrecisionWidth<PR>();  wgs = (bwd > t_nt) ? 64  : t_wgs; break;
+				case 8:		bwd = 128/PrecisionWidth<PR>(); wgs = (bwd > t_nt) ? 64  : t_wgs; break;
+				default:	assert(false);
+				}
+
+				// block width cannot be less than numTrans, math in other parts of code depend on this assumption
+				assert(bwd >= t_nt);
+
+				lds = N*bwd;
+
+				switch(vt)
+				{
+				case BS_VT_WGS: return wgs;
+				case BS_VT_BWD: return bwd;
+				case BS_VT_LDS: return lds;
+				default: assert(false); return 0;
+				}
+			}
+		};
 
         void GenerateKernel(std::string &str, cl_device_id Dev_ID)
 		{
@@ -2361,12 +2492,21 @@ namespace StockhamGenerator
 			outInterleaved = (	(params.fft_outputLayout == CLFFT_COMPLEX_INTERLEAVED) ||
 								(params.fft_outputLayout == CLFFT_HERMITIAN_INTERLEAVED) ) ? true : false;
 
+			// use interleaved LDS when halfLds constraint absent
+			bool ldsInterleaved = inInterleaved || outInterleaved;
+			ldsInterleaved = halfLds ? false : ldsInterleaved;
+			ldsInterleaved = blockCompute ? true : ldsInterleaved;
+
 			bool inReal;  // Input is real format
 			bool outReal; // Output is real format
 			inReal  = (params.fft_inputLayout == CLFFT_REAL) ? true : false;
 			outReal = (params.fft_outputLayout == CLFFT_REAL) ? true : false;
 
-			size_t large1D = params.fft_N[0] * params.fft_N[1];
+			size_t large1D = 0;
+			if(params.fft_realSpecial)
+				large1D = params.fft_N[0] * params.fft_realSpecial_Nr;
+			else
+				large1D = params.fft_N[0] * params.fft_N[1];
 
 			// Pragma
 			str += ClPragma<PR>();
@@ -2410,7 +2550,7 @@ namespace StockhamGenerator
 			str += "#define C3QB 0.86602540378443864676372317075294"; str += sfx; str += "\n";
 			str += "\n";
 
-			bool cReg = halfLds ? true : false;
+			bool cReg = linearRegs ? true : false;
 
 			// Generate butterflies for all unique radices
 			std::list<size_t> uradices;
@@ -2455,7 +2595,6 @@ namespace StockhamGenerator
 				}
 
 				double scale = fwd ? params.fft_fwdScale : params.fft_backScale;
-				bool tw3Step = false;
 
 				for(p = passes.begin(); p != passes.end(); p++)
 				{
@@ -2464,8 +2603,25 @@ namespace StockhamGenerator
 					bool gIn = false, gOut = false;
 					bool inIlvd = false, outIlvd = false;
 					bool inRl = false, outRl = false;
-					if(p == passes.begin())		{ inIlvd  = inInterleaved;  inRl  = inReal;  gIn  = true; ins  = params.fft_inStride[0];  }
-					if((p+1) == passes.end())	{ outIlvd = outInterleaved; outRl = outReal; gOut = true; outs = params.fft_outStride[0]; s = scale; tw3Step = params.fft_3StepTwiddle; }
+					bool tw3Step = false;
+
+
+					if(p == passes.begin() && params.fft_twiddleFront ) { tw3Step = params.fft_3StepTwiddle; }
+					if((p+1) == passes.end())	{ s = scale; if(!params.fft_twiddleFront) tw3Step = params.fft_3StepTwiddle; }
+
+					if(blockCompute && !r2c2r)
+					{
+						inIlvd = ldsInterleaved;
+						outIlvd = ldsInterleaved;
+					}
+					else
+					{
+						if(p == passes.begin())		{ inIlvd  = inInterleaved;  inRl  = inReal;  gIn  = true; ins  = params.fft_inStride[0];  }
+						if((p+1) == passes.end())	{ outIlvd = outInterleaved; outRl = outReal; gOut = true; outs = params.fft_outStride[0]; }
+
+						if(p != passes.begin())		{ inIlvd = ldsInterleaved; }
+						if((p+1) != passes.end())	{ outIlvd = ldsInterleaved; }
+					}
 
 					p->GeneratePass(fwd, str, tw3Step, inIlvd, outIlvd, inRl, outRl, ins, outs, s, gIn, gOut);
 				}
@@ -2474,6 +2630,8 @@ namespace StockhamGenerator
 				if(r2c2r)
 					break;
 			}
+
+
 
 			// TODO : address this kludge
 			str += " typedef union  { uint u; int i; } cb_t;\n\n";
@@ -2494,7 +2652,9 @@ namespace StockhamGenerator
 				// FFT kernel begin
 				// Function attribute
 				str += "__kernel __attribute__((reqd_work_group_size (";
-				str += SztToStr(workGroupSize); str += ",1,1)))\nvoid ";
+				if(blockCompute)	str += SztToStr(blockWGS);
+				else				str += SztToStr(workGroupSize);
+				str += ",1,1)))\nvoid ";
 
 				// Function name
 				if(fwd) str += "fft_fwd";
@@ -2610,13 +2770,25 @@ namespace StockhamGenerator
 				str += "uint batch = get_group_id(0);";
 				str += "\n";
 
+
+
 				// Allocate LDS
-				size_t ldsSize = halfLds ? length*numTrans : 2*length*numTrans;
-				if(numPasses > 1)
+				if(blockCompute)
 				{
-					str += "\n\t";
-					str += "__local "; str += rType; str += " lds[";
-					str += SztToStr(ldsSize); str += "];\n";
+					str += "\n\t"; str += "__local "; str += r2Type; str += " lds[";
+					str += SztToStr(blockLDS); str += "];\n";
+				}
+				else
+				{
+					size_t ldsSize = halfLds ? length*numTrans : 2*length*numTrans;
+					ldsSize = ldsInterleaved ? ldsSize/2 : ldsSize;
+
+					if(numPasses > 1)
+					{
+						str += "\n\t";
+						str += "__local "; str += ldsInterleaved ? r2Type: rType; str += " lds[";
+						str += SztToStr(ldsSize); str += "];\n";
+					}
 				}
 
 				// Declare memory pointers
@@ -2715,7 +2887,7 @@ namespace StockhamGenerator
 				}
 
 				// Setup registers if needed
-				if(halfLds)
+				if(linearRegs)
 				{
 					str += "\t"; str += RegBaseType<PR>(2);
 					str += " "; str += IterRegs("", false);
@@ -2730,7 +2902,7 @@ namespace StockhamGenerator
 					totalBatch += SztToStr(params.fft_N[i+1]); totalBatch += " * ";
 					i++;
 				}
-				totalBatch += "cb["; totalBatch += SztToStr(i); totalBatch += "].u)";
+				totalBatch += "cb[0].u)";
 
 				// Conditional read-write ('rw') for arbitrary batch number
 				if(r2c2r && !rcSimple)
@@ -2742,16 +2914,20 @@ namespace StockhamGenerator
 				}
 				else
 				{
-					if(numTrans > 1)
+					if( (numTrans > 1) && !blockCompute )
 					{
 						str += "\tuint rw = (me < ("; str += totalBatch;
 						str += " - batch*"; str += SztToStr(numTrans); str += ")*";
 						str += SztToStr(workGroupSizePerTrans); str += ") ? 1 : 0;\n\n";
 					}
+					else
+					{
+						str += "\tuint rw = 1;\n\n";
+					}
 				}
 
 				// Transform index for 3-step twiddles
-				if(params.fft_3StepTwiddle)
+				if(params.fft_3StepTwiddle && !blockCompute)
 				{
 					if(numTrans == 1)
 					{
@@ -2764,6 +2940,11 @@ namespace StockhamGenerator
 					}
 
 					str += SztToStr(params.fft_N[1]); str += ";\n\n";
+
+					if(params.fft_realSpecial)
+					{
+						str += "\tuint bt = b;\n\n";
+					}
 				}
 				else
 				{
@@ -2831,7 +3012,10 @@ namespace StockhamGenerator
 				{
 					if(params.fft_placeness == CLFFT_INPLACE)
 					{
-						str += OffsetCalc("ioOffset", true);
+						if(blockCompute)
+							str += OffsetCalcBlock("ioOffset", true);
+						else
+							str += OffsetCalc("ioOffset", true);
 
 						str += "\t";
 						if(inInterleaved)
@@ -2846,8 +3030,16 @@ namespace StockhamGenerator
 					}
 					else
 					{
-						str += OffsetCalc("iOffset", true);
-						str += OffsetCalc("oOffset", false);
+						if(blockCompute)
+						{
+							str += OffsetCalcBlock("iOffset", true);
+							str += OffsetCalcBlock("oOffset", false);
+						}
+						else
+						{
+							str += OffsetCalc("iOffset", true);
+							str += OffsetCalc("oOffset", false);
+						}
 
 						str += "\t";
 						if(inInterleaved)
@@ -2872,6 +3064,55 @@ namespace StockhamGenerator
 					}
 				}
 
+
+				// Read data into LDS for blocked access
+				if(blockCompute)
+				{
+
+					size_t loopCount = (length * blockWidth)/blockWGS;
+					
+					str += "\n\tfor(uint t=0; t<"; str += SztToStr(loopCount);
+					str += "; t++)\n\t{\n";
+
+					for(size_t c=0; c<2; c++)
+					{
+						std::string comp = "";
+						std::string readBuf = (params.fft_placeness == CLFFT_INPLACE) ? "lwb" : "lwbIn";
+						if(!inInterleaved) comp = c ? ".y" : ".x";
+						if(!inInterleaved)
+							readBuf = (params.fft_placeness == CLFFT_INPLACE) ? (c ? "lwbIm" : "lwbRe") : (c ? "lwbInIm" : "lwbInRe");
+
+						if( (blockComputeType == BCT_C2C) || (blockComputeType == BCT_C2R) )
+						{
+							str += "\t\tR0"; str+= comp; str+= " = "; str += readBuf; str += "[(me%"; str+= SztToStr(blockWidth); str += ") + ";
+							str += "(me/"; str+= SztToStr(blockWidth); str+= ")*"; str += SztToStr(params.fft_inStride[0]);
+							str += " + t*"; str += SztToStr(params.fft_inStride[0]*blockWGS/blockWidth); str += "];\n";
+						}
+						else
+						{
+							str += "\t\tR0"; str+= comp; str+= " = "; str += readBuf; str += "[me + t*"; str += SztToStr(blockWGS); str += "];\n";
+						}
+
+
+						if(inInterleaved) break;
+					}
+
+					if( (blockComputeType == BCT_C2C) || (blockComputeType == BCT_C2R) )
+					{
+						str += "\t\tlds[t*"; str += SztToStr(blockWGS/blockWidth); str += " + ";
+						str += "(me%"; str+= SztToStr(blockWidth); str+= ")*"; str += SztToStr(length); str += " + ";
+						str += "(me/"; str+= SztToStr(blockWidth); str+= ")] = R0;"; str +="\n";
+					}
+					else
+					{
+						str += "\t\tlds[t*"; str += SztToStr(blockWGS); str += " + me] = R0;"; str +="\n";
+					}
+
+					str += "\t}\n\n";		
+					str += "\tbarrier(CLK_LOCAL_MEM_FENCE);\n\n";
+				}
+
+
 				// Set rw and 'me' per transform
 				// rw string also contains 'b'
 				std::string rw, me;
@@ -2881,6 +3122,8 @@ namespace StockhamGenerator
 
 				if(numTrans > 1)	{ me += "me%"; me += SztToStr(workGroupSizePerTrans); me += ", "; }
 				else				{ me += "me, "; }
+
+				if(blockCompute) { me = "me%"; me += SztToStr(workGroupSizePerTrans); me += ", "; }
 
 				// Buffer strings
 				std::string inBuf, outBuf;
@@ -2917,6 +3160,28 @@ namespace StockhamGenerator
 					}
 				}
 
+
+				if(blockCompute)
+				{
+					str += "\n\tfor(uint t=0; t<"; str += SztToStr(blockWidth/(blockWGS/workGroupSizePerTrans));
+					str += "; t++)\n\t{\n\n";
+
+					inBuf = "lds, ";
+					outBuf = "lds";
+
+					if(params.fft_3StepTwiddle)
+					{
+						str += "\t\tb = (batch%"; str += SztToStr(params.fft_N[1]/blockWidth); str += ")*";
+						str += SztToStr(blockWidth); str += " + t*"; str += SztToStr(blockWGS/workGroupSizePerTrans);
+						str += " + (me/"; str += SztToStr(workGroupSizePerTrans); str += ");\n\n";
+					}
+				}
+
+				if(realSpecial)
+				{
+					str += "\n\tfor(uint t=0; t<2; t++)\n\t{\n\n";
+				}
+
 				// Call passes
 				if(numPasses == 1)
 				{
@@ -2932,40 +3197,57 @@ namespace StockhamGenerator
 				{
 					for(typename std::vector<Pass<PR> >::const_iterator p = passes.begin(); p != passes.end(); p++)
 					{
+						std::string exTab = "";
+						if(blockCompute || realSpecial) exTab = "\t";
+
+						str += exTab;
 						str += "\t";
 						str += PassName(p->GetPosition(), fwd);
 						str += "(";
 
 						std::string ldsOff;
-						if(numTrans > 1)
+						if(blockCompute)
 						{
-							ldsOff += "(me/"; ldsOff += SztToStr(workGroupSizePerTrans);
-							ldsOff += ")*"; ldsOff += SztToStr(length);
+							ldsOff += "t*"; ldsOff += SztToStr(length*(blockWGS/workGroupSizePerTrans)); ldsOff += " + (me/";
+							ldsOff += SztToStr(workGroupSizePerTrans); ldsOff += ")*"; ldsOff += SztToStr(length);
 						}
 						else
 						{
-							ldsOff += "0";
+							if(numTrans > 1)
+							{
+								ldsOff += "(me/"; ldsOff += SztToStr(workGroupSizePerTrans);
+								ldsOff += ")*"; ldsOff += SztToStr(length);
+							}
+							else
+							{
+								ldsOff += "0";
+							}
 						}
 
 						std::string ldsArgs;
 						if(halfLds) { ldsArgs += "lds, lds"; }
-						else		{ ldsArgs += "lds, lds + "; ldsArgs += SztToStr(length*numTrans); }
+						else		{	if(ldsInterleaved) { ldsArgs += "lds"; }
+										else { ldsArgs += "lds, lds + "; ldsArgs += SztToStr(length*numTrans); } }
 
-						str += rw; str += me;
+						str += rw;
+						if(params.fft_realSpecial) str += "t, ";
+						str += me;
 						if(p == passes.begin()) // beginning pass
 						{
-							str += "0, ";
+							str += blockCompute ? ldsOff : "0";
+							str += ", ";
 							str += ldsOff;
 							str += ", ";
 							str += inBuf;
 							str += ldsArgs; str += IterRegs("&"); str += ");\n";
-							if(!halfLds) str += "\tbarrier(CLK_LOCAL_MEM_FENCE);\n";
+							if(!halfLds) { str += exTab; str += "\tbarrier(CLK_LOCAL_MEM_FENCE);\n"; }
 						}
 						else if((p+1) == passes.end()) // ending pass
 						{
 							str += ldsOff;
 							str += ", ";
-							str += "0, ";
+							str += blockCompute ? ldsOff : "0";
+							str += ", ";
 							str += ldsArgs; str += ", ";
 							str += outBuf;
 							str += IterRegs("&"); str += ");\n";
@@ -2978,10 +3260,77 @@ namespace StockhamGenerator
 							str += ", ";
 							str += ldsArgs; str += ", ";
 							str += ldsArgs; str += IterRegs("&"); str += ");\n";
-							if(!halfLds) str += "\tbarrier(CLK_LOCAL_MEM_FENCE);\n";
+							if(!halfLds) { str += exTab; str += "\tbarrier(CLK_LOCAL_MEM_FENCE);\n"; }
 						}
 					}
 				}
+
+				if(realSpecial)
+				{
+					size_t Nt = 1 + length/2;
+					str += 	"\n\t\tif( (bt == 0) || (2*bt == ";
+					str += SztToStr(params.fft_realSpecial_Nr); str += ") ) break;\n";
+
+					str += "\t\tlwbOut += ("; str += SztToStr(params.fft_realSpecial_Nr);
+					str += " - 2*bt)*"; str += SztToStr(Nt); str += ";\n";
+					str += "\t\tb = "; str += SztToStr(params.fft_realSpecial_Nr);
+					str += " - b;\n\n";
+				}
+
+				if(blockCompute || realSpecial)
+				{
+					str += "\n\t}\n\n";
+				}
+
+
+
+				// Write data from LDS for blocked access
+				if(blockCompute)
+				{
+
+					size_t loopCount = (length * blockWidth)/blockWGS;
+					
+					str += "\tbarrier(CLK_LOCAL_MEM_FENCE);\n\n";
+					str += "\n\tfor(uint t=0; t<"; str += SztToStr(loopCount);
+					str += "; t++)\n\t{\n";
+
+					if( (blockComputeType == BCT_C2C) || (blockComputeType == BCT_R2C) )
+					{
+						str += "\t\tR0 = lds[t*"; str += SztToStr(blockWGS/blockWidth); str += " + ";
+						str += "(me%"; str+= SztToStr(blockWidth); str+= ")*"; str += SztToStr(length); str += " + ";
+						str += "(me/"; str+= SztToStr(blockWidth); str+= ")];"; str +="\n";
+					}
+					else
+					{
+						str += "\t\tR0 = lds[t*"; str += SztToStr(blockWGS); str += " + me];"; str +="\n";
+					}
+
+					for(size_t c=0; c<2; c++)
+					{
+						std::string comp = "";
+						std::string writeBuf = (params.fft_placeness == CLFFT_INPLACE) ? "lwb" : "lwbOut";
+						if(!outInterleaved) comp = c ? ".y" : ".x";
+						if(!outInterleaved)
+							writeBuf = (params.fft_placeness == CLFFT_INPLACE) ? (c ? "lwbIm" : "lwbRe") : (c ? "lwbOutIm" : "lwbOutRe");
+
+						if( (blockComputeType == BCT_C2C) || (blockComputeType == BCT_R2C) )
+						{
+							str += "\t\t"; str += writeBuf; str += "[(me%"; str+= SztToStr(blockWidth); str += ") + ";
+							str += "(me/"; str+= SztToStr(blockWidth); str+= ")*"; str += SztToStr(params.fft_outStride[0]);
+							str += " + t*"; str += SztToStr(params.fft_outStride[0]*blockWGS/blockWidth); str += "] = R0"; str+= comp; str += ";\n";
+						}
+						else
+						{
+							str += "\t\t"; str += writeBuf; str += "[me + t*"; str += SztToStr(blockWGS); str += "] = R0"; str+= comp; str += ";\n";
+						}
+
+						if(outInterleaved) break;
+					}
+					
+					str += "\t}\n\n";		
+				}
+				
+
 
 				str += "}\n\n";
 
@@ -2994,127 +3343,67 @@ namespace StockhamGenerator
 
 using namespace StockhamGenerator;
 
-template<>
-clfftStatus FFTPlan::GetKernelGenKeyPvt<Stockham> (FFTKernelGenKeyParams & params) const
+clfftStatus FFTGeneratedStockhamAction::initParams ()
 {
 
     //    Query the devices in this context for their local memory sizes
     //    How we generate a kernel depends on the *minimum* LDS size for all devices.
     //
     const FFTEnvelope * pEnvelope = NULL;
-    OPENCL_V(const_cast<FFTPlan*>(this)->GetEnvelope (& pEnvelope), _T("GetEnvelope failed"));
+    OPENCL_V(this->plan->GetEnvelope (& pEnvelope), _T("GetEnvelope failed"));
     BUG_CHECK (NULL != pEnvelope);
 
-    ::memset( &params, 0, sizeof( params ) );
-    params.fft_precision    = this->precision;
-    params.fft_placeness    = this->placeness;
-    params.fft_inputLayout  = this->inputLayout;
-	params.fft_MaxWorkGroupSize = this->envelope.limit_WorkGroupSize;
+    // Remainder: params was properly cleared by its constructor
+    //            clearing it again would destroy datasize and id!!
+    this->signature.fft_precision    = this->plan->precision;
+    this->signature.fft_placeness    = this->plan->placeness;
+    this->signature.fft_inputLayout  = this->plan->inputLayout;
+	this->signature.fft_MaxWorkGroupSize = this->plan->envelope.limit_WorkGroupSize;
 
-    ARG_CHECK (this->inStride.size() == this->outStride.size())
+    ARG_CHECK(this->plan->length.size()    > 0);
+	ARG_CHECK(this->plan->inStride.size()  > 0);
+    ARG_CHECK(this->plan->outStride.size() > 0);
 
-	bool real_transform = ((this->inputLayout == CLFFT_REAL) || (this->outputLayout == CLFFT_REAL));
+    ARG_CHECK (this->plan->inStride.size() == this->plan->outStride.size())
 
-    if ( (CLFFT_INPLACE == this->placeness) && (!real_transform) ) {
+	bool real_transform = ((this->plan->inputLayout == CLFFT_REAL) || (this->plan->outputLayout == CLFFT_REAL));
+
+    if ( (CLFFT_INPLACE == this->plan->placeness) && (!real_transform) ) {
         //    If this is an in-place transform the
         //    input and output layout, dimensions and strides
         //    *MUST* be the same.
         //
-        ARG_CHECK (this->inputLayout == this->outputLayout)
-        params.fft_outputLayout = this->inputLayout;
-        for (size_t u = this->inStride.size(); u-- > 0; ) {
-            ARG_CHECK (this->inStride[u] == this->outStride[u]);
+        ARG_CHECK (this->plan->inputLayout == this->plan->outputLayout)
+        this->signature.fft_outputLayout = this->plan->inputLayout;
+        for (size_t u = this->plan->inStride.size(); u-- > 0; ) {
+            ARG_CHECK (this->plan->inStride[u] == this->plan->outStride[u]);
         }
     } else {
-        params.fft_outputLayout = this->outputLayout;
+        this->signature.fft_outputLayout = this->plan->outputLayout;
     }
 
-    switch (this->inStride.size()) {
-        //    1-D array is a 2-D data structure.
-        //    1-D unit is a special case of 1-D array.
-    case 1:
-        ARG_CHECK(this->length   .size() > 0);
-        ARG_CHECK(this->outStride.size() > 0);
-        params.fft_DataDim      = 2;
-        params.fft_N[0]         = this->length[0];
-        params.fft_inStride[0]  = this->inStride[0];
-        params.fft_inStride[1]  = this->iDist;
-        params.fft_outStride[0] = this->outStride[0];
-        params.fft_outStride[1] = this->oDist;
-        break;
+	this->signature.fft_DataDim = this->plan->length.size() + 1;
+	int i = 0;
+	for(i = 0; i < (this->signature.fft_DataDim - 1); i++)
+	{
+        this->signature.fft_N[i]         = this->plan->length[i];
+        this->signature.fft_inStride[i]  = this->plan->inStride[i];
+        this->signature.fft_outStride[i] = this->plan->outStride[i];
 
-        //    2-D array is a 3-D data structure
-        //    2-D unit is a speical case of 2-D array.
-    case 2:
-        ARG_CHECK(this->length   .size() > 1);
-        ARG_CHECK(this->outStride.size() > 1);
-        params.fft_DataDim      = 3;
-        params.fft_N[0]         = this->length[0];
-        params.fft_N[1]         = this->length[1];
-        params.fft_inStride[0]  = this->inStride[0];
-        params.fft_inStride[1]  = this->inStride[1];
-        params.fft_inStride[2]  = this->iDist;
-        params.fft_outStride[0] = this->outStride[0];
-        params.fft_outStride[1] = this->outStride[1];
-        params.fft_outStride[2] = this->oDist;
-        break;
+	}
+    this->signature.fft_inStride[i]  = this->plan->iDist;
+    this->signature.fft_outStride[i] = this->plan->oDist;
 
-        //    3-D array is a 4-D data structure
-        //    3-D unit is a special case of 3-D array.
-    case 3:
-        ARG_CHECK(this->length   .size() > 2);
-        ARG_CHECK(this->outStride.size() > 2);
-        params.fft_DataDim      = 4;
-        params.fft_N[0]         = this->length[0];
-        params.fft_N[1]         = this->length[1];
-        params.fft_N[2]         = this->length[2];
-        params.fft_inStride[0]  = this->inStride[0];
-        params.fft_inStride[1]  = this->inStride[1];
-        params.fft_inStride[2]  = this->inStride[2];
-        params.fft_inStride[3]  = this->iDist;
-        params.fft_outStride[0] = this->outStride[0];
-        params.fft_outStride[1] = this->outStride[1];
-        params.fft_outStride[2] = this->outStride[2];
-        params.fft_outStride[3] = this->oDist;
-        break;
 
-        //    5-D data structure
-        //    This can occur when a large dimension is split into two for
-        //    the "3-step" algorithm.
-        //
-    case 4:
-        ARG_CHECK(this->length   .size() > 3);
-        ARG_CHECK(this->outStride.size() > 3);
-        params.fft_DataDim      = 5;
-        params.fft_N[0]         = this->length[0];
-        params.fft_N[1]         = this->length[1];
-        params.fft_N[2]         = this->length[2];
-        params.fft_N[3]         = this->length[3];
-        params.fft_inStride[0]  = this->inStride[0];
-        params.fft_inStride[1]  = this->inStride[1];
-        params.fft_inStride[2]  = this->inStride[2];
-        params.fft_inStride[3]  = this->inStride[3];
-        params.fft_inStride[4]  = this->iDist;
-        params.fft_outStride[0] = this->outStride[0];
-        params.fft_outStride[1] = this->outStride[1];
-        params.fft_outStride[2] = this->outStride[2];
-        params.fft_outStride[3] = this->outStride[3];
-        params.fft_outStride[4] = this->oDist;
-        break;
-    default:
-        ARG_CHECK (false);
-    }
+	this->signature.fft_RCsimple = this->plan->RCsimple;
 
-    //    TODO:  we could simplify the address calculations in the kernel
-    //    when the input data is contiguous.
-    //    For example, a 3-D data structure with
-    //        lengths: [*, 64, *]
-    //        strides: [*, 1024, 65536]
-    //    could be reduced to a 2-D data structure.
+	this->signature.fft_realSpecial = this->plan->realSpecial;
+	this->signature.fft_realSpecial_Nr = this->plan->realSpecial_Nr;
 
-    params.fft_LdsComplex = this->bLdsComplex;
+	this->signature.blockCompute = this->plan->blockCompute;
+	this->signature.blockComputeType = this->plan->blockComputeType;
 
-	params.fft_RCsimple = this->RCsimple;
+	this->signature.fft_twiddleFront = this->plan->twiddleFront;
 
 	size_t wgs, nt;
 #ifdef PARMETERS_TO_BE_READ
@@ -3124,89 +3413,102 @@ clfftStatus FFTPlan::GetKernelGenKeyPvt<Stockham> (FFTKernelGenKeyParams & param
 	nt = pr.numTransformsPerWg;
 #else
 	size_t t_wgs, t_nt;
-	Precision pr = (params.fft_precision == CLFFT_SINGLE) ? P_SINGLE : P_DOUBLE;
+	Precision pr = (this->signature.fft_precision == CLFFT_SINGLE) ? P_SINGLE : P_DOUBLE;
 	switch(pr)
 	{
 	case P_SINGLE:
 		{
 			KernelCoreSpecs<P_SINGLE> kcs;
-			kcs.GetWGSAndNT(params.fft_N[0], t_wgs, t_nt);
+			kcs.GetWGSAndNT(this->signature.fft_N[0], t_wgs, t_nt);
+			if(this->signature.blockCompute)
+			{
+				this->signature.blockSIMD = Kernel<P_SINGLE>::BlockSizes::BlockWorkGroupSize(this->signature.fft_N[0]);
+				this->signature.blockLDS  = Kernel<P_SINGLE>::BlockSizes::BlockLdsSize(this->signature.fft_N[0]);
+			}
 		} break;
 	case P_DOUBLE:
 		{
 			KernelCoreSpecs<P_DOUBLE> kcs;
-			kcs.GetWGSAndNT(params.fft_N[0], t_wgs, t_nt);
+			kcs.GetWGSAndNT(this->signature.fft_N[0], t_wgs, t_nt);
+			if(this->signature.blockCompute)
+			{
+				this->signature.blockSIMD = Kernel<P_DOUBLE>::BlockSizes::BlockWorkGroupSize(this->signature.fft_N[0]);
+				this->signature.blockLDS  = Kernel<P_DOUBLE>::BlockSizes::BlockLdsSize(this->signature.fft_N[0]);
+			}
 		} break;
 	}
 
-	if((t_wgs != 0) && (t_nt != 0) && (this->envelope.limit_WorkGroupSize >= 256))
+	if((t_wgs != 0) && (t_nt != 0) && (this->plan->envelope.limit_WorkGroupSize >= 256))
 	{
 		wgs = t_wgs;
 		nt = t_nt;
 	}
 	else
-		DetermineSizes(this->envelope.limit_WorkGroupSize, params.fft_N[0], wgs, nt);
+		DetermineSizes(this->plan->envelope.limit_WorkGroupSize, this->signature.fft_N[0], wgs, nt);
 #endif
 
-	assert((nt * params.fft_N[0]) >= wgs);
-	assert((nt * params.fft_N[0])%wgs == 0);
+	assert((nt * this->signature.fft_N[0]) >= wgs);
+	assert((nt * this->signature.fft_N[0])%wgs == 0);
 
-	params.fft_R = (nt * params.fft_N[0])/wgs;
-	params.fft_SIMD = wgs;
+	this->signature.fft_R = (nt * this->signature.fft_N[0])/wgs;
+	this->signature.fft_SIMD = wgs;
 
 
-    params.fft_MaxRadix     = params.fft_R;
-    params.fft_UseFMA       = true;
-
-    if (this->large1D != 0) {
-        ARG_CHECK (params.fft_N[0] != 0)
-        ARG_CHECK ((this->large1D % params.fft_N[0]) == 0)
-        params.fft_3StepTwiddle = true;
-        params.fft_N[1] = this->large1D / params.fft_N[0];
+    if (this->plan->large1D != 0) {
+        ARG_CHECK (this->signature.fft_N[0] != 0)
+        ARG_CHECK ((this->plan->large1D % this->signature.fft_N[0]) == 0)
+        this->signature.fft_3StepTwiddle = true;
+		if(!(this->plan->realSpecial))
+			ARG_CHECK ( this->plan->large1D  == (this->signature.fft_N[1] * this->signature.fft_N[0]) );
     }
 
-    params.fft_fwdScale  = this->forwardScale;
-    params.fft_backScale = this->backwardScale;
+    this->signature.fft_fwdScale  = this->plan->forwardScale;
+    this->signature.fft_backScale = this->plan->backwardScale;
 
     return CLFFT_SUCCESS;
 }
 
-template<>
-clfftStatus FFTPlan::GetWorkSizesPvt<Stockham> (std::vector<size_t> & globalWS, std::vector<size_t> & localWS) const
+clfftStatus FFTGeneratedStockhamAction::getWorkSizes (std::vector<size_t> & globalWS, std::vector<size_t> & localWS)
 {
     //    How many complex numbers in the input mutl-dimensional array?
     //
     unsigned long long count = 1;
-    for (unsigned u = 0; u < length.size(); ++u) {
-        count *= std::max<size_t> (1, this->length[ u ]);
+    for (unsigned u = 0; u < this->plan->length.size(); ++u) {
+        count *= std::max<size_t> (1, this->plan->length[ u ]);
     }
-    count *= this->batchsize;
+    count *= this->plan->batchsize;
 
 
-    FFTKernelGenKeyParams fftParams;
-    //    Translate the user plan into the structure that we use to map plans to clPrograms
-    OPENCL_V( this->GetKernelGenKeyPvt<Stockham>( fftParams ), _T("GetKernelGenKey() failed!") );
+	if(this->signature.blockCompute)
+	{
+		count = DivRoundingUp<unsigned long long> (count, this->signature.blockLDS); 
+		count = count * this->signature.blockSIMD; 
 
-    count = DivRoundingUp<unsigned long long> (count, fftParams.fft_R);      // count of WorkItems
-    count = DivRoundingUp<unsigned long long> (count, fftParams.fft_SIMD);   // count of WorkGroups
+		globalWS.push_back( static_cast< size_t >( count ) );
+		localWS.push_back( this->signature.blockSIMD );
+
+		return    CLFFT_SUCCESS;
+	}
+
+    count = DivRoundingUp<unsigned long long> (count, this->signature.fft_R);      // count of WorkItems
+    count = DivRoundingUp<unsigned long long> (count, this->signature.fft_SIMD);   // count of WorkGroups
 
 	// for real transforms we only need half the work groups since we do twice the work in 1 work group
-	if( !(fftParams.fft_RCsimple) && ((fftParams.fft_inputLayout == CLFFT_REAL) || (fftParams.fft_outputLayout == CLFFT_REAL)) )
+	if( !(this->signature.fft_RCsimple) && ((this->signature.fft_inputLayout == CLFFT_REAL) || (this->signature.fft_outputLayout == CLFFT_REAL)) )
 		count = DivRoundingUp<unsigned long long> (count, 2);
 
-    count = std::max<unsigned long long> (count, 1) * fftParams.fft_SIMD;
+    count = std::max<unsigned long long> (count, 1) * this->signature.fft_SIMD;
         // .. count of WorkItems, rounded up to next multiple of fft_SIMD.
 
 	// 1 dimension work group size
 	globalWS.push_back( static_cast< size_t >( count ) );
 
-    localWS.push_back( fftParams.fft_SIMD );
+    localWS.push_back( this->signature.fft_SIMD );
 
     return    CLFFT_SUCCESS;
 }
 
-template<>
-clfftStatus FFTPlan::GetMax1DLengthPvt<Stockham> (size_t * longest) const
+clfftStatus FFTPlan::GetMax1DLengthStockham (size_t * longest) const
 {
 	// TODO  The caller has already acquired the lock on *this
 	//	However, we shouldn't depend on it.
@@ -3228,35 +3530,29 @@ clfftStatus FFTPlan::GetMax1DLengthPvt<Stockham> (size_t * longest) const
 	return CLFFT_SUCCESS;
 }
 
-template<>
-clfftStatus FFTPlan::GenerateKernelPvt<Stockham>(FFTRepo& fftRepo, const cl_command_queue commQueueFFT ) const
+clfftStatus FFTGeneratedStockhamAction::generateKernel(FFTRepo& fftRepo, const cl_command_queue commQueueFFT )
 {
-    FFTKernelGenKeyParams params;
-    OPENCL_V( this->GetKernelGenKeyPvt<Stockham> (params), _T("GetKernelGenKey() failed!") );
-
     cl_int status = CL_SUCCESS;
     cl_device_id Device = NULL;
     status = clGetCommandQueueInfo(commQueueFFT, CL_QUEUE_DEVICE, sizeof(cl_device_id), &Device, NULL);
-
     OPENCL_V( status, _T( "clGetCommandQueueInfo failed" ) );
 
     cl_context QueueContext = NULL;
     status = clGetCommandQueueInfo(commQueueFFT, CL_QUEUE_CONTEXT, sizeof(cl_context), &QueueContext, NULL);
-
     OPENCL_V( status, _T( "clGetCommandQueueInfo failed" ) );
 
 	std::string programCode;
-	Precision pr = (params.fft_precision == CLFFT_SINGLE) ? P_SINGLE : P_DOUBLE;
+	Precision pr = (this->signature.fft_precision == CLFFT_SINGLE) ? P_SINGLE : P_DOUBLE;
 	switch(pr)
 	{
 	case P_SINGLE:
 		{
-			Kernel<P_SINGLE> kernel(params);
+			Kernel<P_SINGLE> kernel(this->signature);
 			kernel.GenerateKernel(programCode, Device);
 		} break;
 	case P_DOUBLE:
 		{
-			Kernel<P_DOUBLE> kernel(params);
+			Kernel<P_DOUBLE> kernel(this->signature);
 			kernel.GenerateKernel(programCode, Device);
 		} break;
 	}
@@ -3265,8 +3561,8 @@ clfftStatus FFTPlan::GenerateKernelPvt<Stockham>(FFTRepo& fftRepo, const cl_comm
 	ReadKernelFromFile(programCode);
 #endif
 
-    OPENCL_V( fftRepo.setProgramCode( Stockham, params, programCode, QueueContext ), _T( "fftRepo.setclString() failed!" ) );
-    OPENCL_V( fftRepo.setProgramEntryPoints( Stockham, params, "fft_fwd", "fft_back", QueueContext ), _T( "fftRepo.setProgramEntryPoint() failed!" ) );
+    OPENCL_V( fftRepo.setProgramCode( this->getGenerator(), this->getSignatureData(), programCode, Device, QueueContext ), _T( "fftRepo.setclString() failed!" ) );
+    OPENCL_V( fftRepo.setProgramEntryPoints( this->getGenerator(), this->getSignatureData(), "fft_fwd", "fft_back", Device, QueueContext ), _T( "fftRepo.setProgramEntryPoint() failed!" ) );
 
     return CLFFT_SUCCESS;
 }

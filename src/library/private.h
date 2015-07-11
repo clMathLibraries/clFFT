@@ -90,6 +90,8 @@
 	}
 #endif
 
+void clfftInitBinaryCache();
+
 //	This header file is not visible to clients, and contains internal structures and functions for use
 //	by the FFT library.  Since this header is private to this implementation, there is no need to keep
 //	strict C compliance.
@@ -353,8 +355,7 @@ CLFFTAPI clfftStatus	clfftWritePlanToDisk( clfftPlanHandle plHandle, const char*
 */
 CLFFTAPI clfftStatus	clfftReadPlanFromDisk( clfftPlanHandle plHandle, const char* filename );
 
-/* internal api to set up some plan paramters */
-CLFFTAPI clfftStatus clfftSetInternal( const clfftPlanHandle plHandle, void* dataInternal );
+
 
 #ifdef __cplusplus
 }

@@ -20,9 +20,13 @@ set( clFFT.Source	transform.cpp
 								plan.cpp 
 								repo.cpp 
 								generator.stockham.cpp 
-								generator.transpose.cpp 
+								generator.transpose.vliw.cpp 
+								generator.transpose.gcn.cpp 
 								generator.copy.cpp
 								lifetime.cpp 
+								fft_binary_lookup.cpp
+								md5sum.c
+								action.cpp
 								stdafx.cpp )
 
 # Windows only uses dllmain
@@ -31,13 +35,17 @@ if( MSVC )
 endif( )
 
 set( clFFT.Headers	private.h 
+					action.h
 					repo.h 
 					plan.h 
 					lock.h 
 					mainpage.h  
 					generator.h 
 					generator.stockham.h 
-					generator.transpose.h 
+					generator.transpose.vliw.h 
+					generator.transpose.gcn.h 
+					fft_binary_lookup.h
+					md5sum.h
 					../include/stdafx.h 
 					../include/unicode.compatibility.h 
 					../include/targetver.h 
@@ -74,11 +82,7 @@ add_definitions( "/DCLFFT_EXPORTS" )
 # Include standard OpenCL headers
 include_directories( ${OPENCL_INCLUDE_DIRS} ${PROJECT_BINARY_DIR}/include ../include )
 
-if(BUILD_SHARED_LIBRARY)
-  add_library( clFFT SHARED ${clFFT.Files} )
-else()
-  add_library( clFFT STATIC ${clFFT.Files} )
-endif()
+add_library( clFFT ${clFFT.Files} )
 target_link_libraries( clFFT ${OPENCL_LIBRARIES} )
 
 set_target_properties( clFFT PROPERTIES VERSION ${CLFFT_VERSION} )
@@ -95,6 +99,7 @@ endif( )
 
 # CPack configuration; include the executable into the package
 install( TARGETS clFFT
+        EXPORT Library
         RUNTIME DESTINATION bin${SUFFIX_BIN}
         LIBRARY DESTINATION lib${SUFFIX_LIB}
         ARCHIVE DESTINATION lib${SUFFIX_LIB}/import

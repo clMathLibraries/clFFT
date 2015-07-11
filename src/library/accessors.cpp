@@ -79,29 +79,7 @@ clfftStatus clfftGetPlanPrecision( const clfftPlanHandle plHandle, clfftPrecisio
 	return	CLFFT_SUCCESS;
 }
 
-// This is a helper function to query a device for it's caps and check whether a certain user supplied cap is present
-// Returns CLFFT_SUCCESS if the cap is present, CLFFT_INVALID_OPERATION if it is not found.  All devices specified
-// in the devices vector must contain the cap.
-clfftStatus checkDevExt( std::string cap, std::vector< cl_device_id >& devices )
-{
-	for( size_t d = 0; d < devices.size( ); ++d)
-	{
-		size_t deviceExtSize	= 0;
-		OPENCL_V( ::clGetDeviceInfo( devices[ d ], CL_DEVICE_EXTENSIONS, 0, NULL, &deviceExtSize ),
-			"Getting CL_DEVICE_EXTENSIONS Platform Info string size ( ::clGetDeviceInfo() )" );
 
-		std::vector< char > szDeviceExt( deviceExtSize );
-		OPENCL_V( ::clGetDeviceInfo( devices[ d ], CL_DEVICE_EXTENSIONS, deviceExtSize, &szDeviceExt[ 0 ], NULL ),
-			"Getting CL_DEVICE_EXTENSIONS Platform Info string ( ::clGetDeviceInfo() )" );
-
-		std::string strDeviceExt = &szDeviceExt[ 0 ];
-
-		if( strDeviceExt.find( cap.c_str( ), 0 ) == std::string::npos )
-			return CLFFT_DEVICE_NO_DOUBLE;
-	}
-
-	return CLFFT_SUCCESS;
-}
 clfftStatus clfftSetPlanPrecision( clfftPlanHandle plHandle, clfftPrecision precision )
 {
 	FFTRepo& fftRepo	= FFTRepo::getInstance( );
@@ -118,18 +96,7 @@ clfftStatus clfftSetPlanPrecision( clfftPlanHandle plHandle, clfftPrecision prec
 	if( precision == CLFFT_SINGLE_FAST || precision == CLFFT_DOUBLE_FAST )
 		return CLFFT_NOTIMPLEMENTED;
 
-	//	If the user specifies double precision, check that the device supports double precision first
-	if( precision == CLFFT_DOUBLE || precision == CLFFT_DOUBLE_FAST )
-	{
-		clfftStatus retAmdFp64 = checkDevExt( "cl_amd_fp64", fftPlan->devices );
-		if( retAmdFp64 != CLFFT_SUCCESS )
-		{
-			//	If AMD's extention is not supported, check for Khronos extention
-			clfftStatus retKhrFp64 = checkDevExt( "cl_khr_fp64", fftPlan->devices );
-			if( retKhrFp64 != CLFFT_SUCCESS )
-				return retKhrFp64;
-		}
-	}
+
 
 	//	If we modify the state of the plan, we assume that we can't trust any pre-calculated contents anymore
 	fftPlan->baked		= false;
@@ -344,9 +311,12 @@ clfftStatus clfftSetPlanLength( clfftPlanHandle plHandle, const clfftDim dim, co
 			if( clLengths[ DimX ] == 0 || clLengths[ DimY ] == 0 )
 				return CLFFT_INVALID_ARG_VALUE;
 
-			if( !IsASupportedLength( clLengths[ DimX ] ) || !IsASupportedLength( clLengths[ DimY ] ) )
+			if(!fftPlan->transflag)
 			{
-				return CLFFT_NOTIMPLEMENTED;
+				if( !IsASupportedLength( clLengths[ DimX ] ) || !IsASupportedLength( clLengths[ DimY ] ) )
+				{
+					return CLFFT_NOTIMPLEMENTED;
+				}
 			}
 
 			fftPlan->length.push_back( clLengths[ DimX ] );
@@ -782,34 +752,6 @@ clfftStatus clfftGetTmpBufSize( const clfftPlanHandle plHandle, size_t* buffersi
 	}
 
 	return CLFFT_INVALID_OPERATION;
-}
-
-clfftStatus clfftSetInternal( clfftPlanHandle plHandle, void* data )
-{
-	FFTRepo& fftRepo	= FFTRepo::getInstance( );
-	FFTPlan* fftPlan	= NULL;
-	lockRAII* planLock	= NULL;
-
-	OPENCL_V( fftRepo.getPlan( plHandle, fftPlan, planLock ), _T( "fftRepo.getPlan failed" ) );
-	scopedLock sLock( *planLock, _T( "clfftSetResultLocation" ) );
-
-	struct InternalData {
-		size_t					large1D_Xfactor;
-		size_t					cacheSize;
-		bool                    bLdsComplex;
-		bool                    ldsPadding;
-		unsigned                uLdsFraction;
-	} *mydata;
-
-	mydata = (InternalData *) data;
-
-	fftPlan->large1D_Xfactor = mydata->large1D_Xfactor;
-	fftPlan->cacheSize       = mydata->cacheSize;
-	fftPlan->bLdsComplex     = mydata->bLdsComplex;
-	fftPlan->ldsPadding      = mydata->ldsPadding;
-	fftPlan->uLdsFraction    = mydata->uLdsFraction;
-
-	return	CLFFT_SUCCESS;
 }
 
 clfftStatus clfftLocalMemSize( const clfftPlanHandle plHandle, cl_ulong* local_mem_size )
