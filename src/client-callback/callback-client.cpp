@@ -457,7 +457,7 @@ int transform( size_t* lengths, const size_t *inStrides, const size_t *outStride
 				{
 					if (0 == (i % outfftVectorSizePadded))
 					{
-						if (hasPrecallback)
+						if (hasPrecallback && dim == CLFFT_1D)
 						{
 							if (output[i].real() != outfftVectorSize * SCALAR)
 							{
@@ -522,7 +522,7 @@ int transform( size_t* lengths, const size_t *inStrides, const size_t *outStride
 				{
 					if (0 == (i % outfftVectorSizePadded))
 					{
-						if (hasPrecallback)
+						if (hasPrecallback && dim == CLFFT_1D)
 						{
 							if (real[i] != outfftVectorSize * SCALAR)
 							{
