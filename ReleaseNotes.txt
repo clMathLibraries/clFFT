@@ -1,0 +1,54 @@
+
+clFFT Contents
+--------------
+The clFFT library is an open source OpenCL library
+implementation of discrete Fast Fourier Transforms. It:
+
+* Provides a fast and accurate platform for calculating
+  discrete FFTs
+* Supports 1D, 2D, and 3D transforms with a batch size
+  that can be greater than 1
+* Supports planar (real and complex components in
+  separate arrays) and interleaved (real and complex
+  components as a pair contiguous in memory) formats
+* Supports dimension lengths that can be any mix of
+  powers of 2, 3, and 5
+* Supports single and double precision floating-point
+  formats
+* Supports in-place or out-of-place transforms
+
+
+clFFT - Release Notes - version 2.6.0
+--------------------------------------
+
+New features of this release:
+
+* Significant uplift of 1D real forward transform
+  performance for power-of-2 sizes
+* Significant uplift of large 2D/3D real transform
+  performance for power-of-2 sizes
+
+Known issues:
+
+* Size limit on 1D real transforms remain at 2^24
+  for single precision and 2^22 for double
+  precision
+
+Driver notes:
+
+* This library version has been tested with Catalyst
+  Pro driver version 14.301 on Firepro W9100.
+
+
+clFFT - Release Notes - version 2.4.0
+--------------------------------------
+
+New features of this release:
+
+* Significant uplift of 1D complex transform performance
+* 1D large size limit relaxation for complex transforms
+* 2D/3D size limit relaxation on real and complex transforms
+* Binary caching feature
+* Several minor fixes and improvements
+
+
