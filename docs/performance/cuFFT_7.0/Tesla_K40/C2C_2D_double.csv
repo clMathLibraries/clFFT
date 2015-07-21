@@ -1,0 +1,13 @@
+lengthx,lengthy,lengthz,batch,device,inlay,outlay,place,precision,label,GFLOPS
+2,2,1,8388608,g,1,1,in,double,cuFFT2D,27.974814
+4,4,1,2097152,g,1,1,in,double,cuFFT2D,57.028381
+8,8,1,524288,g,1,1,in,double,cuFFT2D,87.651529
+16,16,1,131072,g,1,1,in,double,cuFFT2D,117.355353
+32,32,1,32768,g,1,1,in,double,cuFFT2D,145.958473
+64,64,1,8192,g,1,1,in,double,cuFFT2D,176.854846
+128,128,1,2048,g,1,1,in,double,cuFFT2D,204.919105
+256,256,1,512,g,1,1,in,double,cuFFT2D,232.14229
+512,512,1,128,g,1,1,in,double,cuFFT2D,170.83545
+1024,1024,1,32,g,1,1,in,double,cuFFT2D,187.166338
+2048,2048,1,8,g,1,1,in,double,cuFFT2D,192.282189
+4096,4096,1,2,g,1,1,in,double,cuFFT2D,164.26726
