@@ -1588,6 +1588,14 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 						colTPlan->inStride.push_back(fftPlan->inStride[0]);
 						colTPlan->outStride.push_back(1);
 
+						//Set callback data if set on top level plan
+						if (fftPlan->hasPreCallback)
+						{
+							colTPlan->hasPreCallback = true;
+							colTPlan->preCallback = fftPlan->preCallback;
+							colTPlan->precallUserData = fftPlan->precallUserData;
+						}
+
 						// Enabling block column compute
 						if( (colTPlan->inStride[0] == length0) && IsPo2(fftPlan->length[0]) && (fftPlan->length[0] < 524288) )
 						{

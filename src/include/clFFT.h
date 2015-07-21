@@ -213,6 +213,14 @@ struct clfftSetupData_
 };
 typedef struct clfftSetupData_ clfftSetupData;
 
+/*! @brief Type of Callback function.
+*/
+typedef enum clFFTCallbackType_
+{
+	PRECALLBACK,	/*!< Callback function will be invoked only once at the beginning of FFT transform for each point of input */
+	POSTCALLBACK	/*!< Callback function will be invoked only once at the end of FFT transform for each point of output */
+}clFFTCallbackType;
+
 /*!  @brief An abstract handle to the object that represents the state of the FFT(s) */
 typedef size_t clfftPlanHandle;
 
@@ -540,6 +548,22 @@ extern "C" {
 	 *  @param[out] buffersize Size in bytes for intermediate buffer
 	 */
 	CLFFTAPI clfftStatus clfftGetTmpBufSize( const clfftPlanHandle plHandle, size_t* buffersize );
+
+	/*! @brief Register the callback parameters
+	 *  @details Client can provide a callback function to do custom processing when reading input data and/or 
+	 *  when writing output data. The callback function is provided as a string.
+	 *  clFFT library incorporates the callback function string into the main FFT kernel. This function is used
+	 *  by client to set the necessary parameters for callback
+	 *  @param[in] plHandle Handle to a plan previously created
+	 *  @param[funcName] Callback function name
+	 *  @param[funcString] Callback function in string form
+	 *  @param[userStructString] Optional - Custom data struct in string form used by Callback function. Pass NULL callback has no custom data type
+	 *  @param[localMemSize] Optional - Local memory size if needed by callback. Pass 0 if local memory not needed by callback
+	 *  @param[callbackType] Type of callback - Pre-Callback or Post-Callback
+	 *  @param[userdata] cl_mem object passed as paarameter to callback function
+	 */
+	CLFFTAPI clfftStatus clFFTSetPlanCallback(clfftPlanHandle plHandle, const char* funcName, const char* funcString, const char* userStructString, int localMemSize, clFFTCallbackType callbackType, void *userdata);
+
 
 	/*! @brief Enqueue an FFT transform operation, and return immediately (non-blocking)
 	 *  @details This transform API is the function that actually computes the FFT transfrom. It is non-blocking as it

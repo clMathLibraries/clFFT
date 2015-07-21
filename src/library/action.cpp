@@ -582,6 +582,19 @@ clfftStatus FFTAction::enqueue(clfftPlanHandle plHandle,
         OPENCL_V( clSetKernelArg( kern, uarg++, sizeof( cl_mem ), (void*)&outputBuff[o] ), _T( "clSetKernelArg failed" ) );
     }
 
+	//If pre-callback function is set for the plan, pass the appropriate aruments
+	if (this->plan->hasPreCallback)
+	{
+		OPENCL_V( clSetKernelArg( kern, uarg++, sizeof( cl_mem ), (void*)&this->plan->precallUserData ), _T( "clSetKernelArg failed" ) );
+
+		//Pass LDS size arument if set
+		if (this->plan->preCallback.localMemSize > 0)
+		{
+			//TODO: Check for available LDS beyond what FFT already uses
+			OPENCL_V( clSetKernelArg( kern, uarg++, this->plan->preCallback.localMemSize, NULL ), _T( "clSetKernelArg failed" ) );
+		}
+	}
+
     std::vector< size_t > gWorkSize;
     std::vector< size_t > lWorkSize;
     clfftStatus result = this->getWorkSizes (gWorkSize, lWorkSize);
