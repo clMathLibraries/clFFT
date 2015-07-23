@@ -9,6 +9,8 @@
 #include "../include/sharedLibrary.h"
 #include "../include/unicode.compatibility.h"
 
+#include <fftw3.h>
+
 namespace po = boost::program_options;
 
 #define SCALAR 100
@@ -16,15 +18,15 @@ namespace po = boost::program_options;
 
 #define MULVAL float2 mulval(__global void* in, int offset, __global void* userdata)\n \
 				{ \n \
-				int scalar = *((__global int*)userdata); \n \
+				int scalar = *((__global int*)userdata + offset); \n \
 				float2 ret = *((__global float2*)in + offset) * scalar; \n \
 				return ret; \n \
 				}
 
 #define MULVAL_PLANAR float2 mulval(__global void* inRe, __global void* inIm, int offset, __global void* userdata)\n \
 				{ \n \
-				__global USER_DATA *data = (__global USER_DATA *)userdata; \n \
-				int scalar = (int)data->scalar; \n \
+				__global USER_DATA *data = ((__global USER_DATA *)userdata + offset); \n \
+				int scalar = (int)data->scalar1 + (int)data->scalar2 + (int)data->scalar3; \n \
 				float2 ret; \n \
 				ret.x = *((__global float*)inRe + offset) * scalar; \n \
 				ret.y = *((__global float*)inIm + offset) * scalar; \n \
@@ -33,10 +35,109 @@ namespace po = boost::program_options;
 
 #define STRUCT_USERDATA typedef struct USER_DATA  \
 					   {  \
-						int scalar;  \
-						int datalength;  \
+						int scalar1;  \
+						int scalar2;  \
+						int scalar3;  \
 						} USER_DATA; 
 STRUCT_USERDATA
+
+template < typename T >
+bool compare(fftw_complex *refData, std::vector< std::complex< T > > data,
+             const int length, const float epsilon = 1e-6f)
+{
+    float error = 0.0f;
+    float ref = 0.0f;
+	float diff = 0.0f;
+
+    for(int i = 0; i < length; ++i)
+    {
+        diff = refData[i][0] - data[i].real();
+        error += diff * diff;
+        ref += refData[i][0] * refData[i][0];
+    }
+    float normRef =::sqrtf((float) ref);
+    if (::fabs((float) ref) < 1e-7f)
+    {
+        return false;
+    }
+    float normError = ::sqrtf((float) error);
+    error = normError / normRef;
+    
+	if (error > epsilon)
+		return false;
+
+	//imag
+	error = 0.0f;
+	ref = 0.0f;
+	for(int i = 0; i < length; ++i)
+    {
+        diff = refData[i][1] - data[i].imag();
+        error += diff * diff;
+        ref += refData[i][1] * refData[i][1];
+    }
+	normRef =::sqrtf((float) ref);
+    if (::fabs((float) ref) < 1e-7f)
+    {
+        return false;
+    }
+	normError = ::sqrtf((float) error);
+    error = normError / normRef;
+    
+	if (error > epsilon)
+		return false;
+
+	return true;
+}
+
+template < typename T >
+bool compare(fftw_complex *refData, std::valarray< T > real, std::valarray< T > imag,
+             const int length, const float epsilon = 1e-6f)
+{
+    float error = 0.0f;
+    float ref = 0.0f;
+	float diff = 0.0f;
+
+	//real compare
+    for(int i = 0; i < length; ++i)
+    {
+        diff = refData[i][0] - real[i];
+        error += diff * diff;
+        ref += refData[i][0] * refData[i][0];
+    }
+    float normRef =::sqrtf((float) ref);
+    if (::fabs((float) ref) < 1e-7f)
+    {
+        return false;
+    }
+    float normError = ::sqrtf((float) error);
+    error = normError / normRef;
+    
+	if (error > epsilon)
+		return false;
+
+	//imag compare
+	error = 0.0f;
+    ref = 0.0f;
+
+	for(int i = 0; i < length; ++i)
+    {
+        diff = refData[i][1] - imag[i];
+        error += diff * diff;
+        ref += refData[i][1] * refData[i][1];
+    }
+    normRef =::sqrtf((float) ref);
+    if (::fabs((float) ref) < 1e-7f)
+    {
+        return false;
+    }
+    normError = ::sqrtf((float) error);
+    error = normError / normRef;
+    
+	if (error > epsilon)
+		return false;
+
+	return true;
+}
 
 //	This is used with the program_options class so that the user can type an integer on the command line
 //	and we store into an enum varaible
@@ -146,6 +247,12 @@ int transform( size_t* lengths, const size_t *inStrides, const size_t *outStride
 		break;
 	default:
 		terr << _T("Real-Complex and Complex-Real callback cases not yet implemented" ) << std::endl;
+		return 1;
+	}
+
+	if (hasPrecallback && (dim != CLFFT_1D || fftVectorSize > 4096 || sizeof(T) != sizeof(float)))
+	{
+		terr << _T("Pre-callback feature is currently supported only for Single Precision 1D FFT and size upto 4096" ) << std::endl;
 		return 1;
 	}
 
@@ -305,11 +412,15 @@ int transform( size_t* lengths, const size_t *inStrides, const size_t *outStride
 		{
 			switch (precallbakType)
 			{
-			case 1: //C2C 1D Interleaved without LDS
+			case 1: //C2C 1D Interleaved 
 				{
 					char* precallbackstr = STRINGIFY(MULVAL);
-					int h_userdata[1] = { SCALAR };
-					userdata = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, sizeof(int), (void*)h_userdata, NULL);
+					int *h_userdata = (int*)malloc(sizeof(int)*fftBatchSize);
+					for( cl_uint i = 0; i < fftBatchSize; i = i + inStrides[0])
+					{
+						h_userdata[ i ] = SCALAR + (i % fftVectorSize);
+					}
+					userdata = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, sizeof(int) * fftBatchSize, (void*)h_userdata, NULL);
 
 					//Register the callback
 					OPENCL_V_THROW (clFFTSetPlanCallback(plan_handle, "mulval", precallbackstr, NULL, 0, PRECALLBACK, userdata), "clFFTSetPlanCallback failed");
@@ -324,12 +435,17 @@ int transform( size_t* lengths, const size_t *inStrides, const size_t *outStride
 		{
 			switch (precallbakType)
 			{
-			case 1: //C2C 1D PLANAR without LDS
+			case 1: //C2C 1D PLANAR 
 				{
 					char* precallbackstr = STRINGIFY(MULVAL_PLANAR);
-					USER_DATA h_userdata[1];
-					h_userdata[0].scalar = SCALAR;
-					userdata = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, sizeof(USER_DATA), (void*)h_userdata, NULL);
+					USER_DATA *h_userdata = (USER_DATA*)malloc(sizeof(USER_DATA) * fftBatchSize);
+					for( cl_uint i = 0; i < fftBatchSize; i = i + inStrides[0])
+					{
+						h_userdata[i].scalar1 = SCALAR + (i % fftVectorSize);
+						h_userdata[i].scalar2 = SCALAR + (i % fftVectorSize) + 1;
+						h_userdata[i].scalar3 = SCALAR + (i % fftVectorSize) + 2;
+					}
+					userdata = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, sizeof(USER_DATA) * fftBatchSize, (void*)h_userdata, NULL);
 
 					//Register the callback
 					OPENCL_V_THROW (clFFTSetPlanCallback(plan_handle, "mulval", precallbackstr, STRINGIFY(STRUCT_USERDATA), 0, PRECALLBACK, userdata), "clFFTSetPlanCallback failed");
@@ -453,42 +569,77 @@ int transform( size_t* lengths, const size_t *inStrides, const size_t *outStride
 				}
 
 				//check output data
-				for( cl_uint i = 0; i < outfftBatchSize; ++i )
+				if (hasPrecallback && dim == CLFFT_1D)
 				{
-					if (0 == (i % outfftVectorSizePadded))
+					switch(in_layout)
 					{
-						if (hasPrecallback && dim == CLFFT_1D)
+					case CLFFT_COMPLEX_INTERLEAVED:
 						{
-							if (output[i].real() != outfftVectorSize * SCALAR)
+							fftw_complex *refin, *refout;
+							fftw_plan refPlan;
+							refin = (fftw_complex*) fftw_malloc(sizeof(fftw_complex)*fftBatchSize);
+							refout = (fftw_complex*) fftw_malloc(sizeof(fftw_complex)*outfftBatchSize);
+
+							refPlan = fftw_plan_many_dft(1, (const int*)lengths, batch_size, refin, 0, inStrides[0], fftVectorSizePadded, refout, 0, outStrides[0], outfftVectorSizePadded, dir, FFTW_ESTIMATE);
+
+							int scalar;
+							for( cl_uint i = 0; i < fftBatchSize; i = i + inStrides[0])
 							{
-								checkflag = true;
-								break;
+								scalar = SCALAR + (i % fftVectorSize);
+								refin[i][0] = 1 * scalar;
+								refin[i][1] = 0 * scalar;
 							}
+
+							fftw_execute(refPlan);
+
+							if (!compare(refout, output, outfftBatchSize))
+								checkflag = true;
+
+							fftw_destroy_plan(refPlan);
+							
+							/*for( cl_uint i = 0; i < outfftBatchSize; i = i + outStrides[0])
+							{
+								std::cout << "i " << i << " refreal " << refout[i][0] << " refimag " << refout[i][1] << " clreal " << output[i].real() << " climag " << output[i].imag() << std::endl;
+							}*/
+							
+							fftw_free(refin);
+							fftw_free(refout);		
 						}
-						else
+						break;
+					}
+				}
+				else
+				{
+					for( cl_uint i = 0; i < outfftBatchSize; ++i )
+					{
+						if (0 == (i % outfftVectorSizePadded))
 						{
 							if (output[i].real() != outfftVectorSize)
 							{
 								checkflag = true;
 								break;
 							}
+							
 						}
-					}
-					else
-					{
-						if (output[ i ].real() != 0)
+						else
+						{
+							if (output[ i ].real() != 0)
+							{
+								checkflag = true;
+								break;
+							}
+						}
+
+						if (output[ i ].imag() != 0)
 						{
 							checkflag = true;
 							break;
 						}
 					}
-
-					if (output[ i ].imag() != 0)
+					/*for( cl_uint i = 0; i < outfftBatchSize; i = i + outStrides[0])
 					{
-						checkflag = true;
-						break;
-					}
-					//std::cout << i << " real = " << output[i].real() << " img = " << output[ i ].imag() << std::endl;
+							std::cout << "i " << i << " clreal " << output[i].real() << " climag " << output[i].imag() << std::endl;
+					}*/
 				}
 			}
 			break;
@@ -518,19 +669,50 @@ int transform( size_t* lengths, const size_t *inStrides, const size_t *outStride
 				}
 
 				//  Check output data
-				for( cl_uint i = 0; i < outfftBatchSize; ++i )
+				if (hasPrecallback && dim == CLFFT_1D)
 				{
-					if (0 == (i % outfftVectorSizePadded))
+					switch(in_layout)
 					{
-						if (hasPrecallback && dim == CLFFT_1D)
+					case CLFFT_COMPLEX_PLANAR:
 						{
-							if (real[i] != outfftVectorSize * SCALAR)
+							fftw_complex *refin, *refout;
+							fftw_plan refPlan;
+							refin = (fftw_complex*) fftw_malloc(sizeof(fftw_complex)*fftBatchSize);
+							refout = (fftw_complex*) fftw_malloc(sizeof(fftw_complex)*outfftBatchSize);
+
+							refPlan = fftw_plan_many_dft(1, (const int*)lengths, batch_size, refin, 0, inStrides[0], fftVectorSizePadded, refout, 0, outStrides[0], outfftVectorSizePadded, dir, FFTW_ESTIMATE);
+
+							int scalar;
+							for( cl_uint i = 0; i < fftBatchSize; i = i + inStrides[0])
 							{
-								checkflag = true;
-								break;
+								scalar = (SCALAR + (i % fftVectorSize)) + (SCALAR + (i % fftVectorSize) + 1) + (SCALAR + (i % fftVectorSize) + 2);
+								refin[i][0] = 1 * scalar;
+								refin[i][1] = 0 * scalar;
 							}
+
+							fftw_execute(refPlan);
+
+							if (!compare(refout, real, imag, outfftBatchSize))
+								checkflag = true;
+
+							fftw_destroy_plan(refPlan);
+
+							/*for( cl_uint i = 0; i < outfftBatchSize; i = i + outStrides[0])
+							{
+								std::cout << "i " << i << " refreal " << refout[i][0] << " refimag " << refout[i][1] << " clreal " << real[i] << " climag " << imag[i] << std::endl;
+							}*/
+
+							fftw_free(refin);
+							fftw_free(refout);		
 						}
-						else
+						break;
+					}
+				}
+				else
+				{
+					for( cl_uint i = 0; i < outfftBatchSize; ++i )
+					{
+						if (0 == (i % outfftVectorSizePadded))
 						{
 							if (real[i] != outfftVectorSize)
 							{
@@ -538,22 +720,21 @@ int transform( size_t* lengths, const size_t *inStrides, const size_t *outStride
 								break;
 							}
 						}
-					}
-					else
-					{
-						if (real[i] != 0)
+						else
+						{
+							if (real[i] != 0)
+							{
+								checkflag = true;
+								break;
+							}
+						}
+
+						if (imag[i] != 0)
 						{
 							checkflag = true;
 							break;
 						}
 					}
-
-					if (imag[i] != 0)
-					{
-						checkflag = true;
-						break;
-					}
-					//std::cout << i << " real = " << real[i] << " img = " << imag[ i ] << std::endl;
 				}
 			}
 			break;
@@ -675,6 +856,26 @@ int main(int argc, char **argv)
 		if( vm.count( "all" ) )
 		{
 			deviceType	= CL_DEVICE_TYPE_ALL;
+		}
+
+		if( vm.count( "outPlace" ) )
+		{
+			place = CLFFT_OUTOFPLACE;
+		}
+
+		if( vm.count( "double" ) )
+		{
+			precision = CLFFT_DOUBLE;
+		}
+
+		if( vm.count( "inv" ) )
+		{
+			dir = CLFFT_BACKWARD;
+		}
+
+		if( profile_count > 1 )
+		{
+			command_queue_flags |= CL_QUEUE_PROFILING_ENABLE;
 		}
 
 		if( vm.count( "dumpKernels" ) )

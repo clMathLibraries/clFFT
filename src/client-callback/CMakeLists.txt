@@ -41,11 +41,11 @@ else( )
 endif( )
 
 # Include standard OpenCL headers
-include_directories( ${Boost_INCLUDE_DIRS} ${OPENCL_INCLUDE_DIRS} ../../../common ${PROJECT_BINARY_DIR}/include ../include )
+include_directories( ${Boost_INCLUDE_DIRS} ${OPENCL_INCLUDE_DIRS} ${FFTW_INCLUDE_DIRS} ../../../common ${PROJECT_BINARY_DIR}/include ../include )
 
 add_executable( clFFT-callback ${Client.Files} )
 
-target_link_libraries( clFFT-callback clFFT ${Boost_LIBRARIES} ${OPENCL_LIBRARIES} ${DL_LIB} )
+target_link_libraries( clFFT-callback clFFT ${Boost_LIBRARIES} ${OPENCL_LIBRARIES} ${FFTW_LIBRARIES} ${DL_LIB} )
 
 set_target_properties( clFFT-callback PROPERTIES VERSION ${CLFFT_VERSION} )
 set_target_properties( clFFT-callback PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIR}/staging" )

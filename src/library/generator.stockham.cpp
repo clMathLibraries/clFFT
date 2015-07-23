@@ -2394,7 +2394,7 @@ namespace StockhamGenerator
 					
 					//Pass precallback information to Pass object if its the first pass. 
 					//This will be used in single kernel transforms
-					if (!r2c2r && i == 0 && params.fft_hasPreCallback)
+					if (!r2c2r && i == 0 && !params.blockCompute && params.fft_hasPreCallback)
 					{
 						passes[0].SetPrecallback(params.fft_hasPreCallback, params.fft_preCallback);
 					}
@@ -3289,8 +3289,8 @@ namespace StockhamGenerator
 					}
 					else
 					{
-						if(inInterleaved)	inBuf  = "lwbIn, ";
-						else				inBuf  = "lwbInRe, lwbInIm, ";
+						if(inInterleaved)	inBuf  = "gbIn, ";
+						else				inBuf  = "gbInRe, gbInIm, ";
 						if(outInterleaved)	outBuf = "lwbOut";
 						else				outBuf = "lwbOutRe, lwbOutIm";
 					}
@@ -3410,7 +3410,7 @@ namespace StockhamGenerator
 							str += ldsArgs; str += IterRegs("&"); 
 							
 							//if precalback set, append additional arguments
-							if (!r2c2r && params.fft_hasPreCallback)
+							if (!r2c2r && !blockCompute && params.fft_hasPreCallback)
 							{
 								str += ", userdata";
 
