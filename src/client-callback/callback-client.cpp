@@ -16,14 +16,14 @@ namespace po = boost::program_options;
 #define SCALAR 100
 #define PRECALLBACKTYPE 1
 
-#define MULVAL float2 mulval(__global void* in, int offset, __global void* userdata)\n \
+#define MULVAL float2 mulval(__global void* in, uint offset, __global void* userdata)\n \
 				{ \n \
 				int scalar = *((__global int*)userdata + offset); \n \
 				float2 ret = *((__global float2*)in + offset) * scalar; \n \
 				return ret; \n \
 				}
 
-#define MULVAL_PLANAR float2 mulval(__global void* inRe, __global void* inIm, int offset, __global void* userdata)\n \
+#define MULVAL_PLANAR float2 mulval(__global void* inRe, __global void* inIm, uint offset, __global void* userdata)\n \
 				{ \n \
 				__global USER_DATA *data = ((__global USER_DATA *)userdata + offset); \n \
 				int scalar = (int)data->scalar1 + (int)data->scalar2 + (int)data->scalar3; \n \
