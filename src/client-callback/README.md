@@ -16,8 +16,8 @@ the pre/post processing logic can be included in an inline opencl function
 (one each for pre and post) and passed as a string to library which would 
 then be incorporated into the generated FFT kernel.
 
-The block below shows the help message given by the callback client  
-listing all the command line options.
+The block below shows the help message given by the callback client listing 
+all the command line options.
 
 ```c
 C:\clFFT\src\build\staging\Debug>clFFT-callback.exe -h
@@ -102,7 +102,7 @@ C:\clFFT\src\build\staging\Debug>clFFT-callback.exe -x 1024 --inLayout 2 --outLa
 
 1D Complex-Complex Interleaved transform with pre-callback for length 1024 and batch size of 2
 ```c
-C:\Users\prangana\Documents\GitHub\pradeeptrgit\clFFT\src\build\staging\Debug>clFFT-callback.exe -x 1024 --inLayout 1 --outLayout 1 -b 2
+C:\clFFT\src\build\staging\Debug>clFFT-callback.exe -x 1024 --inLayout 1 --outLayout 1 -b 2
 
 
                 Internal Client Test *****PASS*****
