@@ -495,11 +495,19 @@ static clfftStatus genTransposeKernel( const FFTGeneratedTransposeGCNAction::Sig
 		switch( params.fft_inputLayout )
 		{
 		case CLFFT_COMPLEX_INTERLEAVED:
-			clKernWrite( transKernel, 3 ) << "global " << dtInput << "* tileIn = " << pmComplexIn << " + iOffset;" << std::endl;
+			//No need of tileIn declaration when precallback is set as the global buffer is used directly
+			if (!params.fft_hasPreCallback)
+			{
+				clKernWrite( transKernel, 3 ) << "global " << dtInput << "* tileIn = " << pmComplexIn << " + iOffset;" << std::endl;
+			}
 			break;
 		case CLFFT_COMPLEX_PLANAR:
-			clKernWrite( transKernel, 3 ) << "global " << dtInput << "* realTileIn = " << pmRealIn << " + iOffset;" << std::endl;
-			clKernWrite( transKernel, 3 ) << "global " << dtInput << "* imagTileIn = " << pmImagIn << " + iOffset;" << std::endl;
+			//No need of tileIn declaration when precallback is set as the global buffer is used directly
+			if (!params.fft_hasPreCallback)
+			{
+				clKernWrite( transKernel, 3 ) << "global " << dtInput << "* realTileIn = " << pmRealIn << " + iOffset;" << std::endl;
+				clKernWrite( transKernel, 3 ) << "global " << dtInput << "* imagTileIn = " << pmImagIn << " + iOffset;" << std::endl;
+			}
 			break;
 		case CLFFT_HERMITIAN_INTERLEAVED:
 		case CLFFT_HERMITIAN_PLANAR:
