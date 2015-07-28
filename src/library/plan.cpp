@@ -651,6 +651,14 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 					trans1Plan->gen           = Transpose_GCN;
 					trans1Plan->transflag     = true;
 
+					//Set callback data if set on top level plan
+					if (fftPlan->hasPreCallback)
+					{
+						trans1Plan->hasPreCallback = true;
+						trans1Plan->preCallback = fftPlan->preCallback;
+						trans1Plan->precallUserData = fftPlan->precallUserData;
+					}
+
 					OPENCL_V(clfftBakePlan(fftPlan->planTX, numQueues, commQueueFFT, NULL, NULL ),
 						_T( "BakePlan large1d trans1 plan failed" ) );
 
@@ -1390,6 +1398,14 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 							trans1Plan->inStride.push_back(fftPlan->inStride[index]);
 							trans1Plan->outStride.push_back(trans1Plan->oDist);
 							trans1Plan->oDist *= fftPlan->length[index];
+						}
+
+						//Set callback data if set on top level plan
+						if (fftPlan->hasPreCallback)
+						{
+							trans1Plan->hasPreCallback = true;
+							trans1Plan->preCallback = fftPlan->preCallback;
+							trans1Plan->precallUserData = fftPlan->precallUserData;
 						}
 
 						OPENCL_V(clfftBakePlan(fftPlan->planTX, numQueues, commQueueFFT, NULL, NULL ),

@@ -250,7 +250,7 @@ int transform( size_t* lengths, const size_t *inStrides, const size_t *outStride
 		return 1;
 	}
 
-	if (hasPrecallback && (dim != CLFFT_1D || fftVectorSize > 4096 || sizeof(T) != sizeof(float)))
+	if (hasPrecallback && (dim != CLFFT_1D || sizeof(T) != sizeof(float)))
 	{
 		terr << _T("Pre-callback feature is currently supported only for Single Precision 1D FFT and size upto 4096" ) << std::endl;
 		return 1;

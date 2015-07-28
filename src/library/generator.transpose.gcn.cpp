@@ -315,6 +315,18 @@ static clfftStatus genTransposePrototype( const FFTGeneratedTransposeGCNAction::
         return CLFFT_TRANSPOSED_NOTIMPLEMENTED;
     }
 
+	if (params.fft_hasPreCallback)
+	{
+		if (params.fft_preCallback.localMemSize > 0)
+		{
+			clKernWrite( transKernel, 0 ) << ", __global void* userdata, __local void* localmem";
+		}
+		else
+		{
+			clKernWrite( transKernel, 0 ) << ", __global void* userdata";
+		}
+	}
+
     // Close the method signature
     clKernWrite( transKernel, 0 ) << " )\n{" << std::endl;
 
@@ -382,6 +394,21 @@ static clfftStatus genTransposeKernel( const FFTGeneratedTransposeGCNAction::Sig
     clKernWrite( transKernel, 3 ) << "size_t x;" << std::endl;
     clKernWrite( transKernel, 3 ) << "size_t y;" << std::endl;
     clKernWrite( transKernel, 0 ) << "} Tile;" << std::endl << std::endl;
+
+	//If pre-callback is set for the plan
+	if (params.fft_hasPreCallback)
+	{
+		//If user defined struct defined for callback function add it to opencl source string
+		if (params.fft_preCallback.userdatastruct != NULL)
+		{
+			clKernWrite( transKernel, 0 ) <<  params.fft_preCallback.userdatastruct;
+			clKernWrite( transKernel, 0 ) << std::endl;
+		}
+
+		//Insert callback function code at the beginning 
+		clKernWrite( transKernel, 0 ) << params.fft_preCallback.funcstring << std::endl;
+		clKernWrite( transKernel, 0 ) << std::endl;
+	}
 
     // This detects whether the input matrix is square
     bool notSquare = ( params.fft_N[ 0 ] == params.fft_N[ 1 ] ) ? false : true;
@@ -572,7 +599,11 @@ static clfftStatus genTransposeKernel( const FFTGeneratedTransposeGCNAction::Sig
 					clKernWrite( transKernel, 3 ) << "{" << std::endl;
 				}
 
-
+			//If precallback is set
+			if (params.fft_hasPreCallback)
+			{
+				clKernWrite( transKernel, 6 ) << dtComplex << " retCallback;" << std::endl;
+			}
 
 			clKernWrite( transKernel, 6 ) << "for( uint t=0; t < wgUnroll; t++ )" << std::endl;
 			clKernWrite( transKernel, 6 ) << "{" << std::endl;
@@ -631,11 +662,46 @@ static clfftStatus genTransposeKernel( const FFTGeneratedTransposeGCNAction::Sig
 			switch( params.fft_inputLayout )
 			{
 			case CLFFT_COMPLEX_INTERLEAVED:
-				clKernWrite( transKernel, 9 ) << "tmp = tileIn[ gInd ];" << std::endl;
+				{
+					if (params.fft_hasPreCallback)
+					{
+						if (params.fft_preCallback.localMemSize > 0)
+						{
+							clKernWrite( transKernel, 9 ) << "retCallback = " << params.fft_preCallback.funcname << "(" << pmComplexIn << ", iOffset + gInd, userdata, localmem);" << std::endl;
+						}
+						else
+						{
+							clKernWrite( transKernel, 9 ) << "retCallback = " << params.fft_preCallback.funcname << "(" << pmComplexIn << ", iOffset + gInd, userdata);" << std::endl;
+						}
+						clKernWrite( transKernel, 9 ) << "tmp = retCallback;" << std::endl;
+					}
+					else
+					{
+						clKernWrite( transKernel, 9 ) << "tmp = tileIn[ gInd ];" << std::endl;
+					}
+				}
 				break;
 			case CLFFT_COMPLEX_PLANAR:
-				clKernWrite( transKernel, 9 ) << "tmp.s0 = realTileIn[ gInd ];" << std::endl;
-				clKernWrite( transKernel, 9 ) << "tmp.s1 = imagTileIn[ gInd ];" << std::endl;
+				{
+					if (params.fft_hasPreCallback)
+					{
+						if (params.fft_preCallback.localMemSize > 0)
+						{
+							clKernWrite( transKernel, 9 ) << "retCallback = " << params.fft_preCallback.funcname << "(" << pmRealIn << ", " << pmImagIn << ", iOffset + gInd, userdata, localmem);" << std::endl;
+						}
+						else
+						{
+							clKernWrite( transKernel, 9 ) << "retCallback = " << params.fft_preCallback.funcname << "(" << pmRealIn << ", " << pmImagIn << ", iOffset + gInd, userdata);" << std::endl;
+						}
+						clKernWrite( transKernel, 9 ) << "tmp.s0 = retCallback.x;" << std::endl;
+						clKernWrite( transKernel, 9 ) << "tmp.s1 = retCallback.y;" << std::endl;
+					}
+					else
+					{
+						clKernWrite( transKernel, 9 ) << "tmp.s0 = realTileIn[ gInd ];" << std::endl;
+						clKernWrite( transKernel, 9 ) << "tmp.s1 = imagTileIn[ gInd ];" << std::endl;
+					}
+				}
 				break;
 			case CLFFT_HERMITIAN_INTERLEAVED:
 			case CLFFT_HERMITIAN_PLANAR:
@@ -917,6 +983,13 @@ clfftStatus FFTGeneratedTransposeGCNAction::initParams ()
     // CL_DEVICE_MAX_WORK_ITEM_SIZES
     this->signature.fft_R = 1; // Dont think i'll use
     this->signature.fft_SIMD = pEnvelope->limit_WorkGroupSize; // Use devices maximum workgroup size
+
+	//Set callback if specified
+	if (this->plan->hasPreCallback)
+	{
+		this->signature.fft_hasPreCallback = true;
+		this->signature.fft_preCallback = this->plan->preCallback;
+	}
 
     return CLFFT_SUCCESS;
 }
