@@ -2829,6 +2829,13 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 
 				rowPlan->iDist    = fftPlan->iDist;
 
+				//Set callback data if set on top level plan
+				if (fftPlan->hasPreCallback)
+				{
+					rowPlan->hasPreCallback = true;
+					rowPlan->preCallback = fftPlan->preCallback;
+					rowPlan->precallUserData = fftPlan->precallUserData;
+				}
 
 				OPENCL_V(clfftBakePlan(fftPlan->planX, numQueues, commQueueFFT, NULL, NULL ), _T( "BakePlan for planX failed" ) );
 
@@ -3663,6 +3670,14 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 				xyPlan->outStride.push_back(fftPlan->outStride[2]);
 				xyPlan->iDist    = fftPlan->iDist;
 				xyPlan->oDist    = fftPlan->oDist;
+
+				//Set callback data if set on top level plan
+				if (fftPlan->hasPreCallback)
+				{
+					xyPlan->hasPreCallback = true;
+					xyPlan->preCallback = fftPlan->preCallback;
+					xyPlan->precallUserData = fftPlan->precallUserData;
+				}
 
 				OPENCL_V(clfftBakePlan(fftPlan->planX, numQueues, commQueueFFT, NULL, NULL ), _T( "BakePlan 3D->2D planX failed" ) );
 

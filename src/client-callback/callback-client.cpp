@@ -48,6 +48,8 @@ bool compare(fftw_complex *refData, std::vector< std::complex< T > > data,
     float error = 0.0f;
     float ref = 0.0f;
 	float diff = 0.0f;
+	float normRef = 0.0f;
+	float normError = 0.0f;
 
     for(int i = 0; i < length; ++i)
     {
@@ -55,16 +57,19 @@ bool compare(fftw_complex *refData, std::vector< std::complex< T > > data,
         error += diff * diff;
         ref += refData[i][0] * refData[i][0];
     }
-    float normRef =::sqrtf((float) ref);
-    if (::fabs((float) ref) < 1e-7f)
-    {
-        return false;
-    }
-    float normError = ::sqrtf((float) error);
-    error = normError / normRef;
+	if (error != 0)
+	{
+		normRef =::sqrtf((float) ref);
+		if (::fabs((float) ref) < 1e-7f)
+		{
+			return false;
+		}
+		normError = ::sqrtf((float) error);
+		error = normError / normRef;
     
-	if (error > epsilon)
-		return false;
+		if (error > epsilon)
+			return false;
+	}
 
 	//imag
 	error = 0.0f;
@@ -75,6 +80,10 @@ bool compare(fftw_complex *refData, std::vector< std::complex< T > > data,
         error += diff * diff;
         ref += refData[i][1] * refData[i][1];
     }
+	
+	if (error == 0)
+		return true;
+
 	normRef =::sqrtf((float) ref);
     if (::fabs((float) ref) < 1e-7f)
     {
@@ -96,6 +105,8 @@ bool compare(fftw_complex *refData, std::valarray< T > real, std::valarray< T > 
     float error = 0.0f;
     float ref = 0.0f;
 	float diff = 0.0f;
+	float normRef = 0.0f;
+	float normError = 0.0f;
 
 	//real compare
     for(int i = 0; i < length; ++i)
@@ -104,16 +115,19 @@ bool compare(fftw_complex *refData, std::valarray< T > real, std::valarray< T > 
         error += diff * diff;
         ref += refData[i][0] * refData[i][0];
     }
-    float normRef =::sqrtf((float) ref);
-    if (::fabs((float) ref) < 1e-7f)
-    {
-        return false;
-    }
-    float normError = ::sqrtf((float) error);
-    error = normError / normRef;
+	if (error != 0)
+	{
+		normRef =::sqrtf((float) ref);
+		if (::fabs((float) ref) < 1e-7f)
+		{
+			return false;
+		}
+		normError = ::sqrtf((float) error);
+		error = normError / normRef;
     
-	if (error > epsilon)
-		return false;
+		if (error > epsilon)
+			return false;
+	}
 
 	//imag compare
 	error = 0.0f;
@@ -125,6 +139,10 @@ bool compare(fftw_complex *refData, std::valarray< T > real, std::valarray< T > 
         error += diff * diff;
         ref += refData[i][1] * refData[i][1];
     }
+	
+	if (error == 0)
+		return true;
+
     normRef =::sqrtf((float) ref);
     if (::fabs((float) ref) < 1e-7f)
     {
@@ -250,9 +268,9 @@ int transform( size_t* lengths, const size_t *inStrides, const size_t *outStride
 		return 1;
 	}
 
-	if (hasPrecallback && (dim != CLFFT_1D || sizeof(T) != sizeof(float)))
+	if (hasPrecallback && (sizeof(T) != sizeof(float)))
 	{
-		terr << _T("Pre-callback feature is currently supported only for Single Precision 1D FFT and size upto 4096" ) << std::endl;
+		terr << _T("Pre-callback feature is currently supported only for Single Precision FFT " ) << std::endl;
 		return 1;
 	}
 
@@ -403,7 +421,7 @@ int transform( size_t* lengths, const size_t *inStrides, const size_t *outStride
 
 	//Check for Precallback
 	//Currently test includes only for 1D
-	if (hasPrecallback && dim == CLFFT_1D)
+	if (hasPrecallback)
 	{
 		int precallbakType = PRECALLBACKTYPE;
 		cl_mem userdata;
@@ -569,7 +587,7 @@ int transform( size_t* lengths, const size_t *inStrides, const size_t *outStride
 				}
 
 				//check output data
-				if (hasPrecallback && dim == CLFFT_1D)
+				if (hasPrecallback)
 				{
 					switch(in_layout)
 					{
@@ -580,8 +598,12 @@ int transform( size_t* lengths, const size_t *inStrides, const size_t *outStride
 							refin = (fftw_complex*) fftw_malloc(sizeof(fftw_complex)*fftBatchSize);
 							refout = (fftw_complex*) fftw_malloc(sizeof(fftw_complex)*outfftBatchSize);
 
-							refPlan = fftw_plan_many_dft(1, (const int*)lengths, batch_size, refin, 0, inStrides[0], fftVectorSizePadded, refout, 0, outStrides[0], outfftVectorSizePadded, dir, FFTW_ESTIMATE);
+							//In FFTW last dimension has the fastest changing index
+							int fftwLengths[3] = {(int)lengths[2], (int)lengths[1], (int)lengths[0]};
 
+							refPlan = fftw_plan_many_dft(dim, &fftwLengths[3 - dim], batch_size, refin, &fftwLengths[3 - dim], inStrides[0], fftVectorSizePadded, refout, &fftwLengths[3 - dim]
+																, outStrides[0], outfftVectorSizePadded, dir, FFTW_ESTIMATE);
+							
 							int scalar;
 							for( cl_uint i = 0; i < fftBatchSize; i = i + inStrides[0])
 							{
@@ -669,7 +691,7 @@ int transform( size_t* lengths, const size_t *inStrides, const size_t *outStride
 				}
 
 				//  Check output data
-				if (hasPrecallback && dim == CLFFT_1D)
+				if (hasPrecallback)
 				{
 					switch(in_layout)
 					{
@@ -680,8 +702,11 @@ int transform( size_t* lengths, const size_t *inStrides, const size_t *outStride
 							refin = (fftw_complex*) fftw_malloc(sizeof(fftw_complex)*fftBatchSize);
 							refout = (fftw_complex*) fftw_malloc(sizeof(fftw_complex)*outfftBatchSize);
 
-							refPlan = fftw_plan_many_dft(1, (const int*)lengths, batch_size, refin, 0, inStrides[0], fftVectorSizePadded, refout, 0, outStrides[0], outfftVectorSizePadded, dir, FFTW_ESTIMATE);
+							//In FFTW last dimension has the fastest changing index
+							int fftwLengths[3] = {(int)lengths[2], (int)lengths[1], (int)lengths[0]};
 
+							refPlan = fftw_plan_many_dft(dim, &fftwLengths[3 - dim], batch_size, refin, &fftwLengths[3 - dim], inStrides[0], fftVectorSizePadded, refout, &fftwLengths[3 - dim]
+																, outStrides[0], outfftVectorSizePadded, dir, FFTW_ESTIMATE);
 							int scalar;
 							for( cl_uint i = 0; i < fftBatchSize; i = i + inStrides[0])
 							{
