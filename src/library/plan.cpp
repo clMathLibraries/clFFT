@@ -1886,6 +1886,14 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 				rowPlan->inStride.push_back(fftPlan->inStride[1]);
 				rowPlan->iDist           = fftPlan->iDist;
 				
+				//Set callback data if set on top level plan
+				if (fftPlan->hasPreCallback)
+				{
+					rowPlan->hasPreCallback = true;
+					rowPlan->preCallback = fftPlan->preCallback;
+					rowPlan->precallUserData = fftPlan->precallUserData;
+				}
+
 				OPENCL_V(clfftBakePlan(fftPlan->planX, numQueues, commQueueFFT, NULL, NULL ),
 					_T( "BakePlan for planX failed" ) );
 

@@ -1934,7 +1934,7 @@ namespace StockhamGenerator
 					//If precallback is set
 					if (fft_doPreCallback)
 					{
-						passStr += "\n\tfloat2 retPrecallback["; 
+						passStr += "\n\t"; passStr += regB2Type; passStr += " retPrecallback["; 
 						passStr += (numB4 > 0) ? "4" : (numB2 > 0) ? "2" : "1"; 
 						passStr += "];";
 					}

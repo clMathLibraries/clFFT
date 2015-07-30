@@ -23,13 +23,30 @@ namespace po = boost::program_options;
 				return ret; \n \
 				}
 
+#define MULVAL_DP double2 mulval(__global void* in, uint offset, __global void* userdata)\n \
+				{ \n \
+				int scalar = *((__global int*)userdata + offset); \n \
+				double2 ret = *((__global double2*)in + offset) * scalar; \n \
+				return ret; \n \
+				}
+
 #define MULVAL_PLANAR float2 mulval(__global void* inRe, __global void* inIm, uint offset, __global void* userdata)\n \
 				{ \n \
 				__global USER_DATA *data = ((__global USER_DATA *)userdata + offset); \n \
-				int scalar = (int)data->scalar1 + (int)data->scalar2 + (int)data->scalar3; \n \
+				int scalar = (int)data->scalar1 + (int)data->scalar2; \n \
 				float2 ret; \n \
 				ret.x = *((__global float*)inRe + offset) * scalar; \n \
 				ret.y = *((__global float*)inIm + offset) * scalar; \n \
+				return ret; \n \
+				}
+
+#define MULVAL_PLANAR_DP double2 mulval(__global void* inRe, __global void* inIm, uint offset, __global void* userdata)\n \
+				{ \n \
+				__global USER_DATA *data = ((__global USER_DATA *)userdata + offset); \n \
+				int scalar = (int)data->scalar1 + (int)data->scalar2; \n \
+				double2 ret; \n \
+				ret.x = *((__global double*)inRe + offset) * scalar; \n \
+				ret.y = *((__global double*)inIm + offset) * scalar; \n \
 				return ret; \n \
 				}
 
@@ -37,12 +54,12 @@ namespace po = boost::program_options;
 					   {  \
 						int scalar1;  \
 						int scalar2;  \
-						int scalar3;  \
 						} USER_DATA; 
 STRUCT_USERDATA
 
-template < typename T >
-bool compare(fftw_complex *refData, std::vector< std::complex< T > > data,
+//Compare reference and opencl output
+template < typename T1, typename T2>
+bool compare(T1 *refData, std::vector< std::complex< T2 > > data,
              const int length, const float epsilon = 1e-6f)
 {
     float error = 0.0f;
@@ -98,8 +115,9 @@ bool compare(fftw_complex *refData, std::vector< std::complex< T > > data,
 	return true;
 }
 
-template < typename T >
-bool compare(fftw_complex *refData, std::valarray< T > real, std::valarray< T > imag,
+//Compare reference and opencl output
+template < typename T1, typename T2 >
+bool compare(T1 *refData, std::valarray< T2 > real, std::valarray< T2 > imag,
              const int length, const float epsilon = 1e-6f)
 {
     float error = 0.0f;
@@ -155,6 +173,98 @@ bool compare(fftw_complex *refData, std::valarray< T > real, std::valarray< T > 
 		return false;
 
 	return true;
+}
+
+// Compute reference output using fftw for float type
+fftwf_complex* get_fftwf_output(size_t* lengths, const size_t *inStrides, const size_t *outStrides, size_t batch_size,
+								size_t fftBatchSize, size_t outfftBatchSize, size_t fftVectorSizePadded, clfftLayout in_layout,
+								size_t outfftVectorSizePadded, size_t fftVectorSize, clfftDim dim, clfftDirection dir)
+{
+	//In FFTW last dimension has the fastest changing index
+	int fftwLengths[3] = {(int)lengths[2], (int)lengths[1], (int)lengths[0]};
+
+	fftwf_plan refPlan;
+
+	fftwf_complex *refin = (fftwf_complex*) fftw_malloc(sizeof(fftwf_complex)*fftBatchSize);
+	fftwf_complex *refout = (fftwf_complex*) fftw_malloc(sizeof(fftwf_complex)*outfftBatchSize);
+
+	refPlan = fftwf_plan_many_dft(dim, &fftwLengths[3 - dim], batch_size, 
+									refin, &fftwLengths[3 - dim], inStrides[0], fftVectorSizePadded, 
+									refout, &fftwLengths[3 - dim], outStrides[0], outfftVectorSizePadded, 
+									dir, FFTW_ESTIMATE);
+
+	int scalar;
+	for( cl_uint i = 0; i < fftBatchSize; i = i + inStrides[0])
+	{
+		switch (in_layout)
+		{
+		case CLFFT_COMPLEX_INTERLEAVED:
+			scalar = SCALAR + (i % fftVectorSize);
+			break;
+		case CLFFT_COMPLEX_PLANAR:
+			scalar = (SCALAR + (i % fftVectorSize)) + (SCALAR + (i % fftVectorSize) + 1);
+			break;
+		default:
+			break;
+		}
+
+		refin[i][0] = 1 * scalar;
+		refin[i][1] = 0 * scalar;
+	}
+
+	fftwf_execute(refPlan);
+
+	fftw_free(refin);
+
+	fftwf_destroy_plan(refPlan);
+
+	return refout;
+}
+
+// Compute reference output using fftw for double type
+fftw_complex* get_fftw_output(size_t* lengths, const size_t *inStrides, const size_t *outStrides, size_t batch_size,
+								size_t fftBatchSize, size_t outfftBatchSize, size_t fftVectorSizePadded, clfftLayout in_layout,
+								size_t outfftVectorSizePadded, size_t fftVectorSize, clfftDim dim, clfftDirection dir)
+{
+	fftw_plan refPlan;
+
+	fftw_complex *refin = (fftw_complex*) fftw_malloc(sizeof(fftw_complex)*fftBatchSize);
+	fftw_complex *refout = (fftw_complex*) fftw_malloc(sizeof(fftw_complex)*outfftBatchSize);
+	
+	//In FFTW last dimension has the fastest changing index
+	int fftwLengths[3] = {(int)lengths[2], (int)lengths[1], (int)lengths[0]};
+
+	refPlan = fftw_plan_many_dft(dim, &fftwLengths[3 - dim], batch_size, 
+									refin, &fftwLengths[3 - dim], inStrides[0], fftVectorSizePadded, 
+									refout, &fftwLengths[3 - dim], outStrides[0], outfftVectorSizePadded, 
+									dir, FFTW_ESTIMATE);
+							
+	int scalar;
+	for( cl_uint i = 0; i < fftBatchSize; i = i + inStrides[0])
+	{
+		switch (in_layout)
+		{
+		case CLFFT_COMPLEX_INTERLEAVED:
+			scalar = SCALAR + (i % fftVectorSize);
+			break;
+		case CLFFT_COMPLEX_PLANAR:
+			scalar = (SCALAR + (i % fftVectorSize)) + (SCALAR + (i % fftVectorSize) + 1);
+			break;
+		default:
+			break;
+		}
+
+		refin[i][0] = 1 * scalar;
+		refin[i][1] = 0 * scalar;
+	}
+
+	fftw_execute(refPlan);
+
+	fftw_free(refin);
+
+	fftw_destroy_plan(refPlan);
+
+	return refout;
 }
 
 //	This is used with the program_options class so that the user can type an integer on the command line
@@ -268,9 +378,9 @@ int transform( size_t* lengths, const size_t *inStrides, const size_t *outStride
 		return 1;
 	}
 
-	if (hasPrecallback && (sizeof(T) != sizeof(float)))
+	if (hasPrecallback && !(in_layout == CLFFT_COMPLEX_INTERLEAVED || in_layout == CLFFT_COMPLEX_PLANAR))
 	{
-		terr << _T("Pre-callback feature is currently supported only for Single Precision FFT " ) << std::endl;
+		terr << _T("Pre-callback feature is currently supported only for Complex-Complex FFT " ) << std::endl;
 		return 1;
 	}
 
@@ -432,7 +542,8 @@ int transform( size_t* lengths, const size_t *inStrides, const size_t *outStride
 			{
 			case 1: //C2C 1D Interleaved 
 				{
-					char* precallbackstr = STRINGIFY(MULVAL);
+					char* precallbackstr = (precision == CLFFT_SINGLE) ? STRINGIFY(MULVAL) : STRINGIFY(MULVAL_DP);
+
 					int *h_userdata = (int*)malloc(sizeof(int)*fftBatchSize);
 					for( cl_uint i = 0; i < fftBatchSize; i = i + inStrides[0])
 					{
@@ -455,13 +566,12 @@ int transform( size_t* lengths, const size_t *inStrides, const size_t *outStride
 			{
 			case 1: //C2C 1D PLANAR 
 				{
-					char* precallbackstr = STRINGIFY(MULVAL_PLANAR);
+					char* precallbackstr = (precision == CLFFT_SINGLE) ? STRINGIFY(MULVAL_PLANAR) : STRINGIFY(MULVAL_PLANAR_DP);
 					USER_DATA *h_userdata = (USER_DATA*)malloc(sizeof(USER_DATA) * fftBatchSize);
 					for( cl_uint i = 0; i < fftBatchSize; i = i + inStrides[0])
 					{
 						h_userdata[i].scalar1 = SCALAR + (i % fftVectorSize);
 						h_userdata[i].scalar2 = SCALAR + (i % fftVectorSize) + 1;
-						h_userdata[i].scalar3 = SCALAR + (i % fftVectorSize) + 2;
 					}
 					userdata = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, sizeof(USER_DATA) * fftBatchSize, (void*)h_userdata, NULL);
 
@@ -593,39 +703,40 @@ int transform( size_t* lengths, const size_t *inStrides, const size_t *outStride
 					{
 					case CLFFT_COMPLEX_INTERLEAVED:
 						{
-							fftw_complex *refin, *refout;
-							fftw_plan refPlan;
-							refin = (fftw_complex*) fftw_malloc(sizeof(fftw_complex)*fftBatchSize);
-							refout = (fftw_complex*) fftw_malloc(sizeof(fftw_complex)*outfftBatchSize);
-
-							//In FFTW last dimension has the fastest changing index
-							int fftwLengths[3] = {(int)lengths[2], (int)lengths[1], (int)lengths[0]};
-
-							refPlan = fftw_plan_many_dft(dim, &fftwLengths[3 - dim], batch_size, refin, &fftwLengths[3 - dim], inStrides[0], fftVectorSizePadded, refout, &fftwLengths[3 - dim]
-																, outStrides[0], outfftVectorSizePadded, dir, FFTW_ESTIMATE);
-							
-							int scalar;
-							for( cl_uint i = 0; i < fftBatchSize; i = i + inStrides[0])
+							if (precision == CLFFT_SINGLE)
 							{
-								scalar = SCALAR + (i % fftVectorSize);
-								refin[i][0] = 1 * scalar;
-								refin[i][1] = 0 * scalar;
+								fftwf_complex *refout;
+
+								refout = get_fftwf_output(lengths, inStrides, outStrides, batch_size, fftBatchSize, outfftBatchSize, fftVectorSizePadded,
+															in_layout, outfftVectorSizePadded, fftVectorSize, dim, dir);
+
+								if (!compare(refout, output, outfftBatchSize))
+									checkflag = true;
+
+								//for( cl_uint i = 0; i < outfftBatchSize; i = i + outStrides[0])
+								//{
+								//	std::cout << "i " << i << " refreal " << refout[i][0] << " refimag " << refout[i][1] << " clreal " << output[i].real() << " climag " << output[i].imag() << std::endl;
+								//}
+							
+								fftwf_free(refout);
 							}
-
-							fftw_execute(refPlan);
-
-							if (!compare(refout, output, outfftBatchSize))
-								checkflag = true;
-
-							fftw_destroy_plan(refPlan);
-							
-							/*for( cl_uint i = 0; i < outfftBatchSize; i = i + outStrides[0])
+							else if (precision == CLFFT_DOUBLE)
 							{
-								std::cout << "i " << i << " refreal " << refout[i][0] << " refimag " << refout[i][1] << " clreal " << output[i].real() << " climag " << output[i].imag() << std::endl;
-							}*/
+								fftw_complex *refout;
 							
-							fftw_free(refin);
-							fftw_free(refout);		
+								refout = get_fftw_output(lengths, inStrides, outStrides, batch_size, fftBatchSize, outfftBatchSize, fftVectorSizePadded,
+															in_layout, outfftVectorSizePadded, fftVectorSize, dim, dir);
+
+								if (!compare(refout, output, outfftBatchSize))
+									checkflag = true;
+
+								/*for( cl_uint i = 0; i < outfftBatchSize; i = i + outStrides[0])
+								{
+									std::cout << "i " << i << " refreal " << refout[i][0] << " refimag " << refout[i][1] << " clreal " << output[i].real() << " climag " << output[i].imag() << std::endl;
+								}*/
+							
+								fftw_free(refout);
+							}
 						}
 						break;
 					}
@@ -658,10 +769,6 @@ int transform( size_t* lengths, const size_t *inStrides, const size_t *outStride
 							break;
 						}
 					}
-					/*for( cl_uint i = 0; i < outfftBatchSize; i = i + outStrides[0])
-					{
-							std::cout << "i " << i << " clreal " << output[i].real() << " climag " << output[i].imag() << std::endl;
-					}*/
 				}
 			}
 			break;
@@ -697,38 +804,40 @@ int transform( size_t* lengths, const size_t *inStrides, const size_t *outStride
 					{
 					case CLFFT_COMPLEX_PLANAR:
 						{
-							fftw_complex *refin, *refout;
-							fftw_plan refPlan;
-							refin = (fftw_complex*) fftw_malloc(sizeof(fftw_complex)*fftBatchSize);
-							refout = (fftw_complex*) fftw_malloc(sizeof(fftw_complex)*outfftBatchSize);
-
-							//In FFTW last dimension has the fastest changing index
-							int fftwLengths[3] = {(int)lengths[2], (int)lengths[1], (int)lengths[0]};
-
-							refPlan = fftw_plan_many_dft(dim, &fftwLengths[3 - dim], batch_size, refin, &fftwLengths[3 - dim], inStrides[0], fftVectorSizePadded, refout, &fftwLengths[3 - dim]
-																, outStrides[0], outfftVectorSizePadded, dir, FFTW_ESTIMATE);
-							int scalar;
-							for( cl_uint i = 0; i < fftBatchSize; i = i + inStrides[0])
+							if (precision == CLFFT_SINGLE)
 							{
-								scalar = (SCALAR + (i % fftVectorSize)) + (SCALAR + (i % fftVectorSize) + 1) + (SCALAR + (i % fftVectorSize) + 2);
-								refin[i][0] = 1 * scalar;
-								refin[i][1] = 0 * scalar;
+								fftwf_complex *refout;
+
+								refout = get_fftwf_output(lengths, inStrides, outStrides, batch_size, fftBatchSize, outfftBatchSize, fftVectorSizePadded,
+															in_layout, outfftVectorSizePadded, fftVectorSize, dim, dir);
+
+								if (!compare(refout, real, imag, outfftBatchSize))
+									checkflag = true;
+
+								/*for( cl_uint i = 0; i < outfftBatchSize; i = i + outStrides[0])
+								{
+									std::cout << "i " << i << " refreal " << refout[i][0] << " refimag " << refout[i][1] << " clreal " << real[i] << " climag " << imag[i] << std::endl;
+								}*/
+							
+								fftwf_free(refout);
 							}
-
-							fftw_execute(refPlan);
-
-							if (!compare(refout, real, imag, outfftBatchSize))
-								checkflag = true;
-
-							fftw_destroy_plan(refPlan);
-
-							/*for( cl_uint i = 0; i < outfftBatchSize; i = i + outStrides[0])
+							else if (precision == CLFFT_DOUBLE)
 							{
-								std::cout << "i " << i << " refreal " << refout[i][0] << " refimag " << refout[i][1] << " clreal " << real[i] << " climag " << imag[i] << std::endl;
-							}*/
+								fftw_complex *refout;
 
-							fftw_free(refin);
-							fftw_free(refout);		
+								refout = get_fftw_output(lengths, inStrides, outStrides, batch_size, fftBatchSize, outfftBatchSize, fftVectorSizePadded,
+															in_layout, outfftVectorSizePadded, fftVectorSize, dim, dir);
+
+								if (!compare(refout, real, imag, outfftBatchSize))
+									checkflag = true;
+
+								/*for( cl_uint i = 0; i < outfftBatchSize; i = i + outStrides[0])
+								{
+									std::cout << "i " << i << " refreal " << refout[i][0] << " refimag " << refout[i][1] << " clreal " << real[i] << " climag " << imag[i] << std::endl;
+								}*/
+							
+								fftw_free(refout);
+							}
 						}
 						break;
 					}
