@@ -821,6 +821,62 @@ namespace StockhamGenerator
 				return;
 			}
 
+			// block to rearrange reads of adjacent memory locations together
+			if(linearRegs && (flag == SR_READ))
+			{
+				for(size_t r=0; r<radix; r++)
+				{
+					for(size_t i=0; i<numB; i++)
+					{
+						for(size_t c=cStart; c<cEnd; c++) // component loop: 0 - real, 1 - imaginary
+						{
+							std::string tail;
+							std::string regIndex;
+							regIndex = "(*R";
+							std::string buffer;
+
+							// Read real & imag at once
+							if(interleaved && (component == SR_COMP_BOTH))
+							{
+								assert(bufferRe.compare(bufferIm) == 0); // Make sure Real & Imag buffer strings are same for interleaved data
+								buffer = bufferRe;
+								RegBaseAndCountAndPos("", i*radix + r, regIndex); regIndex += ")";
+								tail = ";";
+							}
+							else
+							{
+								if(c == 0)
+								{
+									RegBaseAndCountAndPos("", i*radix + r, regIndex); regIndex += ").x";
+									buffer = bufferRe;
+									tail = interleaved ? ".x;" : ";";
+								}
+								else
+								{
+									RegBaseAndCountAndPos("", i*radix + r, regIndex); regIndex += ").y";
+									buffer = bufferIm;
+									tail = interleaved ? ".y;" : ";";
+								}
+							}
+
+
+							passStr += "\n\t";
+							passStr += regIndex;
+							passStr += " = "; passStr += buffer;
+							passStr += "["; passStr += offset; passStr += " + ( "; passStr += SztToStr(numPrev); passStr += " + ";
+							passStr += "me*"; passStr += SztToStr(numButterfly); passStr += " + ";
+							passStr += SztToStr(i); passStr += " + ";
+							passStr += SztToStr(r*length/radix); passStr += " )*";
+							passStr += SztToStr(stride); passStr += "]"; passStr += tail;
+
+								// Since we read real & imag at once, we break the loop
+							if(interleaved && (component == SR_COMP_BOTH) )
+								break;
+						}
+					}
+				}
+				return;
+			}
 			for(size_t i=0; i<numB; i++)
 			{
 				std::string regBaseCount = regBase;
@@ -1203,7 +1259,14 @@ namespace StockhamGenerator
 						std::string oddpadd = oddp ? " (me/2) + " : " ";
 
 						std::string idxStr, idxStrRev;
-						idxStr += SztToStr(bid); idxStr += "*me +"; idxStr += oddpadd; idxStr += SztToStr(lid);
+						if((length == 2) || ((length & (length - 1)) != 0))
+						{
+							idxStr += SztToStr(bid); idxStr += "*me +"; idxStr += oddpadd; idxStr += SztToStr(lid);
+						}
+						else
+						{
+							idxStr += "me + "; idxStr += SztToStr(1 + length*(r%bid)/numCR); idxStr += oddpadd;
+						}
 						idxStrRev += SztToStr(length); idxStrRev += " - ("; idxStrRev += idxStr; idxStrRev += " )";
 
 						bool act = ( fwd || ((cid == 0) && (!batch2)) || ((cid != 0) && batch2) );
@@ -1317,7 +1380,14 @@ namespace StockhamGenerator
 							if(fwd)
 							{
 								std::string idxStr, idxStrRev;
+								if((length == 2) || ((length & (length - 1)) != 0))
+								{
 								idxStr += SztToStr(length/(2*workGroupSize)); idxStr += "*me +"; idxStr += oddpadd; idxStr += SztToStr(lid);
+								}
+								else
+								{
+								idxStr += "me + "; idxStr += SztToStr(1 + length*(r%bid)/numCR); idxStr += oddpadd;
+								}
 								idxStrRev += SztToStr(length); idxStrRev += " - ("; idxStrRev += idxStr; idxStrRev += " )";
 
 								std::string val1Str, val2Str;
