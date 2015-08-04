@@ -83,7 +83,7 @@ add_definitions( "/DCLFFT_EXPORTS" )
 include_directories( ${OPENCL_INCLUDE_DIRS} ${PROJECT_BINARY_DIR}/include ../include )
 
 add_library( clFFT ${clFFT.Files} )
-target_link_libraries( clFFT ${OPENCL_LIBRARIES} )
+target_link_libraries( clFFT ${OPENCL_LIBRARIES} ${CMAKE_DL_LIBS} )
 
 set_target_properties( clFFT PROPERTIES VERSION ${CLFFT_VERSION} )
 set_target_properties( clFFT PROPERTIES SOVERSION ${CLFFT_SOVERSION} )
