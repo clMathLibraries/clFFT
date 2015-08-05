@@ -877,6 +877,94 @@ namespace StockhamGenerator
 				}
 				return;
 			}
+
+			// block to rearrange writes of adjacent memory locations together
+			if(linearRegs && (flag == SR_WRITE) && (nextPass == NULL))
+			{
+				for(size_t r=0; r<radix; r++)
+				{
+					butterflyIndex = numPrev;
+
+					for(size_t i=0; i<numB; i++)
+					{
+						if(realSpecial && (nextPass == NULL) && (r > (radix/2)))
+							break;
+
+						if(realSpecial && (nextPass == NULL) && (r == radix/2) && (i != 0))
+							break;
+
+						if(realSpecial && (nextPass == NULL) && (r == radix/2) && (i == 0))
+							passStr += "\n\t}\n\tif( rw && !me)\n\t{";
+
+						for(size_t c=cStart; c<cEnd; c++) // component loop: 0 - real, 1 - imaginary
+						{
+							std::string tail;
+							std::string regIndex;
+							regIndex = "(*R";
+							std::string buffer;
+
+							// Write real & imag at once
+							if(interleaved && (component == SR_COMP_BOTH))
+							{
+								assert(bufferRe.compare(bufferIm) == 0); // Make sure Real & Imag buffer strings are same for interleaved data
+								buffer = bufferRe;
+								RegBaseAndCountAndPos("", i*radix + r, regIndex); regIndex += ")";
+								tail = "";
+							}
+							else
+							{
+								if(c == 0)
+								{
+									RegBaseAndCountAndPos("", i*radix + r, regIndex); regIndex += ").x";
+									buffer = bufferRe;
+									tail = interleaved ? ".x" : "";
+								}
+								else
+								{
+									RegBaseAndCountAndPos("", i*radix + r, regIndex); regIndex += ").y";
+									buffer = bufferIm;
+									tail = interleaved ? ".y" : "";
+								}
+							}
+
+							passStr += "\n\t";
+							passStr += buffer; passStr += "["; passStr += offset; passStr += " + ( ";
+
+							if( (numButterfly * workGroupSize) > algLS )
+							{
+								passStr += "(("; passStr += SztToStr(numButterfly);
+								passStr += "*me + "; passStr += SztToStr(butterflyIndex); passStr += ")/";
+								passStr += SztToStr(algLS); passStr += ")*"; passStr += SztToStr(algL); passStr += " + (";
+								passStr += SztToStr(numButterfly); passStr += "*me + "; passStr += SztToStr(butterflyIndex);
+								passStr += ")%"; passStr += SztToStr(algLS); passStr += " + ";
+							}
+							else
+							{
+								passStr += SztToStr(numButterfly); passStr += "*me + "; passStr += SztToStr(butterflyIndex);
+								passStr += " + ";
+							}
+
+							passStr += SztToStr(r*algLS); passStr += " )*"; passStr += SztToStr(stride); passStr += "]";
+							passStr += tail; passStr += " = "; passStr += regIndex;
+							if(scale != 1.0f) { passStr += " * "; passStr += FloatToStr(scale); passStr += FloatSuffix<PR>(); }
+							passStr += ";";
+
+							// Since we write real & imag at once, we break the loop
+							if(interleaved && (component == SR_COMP_BOTH))
+								break;
+						}
+
+						if(realSpecial && (nextPass == NULL) && (r == radix/2) && (i == 0))
+							passStr += "\n\t}\n\tif(rw)\n\t{";
+
+						butterflyIndex++;
+					}
+				}
+
+				return;
+			}
+
+
 			for(size_t i=0; i<numB; i++)
 			{
 				std::string regBaseCount = regBase;
@@ -1453,7 +1541,14 @@ namespace StockhamGenerator
 							else
 							{
 								std::string idxStr, idxStrRev;
+								if((length == 2) || ((length & (length - 1)) != 0))
+								{
 								idxStr += SztToStr(bid); idxStr += "*me +"; idxStr += oddpadd; idxStr += SztToStr(lid);
+								}
+								else
+								{								
+								idxStr += "me + "; idxStr += SztToStr(1 + length*(r%bid)/numCR); idxStr += oddpadd;
+								}
 								idxStrRev += SztToStr(length); idxStrRev += " - ("; idxStrRev += idxStr; idxStrRev += " )";
 
 								passStr += "\n\t";
