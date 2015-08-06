@@ -514,35 +514,46 @@ int transform( size_t* lengths, const size_t *inStrides, const size_t *outStride
 	//
 	cl_mem * BuffersOut = ( place == CLFFT_INPLACE ) ? NULL : &output_cl_mem_buffers[ 0 ];
 
-	Timer tr;
-	tr.Start();
+	OPENCL_V_THROW( clfftEnqueueTransform( plan_handle, dir, 1, &queue, 0, NULL, NULL,
+		&input_cl_mem_buffers[ 0 ], BuffersOut, clMedBuffer ),
+		"clfftEnqueueTransform failed" );
+
+	OPENCL_V_THROW( clFinish( queue ), "clFinish failed" );
 
 	cl_event *outEvent = new cl_event[profile_count];
-
-	for( cl_uint i = 0; i < profile_count; ++i )
-	{
-		outEvent[i] = 0;
-		if( timer ) timer->Start( clFFTID );
-
-		OPENCL_V_THROW( clfftEnqueueTransform( plan_handle, dir, 1, &queue, 0, NULL, &outEvent[i],
-			&input_cl_mem_buffers[ 0 ], BuffersOut, clMedBuffer ),
-			"clfftEnqueueTransform failed" );
-
-		if( timer ) timer->Stop( clFFTID );
-	}
-	OPENCL_V_THROW( clFinish( queue ), "clFinish failed" );
-	if(clMedBuffer) clReleaseMemObject(clMedBuffer);
-
-	double wtime = tr.Sample()/((double)profile_count);
-	size_t totalLen = 1;
-	for(int i=0; i<dim; i++) totalLen *= lengths[i];
-	double opsconst = 5.0 * (double)totalLen * log((double)totalLen) / log(2.0);
+	for( cl_uint i = 0; i < profile_count; ++i ) outEvent[i] = 0;
 
 	if(profile_count > 1)
 	{
+		Timer tr;		
+		tr.Start();
+		for( cl_uint i = 0; i < profile_count; ++i )
+		{
+			if( timer ) timer->Start( clFFTID );
+
+			OPENCL_V_THROW( clfftEnqueueTransform( plan_handle, dir, 1, &queue, 0, NULL, &outEvent[i],
+				&input_cl_mem_buffers[ 0 ], BuffersOut, clMedBuffer ),
+				"clfftEnqueueTransform failed" );
+
+			if( timer ) timer->Stop( clFFTID );
+		}
+		OPENCL_V_THROW( clWaitForEvents ( profile_count, outEvent ), "clWaitForEvents  failed" );
+
+		double wtime = tr.Sample()/((double)profile_count);
+
+		OPENCL_V_THROW( clFinish( queue ), "clFinish failed" );
+
+		size_t totalLen = 1;
+		for(int i=0; i<dim; i++) totalLen *= lengths[i];
+		double opsconst = 5.0 * (double)totalLen * log((double)totalLen) / log(2.0);
+
+
 		tout << "\nExecution wall time: " << 1000.0*wtime << " ms" << std::endl;
 		tout << "Execution gflops: " << ((double)batch_size * opsconst)/(1000000000.0*wtime) << std::endl;
+
 	}
+
+	if(clMedBuffer) clReleaseMemObject(clMedBuffer);
 
 	if( timer && (command_queue_flags & CL_QUEUE_PROFILING_ENABLE) )
 	{
