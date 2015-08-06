@@ -390,22 +390,10 @@ int transform( size_t* lengths, const size_t *inStrides, const size_t *outStride
 		terr << _T( "Could not find the external timing library; timings disabled" ) << std::endl;
 	}
 
-
 	//	Timer module discovered and loaded successfully
 	//	Initialize function pointers to call into the shared module
 	PFGETSTATTIMER get_timer = reinterpret_cast< PFGETSTATTIMER > ( LoadFunctionAddr( timerLibHandle, "getStatTimer" ) );
 
-	//	Create and initialize our timer class, if the external timer shared library loaded
-	baseStatTimer* timer = NULL;
-	size_t	clFFTID = 0;
-	if( get_timer )
-	{
-		timer = get_timer( CLFFT_GPU );
-		timer->Reserve( 1, profile_count );
-		timer->setNormalize( true );
-
-		clFFTID	= timer->getUniqueID( "clFFT", 0 );
-	}
 
 	OPENCL_V_THROW( clfftSetup( setupData.get( ) ), "clfftSetup failed" );
 	OPENCL_V_THROW( clfftCreateDefaultPlan( &plan_handle, context, dim, lengths ), "clfftCreateDefaultPlan failed" );
@@ -510,15 +498,28 @@ int transform( size_t* lengths, const size_t *inStrides, const size_t *outStride
 		}
 	}
 
-	//	Loop as many times as the user specifies to average out the timings
-	//
+
 	cl_mem * BuffersOut = ( place == CLFFT_INPLACE ) ? NULL : &output_cl_mem_buffers[ 0 ];
 
+	// Execute once for basic functional test
 	OPENCL_V_THROW( clfftEnqueueTransform( plan_handle, dir, 1, &queue, 0, NULL, NULL,
 		&input_cl_mem_buffers[ 0 ], BuffersOut, clMedBuffer ),
 		"clfftEnqueueTransform failed" );
 
 	OPENCL_V_THROW( clFinish( queue ), "clFinish failed" );
+	
+
+	//	Create and initialize our timer class, if the external timer shared library loaded
+	baseStatTimer* timer = NULL;
+	size_t	clFFTID = 0;
+	if( get_timer )
+	{
+		timer = get_timer( CLFFT_GPU );
+		timer->Reserve( 1, profile_count );
+		timer->setNormalize( true );
+
+		clFFTID	= timer->getUniqueID( "clFFT", 0 );
+	}
 
 	cl_event *outEvent = new cl_event[profile_count];
 	for( cl_uint i = 0; i < profile_count; ++i ) outEvent[i] = 0;
