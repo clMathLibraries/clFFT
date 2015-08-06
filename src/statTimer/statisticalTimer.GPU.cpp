@@ -204,7 +204,7 @@ void
 GpuStatTimer::AddSample( clfftPlanHandle plHandle, FFTPlan* plan, cl_kernel kern, cl_uint numEvents, cl_event* ev,
 	const std::vector< size_t >& gWorkSize )
 {
-	if(ev == NULL)
+	if( (numEvents != 0) && (ev == NULL) )
 		return;
 
 	if( timerData.empty( ) )

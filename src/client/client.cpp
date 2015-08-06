@@ -521,6 +521,7 @@ int transform( size_t* lengths, const size_t *inStrides, const size_t *outStride
 
 	for( cl_uint i = 0; i < profile_count; ++i )
 	{
+		outEvent[i] = 0;
 		if( timer ) timer->Start( clFFTID );
 
 		OPENCL_V_THROW( clfftEnqueueTransform( plan_handle, dir, 1, &queue, 0, NULL, &outEvent[i],
@@ -555,7 +556,10 @@ int transform( size_t* lengths, const size_t *inStrides, const size_t *outStride
 	FreeSharedLibrary( timerLibHandle );
 
 	for( cl_uint i = 0; i < profile_count; ++i )
-		clReleaseEvent(outEvent[i]);
+	{
+		if(outEvent[i])
+			clReleaseEvent(outEvent[i]);
+	}
 
 	delete[] outEvent;
 
