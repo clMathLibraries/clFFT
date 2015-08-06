@@ -182,6 +182,8 @@ class GpuStatTimer : public baseStatTimer
 
 	void queryOpenCL( size_t id );
 
+	void ReleaseEvents();
+
 public:
 	/**
 	 * \fn getInstance()

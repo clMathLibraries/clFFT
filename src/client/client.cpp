@@ -73,7 +73,6 @@ int transform( size_t* lengths, const size_t *inStrides, const size_t *outStride
 	std::vector< cl_device_id > device_id;
 	cl_context context;
 	cl_command_queue queue;
-	cl_event outEvent = NULL;
 	clfftPlanHandle plan_handle;
 
 	for (unsigned u = 0; u < max_dimensions; ++u) {
@@ -204,7 +203,7 @@ int transform( size_t* lengths, const size_t *inStrides, const size_t *outStride
 
 
 			OPENCL_V_THROW( clEnqueueWriteBuffer( queue, input_cl_mem_buffers[ 0 ], CL_TRUE, 0, size_of_input_buffers_in_bytes, &input[ 0 ],
-				0, NULL, &outEvent ),
+				0, NULL, NULL ),
 				"clEnqueueWriteBuffer failed" );
 
 		}
@@ -252,10 +251,10 @@ int transform( size_t* lengths, const size_t *inStrides, const size_t *outStride
 
 
 			OPENCL_V_THROW( clEnqueueWriteBuffer( queue, input_cl_mem_buffers[ 0 ], CL_TRUE, 0, size_of_input_buffers_in_bytes, &real[ 0 ],
-				0, NULL, &outEvent ),
+				0, NULL, NULL ),
 				"clEnqueueWriteBuffer failed" );
 			OPENCL_V_THROW( clEnqueueWriteBuffer( queue, input_cl_mem_buffers[ 1 ], CL_TRUE, 0, size_of_input_buffers_in_bytes, &imag[ 0 ],
-				0, NULL, &outEvent ),
+				0, NULL, NULL ),
 				"clEnqueueWriteBuffer failed" );
 		}
 		break;
@@ -289,7 +288,7 @@ int transform( size_t* lengths, const size_t *inStrides, const size_t *outStride
 
 
 			OPENCL_V_THROW( clEnqueueWriteBuffer( queue, input_cl_mem_buffers[ 0 ], CL_TRUE, 0, size_of_input_buffers_in_bytes, &input[ 0 ],
-				0, NULL, &outEvent ),
+				0, NULL, NULL ),
 				"clEnqueueWriteBuffer failed" );
 		}
 		break;
@@ -325,10 +324,10 @@ int transform( size_t* lengths, const size_t *inStrides, const size_t *outStride
 
 
 			OPENCL_V_THROW( clEnqueueWriteBuffer( queue, input_cl_mem_buffers[ 0 ], CL_TRUE, 0, size_of_input_buffers_in_bytes, &real[ 0 ],
-				0, NULL, &outEvent ),
+				0, NULL, NULL ),
 				"clEnqueueWriteBuffer failed" );
 			OPENCL_V_THROW( clEnqueueWriteBuffer( queue, input_cl_mem_buffers[ 1 ], CL_TRUE, 0, size_of_input_buffers_in_bytes, &imag[ 0 ],
-				0, NULL, &outEvent ),
+				0, NULL, NULL ),
 				"clEnqueueWriteBuffer failed" );
 		}
 		break;
@@ -373,7 +372,7 @@ int transform( size_t* lengths, const size_t *inStrides, const size_t *outStride
 
 
 			OPENCL_V_THROW( clEnqueueWriteBuffer( queue, input_cl_mem_buffers[ 0 ], CL_TRUE, 0, size_of_input_buffers_in_bytes, &real[ 0 ],
-				0, NULL, &outEvent ),
+				0, NULL, NULL ),
 				"clEnqueueWriteBuffer failed" );
 		}
 		break;
@@ -518,11 +517,13 @@ int transform( size_t* lengths, const size_t *inStrides, const size_t *outStride
 	Timer tr;
 	tr.Start();
 
+	cl_event *outEvent = new cl_event[profile_count];
+
 	for( cl_uint i = 0; i < profile_count; ++i )
 	{
 		if( timer ) timer->Start( clFFTID );
 
-		OPENCL_V_THROW( clfftEnqueueTransform( plan_handle, dir, 1, &queue, 0, NULL, &outEvent,
+		OPENCL_V_THROW( clfftEnqueueTransform( plan_handle, dir, 1, &queue, 0, NULL, &outEvent[i],
 			&input_cl_mem_buffers[ 0 ], BuffersOut, clMedBuffer ),
 			"clfftEnqueueTransform failed" );
 
@@ -552,6 +553,11 @@ int transform( size_t* lengths, const size_t *inStrides, const size_t *outStride
 
 	/*****************/
 	FreeSharedLibrary( timerLibHandle );
+
+	for( cl_uint i = 0; i < profile_count; ++i )
+		clReleaseEvent(outEvent[i]);
+
+	delete[] outEvent;
 
 	// Read and check output data
 	// This check is not valid if the FFT is executed multiple times inplace.
@@ -725,7 +731,7 @@ int transform( size_t* lengths, const size_t *inStrides, const size_t *outStride
 	OPENCL_V_THROW( clfftDestroyPlan( &plan_handle ), "clfftDestroyPlan failed" );
 	OPENCL_V_THROW( clfftTeardown( ), "clfftTeardown failed" );
 
-	cleanupCL( &context, &queue, countOf( input_cl_mem_buffers ), input_cl_mem_buffers, countOf( output_cl_mem_buffers ), output_cl_mem_buffers, &outEvent );
+	cleanupCL( &context, &queue, countOf( input_cl_mem_buffers ), input_cl_mem_buffers, countOf( output_cl_mem_buffers ), output_cl_mem_buffers, NULL );
 	return 0;
 }
 

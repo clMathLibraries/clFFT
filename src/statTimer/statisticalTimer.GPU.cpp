@@ -176,6 +176,7 @@ GpuStatTimer::Reset( )
 	if( nEvents == 0 || nSamples == 0 )
 		throw	std::runtime_error( "StatisticalTimer::Reserve( ) was not called before Reset( )" );
 
+	ReleaseEvents();
 	Reserve( nEvents, nSamples );
 
 	return;
@@ -203,8 +204,16 @@ void
 GpuStatTimer::AddSample( clfftPlanHandle plHandle, FFTPlan* plan, cl_kernel kern, cl_uint numEvents, cl_event* ev,
 	const std::vector< size_t >& gWorkSize )
 {
+	if(ev == NULL)
+		return;
+
 	if( timerData.empty( ) )
 		return;
+
+	for( size_t i = 0; i < numEvents; ++i )
+	{
+		::clRetainEvent(ev[i]);
+	}
 
 	if( currRecord == 0 )
 	{
@@ -240,6 +249,26 @@ GpuStatTimer::getUniqueID( const std::string& label, cl_uint groupID )
 
 	return	labelID.size( ) - 1;
 
+}
+
+void GpuStatTimer::ReleaseEvents()
+{
+	for( cl_uint id = 0; id < labelID.size( ); ++id )
+	{
+		for( size_t s = 0; s < timerData.at( id ).size( ); ++s )
+		{
+			for( size_t n = 0; n < timerData.at( id ).at( s ).size( ); ++n )
+			{
+				StatData& sd = timerData[ id ][ s ][ n ];
+
+				for( size_t i = 0; i < sd.outEvents.size( ); ++i )
+				{
+					::clReleaseEvent(sd.outEvents[ i ]);
+				}
+
+			}
+		}
+	}
 }
 
 void GpuStatTimer::queryOpenCL( size_t id )

@@ -477,8 +477,11 @@ std::vector< cl_device_id > initializeCL( cl_device_type deviceType,
 int cleanupCL( cl_context* context, cl_command_queue* commandQueue,
     const cl_uint numBuffersIn, cl_mem inputBuffer[], const cl_uint numBuffersOut, cl_mem outputBuffer[], cl_event* outEvent )
 {
-    if( *outEvent != NULL )
-        OPENCL_V_THROW( clReleaseEvent( *outEvent ), "Error: In clReleaseEvent\n" );
+	if(outEvent != NULL)
+	{
+		if( *outEvent != NULL )
+			OPENCL_V_THROW( clReleaseEvent( *outEvent ), "Error: In clReleaseEvent\n" );
+	}
 
     releaseOpenCLMemBuffer( numBuffersIn, inputBuffer);
     releaseOpenCLMemBuffer( numBuffersOut, outputBuffer);
