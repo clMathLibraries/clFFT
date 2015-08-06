@@ -477,7 +477,9 @@ GpuStatTimer::Print( )
 						mean[ m ].plHandle == mean[ t ].planZ ||
 						mean[ m ].plHandle == mean[ t ].planTX ||
 						mean[ m ].plHandle == mean[ t ].planTY ||
-						mean[ m ].plHandle == mean[ t ].planTZ )
+						mean[ m ].plHandle == mean[ t ].planTZ ||
+						mean[ m ].plHandle == mean[ t ].planRCcopy ||
+						mean[ m ].plHandle == mean[ t ].planCopy )
 					{
 						time	+= mean[ m ].doubleNanoSec;
 					}
@@ -500,7 +502,8 @@ GpuStatTimer::Print( )
 			}
 
 			if( ( mean[ t ].planX + mean[ t ].planY + mean[ t ].planZ ) > 0 ||
-				( mean[ t ].planTX + mean[ t ].planTY + mean[ t ].planTZ ) > 0 )
+				( mean[ t ].planTX + mean[ t ].planTY + mean[ t ].planTZ ) > 0  || 
+				( mean[ t ].planRCcopy + mean[ t ].planCopy ) > 0 )
 			{
 				tout << std::setw( tableFourth ) << _T( "Child Handles:" );
 				catLengths.str( _T( "" ) );
@@ -531,6 +534,16 @@ GpuStatTimer::Print( )
 				{
 					catLengths << _T( "," );
 					catLengths << mean[ t ].planTZ;
+				}
+				if( mean[ t ].planRCcopy != 0 )
+				{
+					catLengths << _T( "," );
+					catLengths << mean[ t ].planRCcopy;
+				}
+				if( mean[ t ].planCopy != 0 )
+				{
+					catLengths << _T( "," );
+					catLengths << mean[ t ].planCopy;
 				}
 				catLengths << _T( ")" );
 				tout << std::setw( tableThird ) << catLengths.str( ) << std::endl;
