@@ -505,7 +505,7 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 				{
 					// Enable block compute under these conditions
 					if( (fftPlan->inStride[0] == 1) && (fftPlan->outStride[0] == 1) && !rc
-						&& (fftPlan->length[0] <= 1048576/PrecisionWidth(fftPlan->precision)) )
+						&& (fftPlan->length[0] <= 262144/PrecisionWidth(fftPlan->precision)) )
 					{
 						fftPlan->blockCompute = true;
 
@@ -607,7 +607,7 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 					if (fftPlan->inStride[0] != 1 || fftPlan->outStride[0] != 1) break;
 
 					if ( IsPo2(fftPlan->length[0])
-						&& (fftPlan->length[0] <= 1048576/PrecisionWidth(fftPlan->precision)) ) break;
+						&& (fftPlan->length[0] <= 262144/PrecisionWidth(fftPlan->precision)) ) break;
 
 					if ( clLengths[0]<=32 && clLengths[1]<=32) break;
 
