@@ -184,26 +184,36 @@ bool compare(T1 *refData, std::valarray< T2 > real, std::valarray< T2 > imag,
 //Compare reference and opencl output
 template < typename T1 , typename T2 >
 bool compare(T1 *refData, std::valarray< T2 > real, 
-             size_t length, int batchsize, const float epsilon = 1e-6f)
+             size_t batch_size, size_t *o_strides, size_t *lengths, const float epsilon = 1e-6f)
 {
     float error = 0.0f;
     T1 ref = 0.0;
 	T1 diff;
 	float normRef = 0.0f;
 	float normError = 0.0f;
-	size_t scale = length;
-
+	
 	//real compare
-	for (int b = 0; b < batchsize; b++)
-	{	
-		int idx = b * (length + 2);
-		for(size_t i = idx; i < (idx + length); ++i)
+	for(size_t b = 0; b < batch_size; b++)
+	{
+		size_t p3 = b * o_strides[3];
+		for(size_t k = 0; k < lengths[2]; k++)
 		{
-			diff = refData[i] - (real[i] * scale);
-			error += (float)(diff * diff);
-			ref += refData[i] * refData[i];
+			size_t p2 = p3 + k * o_strides[2];
+			for(size_t j = 0; j < lengths[1]; j++)
+			{
+				size_t p1 = p2 + j * o_strides[1];
+				for(size_t i = 0; i < lengths[0]; i++)
+				{
+					size_t p0 = p1 + i * o_strides[0];
+
+					diff = refData[p0] - (real[p0] * lengths[0]);
+					error += (float)(diff * diff);
+					ref += refData[p0] * refData[p0];
+				}
+			}
 		}
 	}
+	
 	if (error != 0)
 	{
 		normRef =::sqrtf((float) ref);
@@ -1029,7 +1039,7 @@ void compareWithReference(clfftLayout in_layout, clfftLayout out_layout, size_t 
 					refout = get_fftwf_output_c2r(lengths, strides,  inStrides, outStrides, batch_size, fftBatchSize, outfftBatchSize, fftVectorSizePadded,
 												in_layout, outfftVectorSizePadded, outfftVectorSize, dim, dir);
 
-					if (!compare<float, T>(refout, real, outfftVectorSize, batch_size))
+					if (!compare<float, T>(refout, real, batch_size, o_strides, lengths))
 						checkflag = true;
 
 					/*for( cl_uint i = 0; i < outfftBatchSize; i = i + outStrides[0])

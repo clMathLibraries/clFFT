@@ -2943,17 +2943,25 @@ namespace StockhamGenerator
 
 						if(outInterleaved)
 						{
-							str += "__global "; str += r2Type; str += " * restrict gbOut)\n";
+							str += "__global "; str += r2Type; str += " * restrict gbOut";
 						}
 						else if(outReal)
 						{
-							str += "__global "; str += rType; str += " * restrict gbOut)\n";
+							str += "__global "; str += rType; str += " * restrict gbOut";
 						}
 						else
 						{
 							str += "__global const "; str += rType; str += " * restrict gbOutRe, ";
-							str += "__global const "; str += rType; str += " * restrict gbOutIm)\n";
+							str += "__global const "; str += rType; str += " * restrict gbOutIm";
 						}
+
+						//If plan has pre-callback
+						if (params.fft_hasPreCallback)
+						{
+							str += callbackstr;
+						}
+
+						str += ")\n";
 					}
 					else
 					{
@@ -3218,8 +3226,8 @@ namespace StockhamGenerator
 					{
 						if(inInterleaved || inReal)
 						{
-							if(!rcSimple) {	str += "lwbIn2 = gbIn + iOffset2;\n\t"; }
-											str += "lwbIn = gbIn + iOffset;\n\t";
+							if(!rcSimple && !params.fft_hasPreCallback) {	str += "lwbIn2 = gbIn + iOffset2;\n\t"; }
+							if(!params.fft_hasPreCallback) { str += "lwbIn = gbIn + iOffset;\n\t"; }
 						}
 						else
 						{
@@ -3432,7 +3440,17 @@ namespace StockhamGenerator
 					}
 					else
 					{
-						if(inInterleaved || inReal)		inBuf  = (inInterleaved && params.fft_hasPreCallback) ? "gb, gb, " : "lwbIn, lwbIn2, ";
+						if(inInterleaved || inReal)		
+						{
+							if (!params.fft_hasPreCallback)
+							{
+								inBuf  = "lwbIn, lwbIn2, ";
+							}
+							else
+							{
+								inBuf  = (params.fft_placeness == CLFFT_INPLACE) ? "gb, gb, " : "gbIn, gbIn, " ;
+							}	
+						}
 						else							inBuf  = (params.fft_hasPreCallback) ? "gbInRe, gbInRe, gbInIm, gbInIm, " : "lwbInRe, lwbInRe2, lwbInIm, lwbInIm2, ";
 
 						if(outInterleaved || outReal)	outBuf = "lwbOut, lwbOut2";
