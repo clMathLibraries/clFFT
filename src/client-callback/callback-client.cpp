@@ -361,18 +361,8 @@ float* get_fftwf_output_c2r(size_t* lengths, size_t *strides, const size_t *inSt
 	
 		for( size_t i = 0; i < fftVectorSizePadded; i = i + inStrides[0])
 		{
-			switch (in_layout)
-			{
-			case CLFFT_HERMITIAN_INTERLEAVED:
-				scalar = SCALAR + i;
-				break;
-			case CLFFT_HERMITIAN_PLANAR:
-				scalar = (int)(SCALAR + i + (SCALAR + i + 1));
-				break;
-			default:
-				break;
-			}
-
+			scalar = SCALAR + i;
+			
 			refin[p3 + i][0] *= (float)(scalar);
 			refin[p3 + i][1] *= (float)(scalar);
 		}
@@ -1131,9 +1121,9 @@ int transform( size_t* lengths, const size_t *inStrides, const size_t *outStride
 	//Valudate input and output data layout
 	validateDataLayout(in_layout, out_layout, place);
 	
-	if (hasPrecallback && !(in_layout == CLFFT_COMPLEX_INTERLEAVED || in_layout == CLFFT_COMPLEX_PLANAR || in_layout == CLFFT_HERMITIAN_INTERLEAVED))
+	if (hasPrecallback && !(in_layout == CLFFT_COMPLEX_INTERLEAVED || in_layout == CLFFT_COMPLEX_PLANAR || in_layout == CLFFT_HERMITIAN_INTERLEAVED || in_layout == CLFFT_HERMITIAN_PLANAR))
 	{
-		terr << _T("Pre-callback feature is currently supported only for Complex-Complex and Complex-Real Interleaved FFT " ) << std::endl;
+		terr << _T("Pre-callback feature is currently supported only for Complex-Complex and Complex-Real FFT " ) << std::endl;
 		return 1;
 	}
 
@@ -1224,16 +1214,35 @@ int transform( size_t* lengths, const size_t *inStrides, const size_t *outStride
 			//Register the callback
 			OPENCL_V_THROW (clFFTSetPlanCallback(plan_handle, "mulval", precallbackstr, NULL, 0, PRECALLBACK, userdata), "clFFTSetPlanCallback failed");
 		}
-
-		//C2C PLANAR 
-		if (in_layout == CLFFT_COMPLEX_PLANAR)
+		else if (in_layout == CLFFT_COMPLEX_PLANAR)
 		{	
+			//C2C PLANAR 
 			char* precallbackstr = (precision == CLFFT_SINGLE) ? STRINGIFY(MULVAL_PLANAR) : STRINGIFY(MULVAL_PLANAR_DP);
 			USER_DATA *h_userdata = (USER_DATA*)malloc(sizeof(USER_DATA) * fftBatchSize);
 			for( size_t i = 0; i < fftBatchSize; i = i + inStrides[0])
 			{
 				h_userdata[i].scalar1 = SCALAR + (int)(i % fftVectorSize);
 				h_userdata[i].scalar2 = SCALAR + (int)(i % fftVectorSize) + 1;
+			}
+			userdata = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, sizeof(USER_DATA) * fftBatchSize, (void*)h_userdata, NULL);
+
+			//Register the callback
+			OPENCL_V_THROW (clFFTSetPlanCallback(plan_handle, "mulval", precallbackstr, STRINGIFY(STRUCT_USERDATA), 0, PRECALLBACK, userdata), "clFFTSetPlanCallback failed");
+		}
+		else if (in_layout == CLFFT_HERMITIAN_PLANAR)
+		{	
+			//C2C PLANAR 
+			char* precallbackstr = (precision == CLFFT_SINGLE) ? STRINGIFY(MULVAL_PLANAR) : STRINGIFY(MULVAL_PLANAR_DP);
+			USER_DATA *h_userdata = (USER_DATA*)malloc(sizeof(USER_DATA) * fftBatchSize);
+			for(size_t b = 0; b < batch_size; b++)
+			{
+				size_t p3 = b * strides[3];
+	
+				for( size_t i = 0; i < fftVectorSizePadded; i = i + inStrides[0])
+				{
+					h_userdata[p3 + i].scalar1 = SCALAR + i ;
+					h_userdata[p3 + i].scalar2 = 0;
+				}
 			}
 			userdata = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, sizeof(USER_DATA) * fftBatchSize, (void*)h_userdata, NULL);
 

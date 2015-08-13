@@ -781,7 +781,8 @@ clfftStatus clFFTSetPlanCallback(clfftPlanHandle plHandle, const char* funcName,
 
 	if (callbackType == PRECALLBACK)
 	{
-		if (fftPlan->inputLayout == CLFFT_COMPLEX_INTERLEAVED || fftPlan->inputLayout == CLFFT_COMPLEX_PLANAR || fftPlan->inputLayout == CLFFT_HERMITIAN_INTERLEAVED)
+		if (fftPlan->inputLayout == CLFFT_COMPLEX_INTERLEAVED || fftPlan->inputLayout == CLFFT_COMPLEX_PLANAR 
+			|| fftPlan->inputLayout == CLFFT_HERMITIAN_INTERLEAVED || fftPlan->inputLayout == CLFFT_HERMITIAN_PLANAR)
 		{
 			if (funcName != NULL && funcString != NULL)
 			{
