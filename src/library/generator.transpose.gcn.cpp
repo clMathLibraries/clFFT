@@ -557,6 +557,11 @@ static clfftStatus genTransposeKernel( const FFTGeneratedTransposeGCNAction::Sig
 		size_t wIndexXEnd = params.transOutHorizontal ? params.fft_N[1] % blockSize.y : params.fft_N[0] % blockSize.x;
 		size_t wIndexYEnd = params.transOutHorizontal ? params.fft_N[0] % blockSize.x : params.fft_N[1] % blockSize.y;
 
+		//If precallback is set
+		if (params.fft_hasPreCallback)
+		{
+			clKernWrite( transKernel, 3 ) << dtComplex << " retCallback;" << std::endl;
+		}
 
 		for(size_t i = 0; i<branchBlocks; i++)
 		{
@@ -607,12 +612,7 @@ static clfftStatus genTransposeKernel( const FFTGeneratedTransposeGCNAction::Sig
 					clKernWrite( transKernel, 3 ) << "{" << std::endl;
 				}
 
-			//If precallback is set
-			if (params.fft_hasPreCallback)
-			{
-				clKernWrite( transKernel, 6 ) << dtComplex << " retCallback;" << std::endl;
-			}
-
+			
 			clKernWrite( transKernel, 6 ) << "for( uint t=0; t < wgUnroll; t++ )" << std::endl;
 			clKernWrite( transKernel, 6 ) << "{" << std::endl;
 

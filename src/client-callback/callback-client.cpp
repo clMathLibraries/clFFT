@@ -206,7 +206,7 @@ bool compare(T1 *refData, std::valarray< T2 > real,
 				{
 					size_t p0 = p1 + i * o_strides[0];
 
-					diff = refData[p0] - (real[p0] * lengths[0]);
+					diff = refData[p0] - (real[p0] * lengths[0] * lengths[1] * lengths[2]);
 					error += (float)(diff * diff);
 					ref += refData[p0] * refData[p0];
 				}
@@ -326,19 +326,22 @@ fftw_complex* get_fftw_output(size_t* lengths, const size_t *inStrides, const si
 // Compute C2R reference output using fftw for float type
 float* get_fftwf_output_c2r(size_t* lengths, size_t *strides, const size_t *inStrides, const size_t *outStrides, size_t batch_size,
 								size_t fftBatchSize, size_t outfftBatchSize, size_t fftVectorSizePadded, clfftLayout in_layout,
-								size_t outfftVectorSizePadded, size_t outfftVectorSize, clfftDim dim, clfftDirection dir)
+								size_t outfftVectorSizePadded, size_t outfftVectorSize, clfftDim dim, clfftDirection dir, clfftResultLocation place)
 {
 	//In FFTW last dimension has the fastest changing index
 	int fftwLengths[3] = {(int)lengths[2], (int)lengths[1], (int)lengths[0]};
-
+	int inembed[3] = {(int)lengths[2], (int)lengths[1], (int)(lengths[0]/2 + 1)};
+	int lsd = (place == CLFFT_INPLACE) ? (int)(lengths[0]/2 + 1)*2 : (int)(lengths[0]);
+	int outembed[3] = {(int)lengths[2], (int)lengths[1], lsd};
+	
 	fftwf_plan refPlan;
 
 	fftwf_complex *refin = (fftwf_complex*) fftwf_malloc(sizeof(fftwf_complex)*fftBatchSize);
 	float *refout = (float*) malloc(sizeof(float)*outfftBatchSize);
 
 	refPlan = fftwf_plan_many_dft_c2r(dim, &fftwLengths[3 - dim], (int)batch_size, 
-									refin, &fftwLengths[3 - dim], (int)inStrides[0], (int)fftVectorSizePadded, 
-									refout, &fftwLengths[3 - dim], (int)outStrides[0], (int)outfftVectorSizePadded,
+									refin, &inembed[3 - dim], (int)inStrides[0], (int)fftVectorSizePadded, 
+									refout, &outembed[3 - dim], (int)outStrides[0], (int)outfftVectorSizePadded,
 									FFTW_ESTIMATE);
 
 	// set zero
@@ -1027,7 +1030,7 @@ void compareWithReference(clfftLayout in_layout, clfftLayout out_layout, size_t 
 					float *refout;
 
 					refout = get_fftwf_output_c2r(lengths, strides,  inStrides, outStrides, batch_size, fftBatchSize, outfftBatchSize, fftVectorSizePadded,
-												in_layout, outfftVectorSizePadded, outfftVectorSize, dim, dir);
+												in_layout, outfftVectorSizePadded, outfftVectorSize, dim, dir, place);
 
 					if (!compare<float, T>(refout, real, batch_size, o_strides, lengths))
 						checkflag = true;
@@ -1060,8 +1063,7 @@ void compareWithReference(clfftLayout in_layout, clfftLayout out_layout, size_t 
 								{
 									checkflag = true;
 									break;
-								}
-
+								}							
 							}
 						}
 					}

@@ -2466,6 +2466,14 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 						trans1Plan->oDist *= fftPlan->length[index];
 					}
 
+					//Set callback data if set on top level plan
+					if (fftPlan->hasPreCallback)
+					{
+						trans1Plan->hasPreCallback = true;
+						trans1Plan->preCallback = fftPlan->preCallback;
+						trans1Plan->precallUserData = fftPlan->precallUserData;
+					}
+
 					OPENCL_V(clfftBakePlan(fftPlan->planTY, numQueues, commQueueFFT, NULL, NULL ),
 						_T( "BakePlan for planTY failed" ) );
 
@@ -2707,6 +2715,14 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 					colPlan->envelope			= fftPlan->envelope;
 
 					colPlan->batchsize = fftPlan->batchsize;
+
+					//Set callback data if set on top level plan
+					if (fftPlan->hasPreCallback)
+					{
+						colPlan->hasPreCallback = true;
+						colPlan->preCallback = fftPlan->preCallback;
+						colPlan->precallUserData = fftPlan->precallUserData;
+					}
 
 					OPENCL_V(clfftBakePlan(fftPlan->planY, numQueues, commQueueFFT, NULL, NULL ), _T( "BakePlan for planY failed" ) );
 
@@ -3313,6 +3329,14 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 						trans1Plan->oDist *= fftPlan->length[index];
 					}
 
+					//Set callback data if set on top level plan
+					if (fftPlan->hasPreCallback)
+					{
+						trans1Plan->hasPreCallback = true;
+						trans1Plan->preCallback = fftPlan->preCallback;
+						trans1Plan->precallUserData = fftPlan->precallUserData;
+					}
+
 					OPENCL_V(clfftBakePlan(fftPlan->planTZ, numQueues, commQueueFFT, NULL, NULL ),
 						_T( "BakePlan for planTZ failed" ) );
 
@@ -3555,6 +3579,13 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 
 					colPlan->batchsize = fftPlan->batchsize;
 
+					//Set callback data if set on top level plan
+					if (fftPlan->hasPreCallback)
+					{
+						colPlan->hasPreCallback = true;
+						colPlan->preCallback = fftPlan->preCallback;
+						colPlan->precallUserData = fftPlan->precallUserData;
+					}
 				
 					OPENCL_V(clfftBakePlan(fftPlan->planZ, numQueues, commQueueFFT, NULL, NULL ), _T( "BakePlan 3D->1D planZ failed" ) );
 
