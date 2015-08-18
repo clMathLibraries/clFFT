@@ -27,6 +27,7 @@ set( clFFT.Test.Source
 	 accuracy_test_pow5.cpp
 	 accuracy_test_mixed_radices.cpp
 	 accuracy_test_random.cpp
+	 accuracy_test_precallback.cpp
 	 gtest_main.cpp
 	 ${PROJECT_SOURCE_DIR}/client/openCL.misc.cpp
 	 c-compliance.c

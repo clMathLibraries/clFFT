@@ -131,7 +131,7 @@ private:
 
 	buffer<T> input;
 	buffer<T> output;
-
+	
 	size_t number_of_data_points;
 	T _forward_scale, _backward_scale;
 	cl_uint commandQueueFlags;
@@ -615,6 +615,84 @@ public:
 	/*****************************************************/
 	void set_input_to_buffer( buffer<T> other_buffer ) {
 		input = other_buffer;
+	}
+
+	/*****************************************************/
+	void set_precallback_complex() {
+		cl_int status = 0;
+		clfftPrecision precision;
+		clfftGetPlanPrecision( *plan_handle, &precision );
+
+		char* precallbackstr;
+		
+		if (input.is_interleaved() )
+		{
+			precallbackstr = (precision == CLFFT_SINGLE) ? STRINGIFY(MULVAL) : STRINGIFY(MULVAL_DP);
+		}
+		else if (input.is_planar())
+		{
+			precallbackstr = (precision == CLFFT_SINGLE) ? STRINGIFY(MULVAL_PLANAR) : STRINGIFY(MULVAL_PLANAR_DP);
+		}
+
+		//precallback user data
+		buffer<T> userdata( 	static_cast<size_t>(dimension),
+					input.lengths(),
+					input.strides(),
+					input.batch_size(),
+					input.distance(),
+					layout::real,
+					_placeness
+					);
+
+		userdata.set_all_to_random_data(lengths[0], 10);
+		
+		// make the new buffer
+		const size_t bufferSizeBytes = userdata.size_in_bytes( );
+
+		cl_mem userdataBuff = clCreateBuffer( context.get( ), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, bufferSizeBytes, userdata.real_ptr(), &status);
+		OPENCL_V_THROW( status, "Creating Buffer ( ::clCreateBuffer() )" );
+
+		//Register the callback
+		OPENCL_V_THROW (clFFTSetPlanCallback(*plan_handle, "mulval", precallbackstr, NULL, 0, PRECALLBACK, userdataBuff), "clFFTSetPlanCallback failed");
+	}
+
+		/*****************************************************/
+	void set_precallback_complex_userdatatype() {
+		cl_int status = 0;
+
+		char* precallbackstr = STRINGIFY(MULVAL_UDT);
+
+		size_t totalPts = input.total_number_of_points_including_data_and_intervening();
+
+		buffer<T> temp( 	static_cast<size_t>(dimension),
+					input.lengths(),
+					input.strides(),
+					input.batch_size(),
+					input.distance(),
+					layout::real,
+					_placeness
+					);
+
+		temp.set_all_to_random_data(lengths[0], 10);
+
+		std::vector<USER_DATA> userdata(totalPts);
+		size_t the_index;
+		for( size_t batch = 0; batch < input.batch_size(); batch++) 
+			for( size_t z = 0; z < input.length(dimz); z++) 
+				for( size_t y = 0; y < input.length(dimy); y++) 
+					for( size_t x = 0; x < input.length(dimx); x++) 
+					{
+						the_index = ( input.stride(dimx) * x + input.stride(dimy) * y + input.stride(dimz) * z + input.distance() * batch );
+
+						userdata[the_index].scalar1 = temp.real(x, y, z, batch);
+						userdata[the_index].scalar2 = 1;
+					}
+
+		cl_mem userdataBuff = clCreateBuffer(context.get( ), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, sizeof(USER_DATA) * totalPts, (void*)&userdata[0], &status);
+		OPENCL_V_THROW( status, "Creating Buffer ( ::clCreateBuffer() )" );
+
+		//Register the callback
+		OPENCL_V_THROW (clFFTSetPlanCallback(*plan_handle, "mulval", precallbackstr, STRINGIFY(STRUCT_USERDATA), 0, PRECALLBACK, userdataBuff), "clFFTSetPlanCallback failed");
 	}
 
 	/*****************************************************/

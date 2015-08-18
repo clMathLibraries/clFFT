@@ -23,6 +23,56 @@
 #include <string>
 #include <stdexcept>
 
+#define MULVAL float2 mulval(__global void* in, uint offset, __global void* userdata)\n \
+				{ \n \
+				float scalar = *((__global float*)userdata + offset); \n \
+				float2 ret = *((__global float2*)in + offset) * scalar; \n \
+				return ret; \n \
+				}
+
+#define MULVAL_UDT float2 mulval(__global void* in, uint offset, __global void* userdata)\n \
+				{ \n \
+				__global USER_DATA *data = ((__global USER_DATA *)userdata + offset); \n \
+				float scalar = data->scalar1 * data->scalar2; \n \
+				float2 ret = *((__global float2*)in + offset) * scalar; \n \
+				return ret; \n \
+				}
+
+#define MULVAL_DP double2 mulval(__global void* in, uint offset, __global void* userdata)\n \
+				{ \n \
+				double scalar = *((__global double*)userdata + offset); \n \
+				double2 ret = *((__global double2*)in + offset) * scalar; \n \
+				return ret; \n \
+				}
+
+#define MULVAL_PLANAR float2 mulval(__global void* inRe, __global void* inIm, uint offset, __global void* userdata)\n \
+				{ \n \
+				float scalar = *((__global float*)userdata + offset); \n \
+				float2 ret; \n \
+				ret.x = *((__global float*)inRe + offset) * scalar; \n \
+				ret.y = *((__global float*)inIm + offset) * scalar; \n \
+				return ret; \n \
+				}
+
+#define MULVAL_PLANAR_DP double2 mulval(__global void* inRe, __global void* inIm, uint offset, __global void* userdata)\n \
+				{ \n \
+				double scalar = *((__global double*)userdata + offset); \n \
+				double2 ret; \n \
+				ret.x = *((__global double*)inRe + offset) * scalar; \n \
+				ret.y = *((__global double*)inIm + offset) * scalar; \n \
+				return ret; \n \
+				}
+
+#define STRUCT_USERDATA typedef struct USER_DATA  \
+					   {  \
+						float scalar1;  \
+						float scalar2;  \
+						} USER_DATA; 
+STRUCT_USERDATA
+
+#define CALLBCKSTR(...) #__VA_ARGS__
+#define STRINGIFY(...) 	CALLBCKSTR(__VA_ARGS__)
+
 enum { REAL=0, IMAG=1 };
 enum { dimx=0, dimy=1, dimz=2 };
 enum fftw_dim { one_d=1, two_d=2, three_d=3 };

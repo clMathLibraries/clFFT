@@ -440,6 +440,23 @@ public:
 		input = other_buffer;
 	}
 
+	void set_precallback_complex()
+	{
+		//precallback user data
+		buffer<T> userdata( 	input.number_of_dimensions(),
+					input.lengths(),
+					input.strides(),
+					input.batch_size(),
+					input.distance(),
+					layout::real ,
+					cl_placeness(placeness::in_place)
+					);
+		
+		userdata.set_all_to_random_data(_lengths[0], 10);
+
+		input *= userdata;
+	}
+
 	/*****************************************************/
 	void clear_data_buffer()
 	{

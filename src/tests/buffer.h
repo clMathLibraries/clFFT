@@ -598,6 +598,29 @@ public:
 		return !( *this == other_buffer );
 	}
 
+	void operator*=( buffer<T> & other_buffer )
+	{
+		if( is_interleaved() )
+		{
+			T* base_ptr = _the_buffers[interleaved].ptr();
+
+			for( size_t batch = 0; batch < batch_size(); batch++ )
+					for( size_t z = 0; z < length(dimz); z++ )
+						for( size_t y = 0; y < length(dimy); y++ )
+							for( size_t x = 0; x < length(dimx); x++ )
+							{					
+								size_t real_index = index(x, y, z, batch);
+								size_t imag_index = real_index + 1; // the imaginary component immediately follows the real
+
+								*( base_ptr + real_index ) *= other_buffer.real(x, y, z, batch);
+								if (!(this->is_real() || other_buffer.is_real()))
+								{
+									*( base_ptr + imag_index ) *= other_buffer.imag(x, y, z, batch);
+								}
+							}
+		}
+	}
+
 	/*****************************************************/
 	// strides and distance are those of the output (that is, the new hermitian buffer)
 	void change_real_to_hermitian( const size_t* strides_in, const size_t distance_in )
