@@ -252,11 +252,15 @@ namespace CopyGenerator
 			// Setup registers
 			str += "\t"; str += RegBaseType<PR>(2); str += " R;\n\n";
 
+
+			size_t NtRounded64 = DivRoundingUp<size_t>(Nt,64) * 64;
+
 			if(!general)
 			{
 				// Setup variables
-				str += "\tuint batch, mel, mel2;\n\t";
-				str += "batch = me/"; str += SztToStr(Nt); str += ";\n\t";
+				str += "\tuint batch, meg, mel, mel2;\n\t";
+				str += "batch = me/"; str += SztToStr(NtRounded64); str += ";\n\t";
+				str += "meg = me%"; str += SztToStr(NtRounded64); str += ";\n\t";
 				str += "mel = me%"; str += SztToStr(Nt); str += ";\n\t";
 				str += "mel2 = ("; str += SztToStr(N); str += " - mel)%"; str += SztToStr(N); str += ";\n\n";
 			}
@@ -346,6 +350,7 @@ namespace CopyGenerator
 			}
 			else
 			{
+				str += "if(meg < "; str += SztToStr(Nt); str += ")\n\t{\n\t";
 				if(c2h)
 				{
 					if(inIlvd)
@@ -384,7 +389,7 @@ namespace CopyGenerator
 					{
 						str += "lwbOut[0] = R;\n\t";
 						str += "R.y = -R.y;\n\t";
-						str += "lwbOut2[0] = R;\n\n";
+						str += "lwbOut2[0] = R;\n\t";
 					}
 					else
 					{
@@ -392,9 +397,10 @@ namespace CopyGenerator
 						str += "lwbOutIm[0] = R.y;\n\t";
 						str += "R.y = -R.y;\n\t";
 						str += "lwbOutRe2[0] = R.x;\n\t";
-						str += "lwbOutIm2[0] = R.y;\n\n";
+						str += "lwbOutIm2[0] = R.y;\n\t";
 					}
 				}
+				str += "}\n\n";
 			}
 
 			str += "}\n";
@@ -463,7 +469,7 @@ clfftStatus FFTGeneratedCopyAction::getWorkSizes (std::vector<size_t> & globalWS
 				}
 				else
 				{
-					count *= (1 + this->signature.fft_N[0]/2); 
+					count *= (DivRoundingUp<size_t>((1 + this->signature.fft_N[0]/2), 64) * 64); 
 				}
 			}
 			break;
