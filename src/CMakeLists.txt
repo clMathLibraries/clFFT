@@ -290,7 +290,7 @@ endif()
 if(WIN32)
   set(destdir CMake)
 else()
-  set(destdir share/clFFT)
+  set(destdir lib${SUFFIX_LIB}/cmake/clFFT)
 endif()
 string(REGEX REPLACE "[^/]+" ".." reldir "${destdir}")
 configure_file(
