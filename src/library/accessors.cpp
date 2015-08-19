@@ -781,23 +781,17 @@ clfftStatus clFFTSetPlanCallback(clfftPlanHandle plHandle, const char* funcName,
 
 	if (callbackType == PRECALLBACK)
 	{
-		if (fftPlan->inputLayout == CLFFT_COMPLEX_INTERLEAVED || fftPlan->inputLayout == CLFFT_COMPLEX_PLANAR 
-			|| fftPlan->inputLayout == CLFFT_HERMITIAN_INTERLEAVED || fftPlan->inputLayout == CLFFT_HERMITIAN_PLANAR)
+		if (funcName != NULL && funcString != NULL)
 		{
-			if (funcName != NULL && funcString != NULL)
-			{
-				fftPlan->hasPreCallback = true;
+			fftPlan->hasPreCallback = true;
 
-				fftPlan->preCallback.funcname = funcName;
-				fftPlan->preCallback.funcstring = funcString;
-				fftPlan->preCallback.userdatastruct = userStructString;
-				fftPlan->preCallback.localMemSize = (localMemSize > 0) ? localMemSize : 0;
+			fftPlan->preCallback.funcname = funcName;
+			fftPlan->preCallback.funcstring = funcString;
+			fftPlan->preCallback.userdatastruct = userStructString;
+			fftPlan->preCallback.localMemSize = (localMemSize > 0) ? localMemSize : 0;
 
-				fftPlan->precallUserData = userdata;
-			}
-		}
-		else
-			return CLFFT_NOTIMPLEMENTED;
+			fftPlan->precallUserData = userdata;
+		}		
 	}
 
 	return	CLFFT_SUCCESS;

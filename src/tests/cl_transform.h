@@ -618,7 +618,7 @@ public:
 	}
 
 	/*****************************************************/
-	void set_precallback_complex() {
+	void set_input_precallback() {
 		cl_int status = 0;
 		clfftPrecision precision;
 		clfftGetPlanPrecision( *plan_handle, &precision );
@@ -632,6 +632,10 @@ public:
 		else if (input.is_planar())
 		{
 			precallbackstr = (precision == CLFFT_SINGLE) ? STRINGIFY(MULVAL_PLANAR) : STRINGIFY(MULVAL_PLANAR_DP);
+		}
+		else if (input.is_real())
+		{
+			precallbackstr = (precision == CLFFT_SINGLE) ? STRINGIFY(MULVAL_REAL) : STRINGIFY(MULVAL_REAL_DP);
 		}
 
 		//precallback user data
@@ -657,7 +661,7 @@ public:
 	}
 
 		/*****************************************************/
-	void set_precallback_complex_userdatatype() {
+	void set_input_precallback_userdatatype() {
 		cl_int status = 0;
 
 		char* precallbackstr = STRINGIFY(MULVAL_UDT);

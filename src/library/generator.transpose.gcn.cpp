@@ -513,7 +513,11 @@ static clfftStatus genTransposeKernel( const FFTGeneratedTransposeGCNAction::Sig
 		case CLFFT_HERMITIAN_PLANAR:
 			return CLFFT_TRANSPOSED_NOTIMPLEMENTED;
 		case CLFFT_REAL:
-			clKernWrite( transKernel, 3 ) << "global " << dtInput << "* tileIn = " << pmRealIn << " + iOffset;" << std::endl;
+			//No need of tileIn declaration when precallback is set as the global buffer is used directly
+			if (!params.fft_hasPreCallback)
+			{
+				clKernWrite( transKernel, 3 ) << "global " << dtInput << "* tileIn = " << pmRealIn << " + iOffset;" << std::endl;
+			}
 			break;
 			
 		}
@@ -558,7 +562,7 @@ static clfftStatus genTransposeKernel( const FFTGeneratedTransposeGCNAction::Sig
 		size_t wIndexYEnd = params.transOutHorizontal ? params.fft_N[0] % blockSize.x : params.fft_N[1] % blockSize.y;
 
 		//If precallback is set
-		if (params.fft_hasPreCallback)
+		if (params.fft_hasPreCallback && params.fft_inputLayout == CLFFT_COMPLEX_PLANAR)
 		{
 			clKernWrite( transKernel, 3 ) << dtComplex << " retCallback;" << std::endl;
 		}
@@ -675,13 +679,12 @@ static clfftStatus genTransposeKernel( const FFTGeneratedTransposeGCNAction::Sig
 					{
 						if (params.fft_preCallback.localMemSize > 0)
 						{
-							clKernWrite( transKernel, 9 ) << "retCallback = " << params.fft_preCallback.funcname << "(" << pmComplexIn << ", iOffset + gInd, userdata, localmem);" << std::endl;
+							clKernWrite( transKernel, 9 ) << "tmp = " << params.fft_preCallback.funcname << "(" << pmComplexIn << ", iOffset + gInd, userdata, localmem);" << std::endl;
 						}
 						else
 						{
-							clKernWrite( transKernel, 9 ) << "retCallback = " << params.fft_preCallback.funcname << "(" << pmComplexIn << ", iOffset + gInd, userdata);" << std::endl;
+							clKernWrite( transKernel, 9 ) << "tmp = " << params.fft_preCallback.funcname << "(" << pmComplexIn << ", iOffset + gInd, userdata);" << std::endl;
 						}
-						clKernWrite( transKernel, 9 ) << "tmp = retCallback;" << std::endl;
 					}
 					else
 					{
@@ -715,9 +718,22 @@ static clfftStatus genTransposeKernel( const FFTGeneratedTransposeGCNAction::Sig
 			case CLFFT_HERMITIAN_PLANAR:
 				return CLFFT_TRANSPOSED_NOTIMPLEMENTED;
 			case CLFFT_REAL:
-				clKernWrite( transKernel, 9 ) << "tmp = tileIn[ gInd ];" << std::endl;
+				if (params.fft_hasPreCallback)
+				{
+					if (params.fft_preCallback.localMemSize > 0)
+					{
+						clKernWrite( transKernel, 9 ) << "tmp = " << params.fft_preCallback.funcname << "(" << pmRealIn << ", iOffset + gInd, userdata, localmem);" << std::endl;
+					}
+					else
+					{
+						clKernWrite( transKernel, 9 ) << "tmp = " << params.fft_preCallback.funcname << "(" << pmRealIn << ", iOffset + gInd, userdata);" << std::endl;
+					}
+				}
+				else
+				{
+					clKernWrite( transKernel, 9 ) << "tmp = tileIn[ gInd ];" << std::endl;
+				}
 				break;
-
 			}
 
 			if(branchingInAny)

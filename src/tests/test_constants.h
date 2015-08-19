@@ -63,6 +63,20 @@
 				return ret; \n \
 				}
 
+#define MULVAL_REAL float mulval(__global void* in, uint offset, __global void* userdata)\n \
+				{ \n \
+				float scalar = *((__global float*)userdata + offset); \n \
+				float ret = *((__global float*)in + offset) * scalar; \n \
+				return ret; \n \
+				}
+
+#define MULVAL_REAL_DP double mulval(__global void* in, uint offset, __global void* userdata)\n \
+				{ \n \
+				double scalar = *((__global double*)userdata + offset); \n \
+				double ret = *((__global double*)in + offset) * scalar; \n \
+				return ret; \n \
+				}
+
 #define STRUCT_USERDATA typedef struct USER_DATA  \
 					   {  \
 						float scalar1;  \

@@ -600,25 +600,54 @@ public:
 
 	void operator*=( buffer<T> & other_buffer )
 	{
+		size_t the_index;
+		T* base_ptr;
+		T* real_ptr;
+		T* imag_ptr;
+
 		if( is_interleaved() )
 		{
-			T* base_ptr = _the_buffers[interleaved].ptr();
-
-			for( size_t batch = 0; batch < batch_size(); batch++ )
-					for( size_t z = 0; z < length(dimz); z++ )
-						for( size_t y = 0; y < length(dimy); y++ )
-							for( size_t x = 0; x < length(dimx); x++ )
-							{					
-								size_t real_index = index(x, y, z, batch);
-								size_t imag_index = real_index + 1; // the imaginary component immediately follows the real
-
-								*( base_ptr + real_index ) *= other_buffer.real(x, y, z, batch);
-								if (!(this->is_real() || other_buffer.is_real()))
-								{
-									*( base_ptr + imag_index ) *= other_buffer.imag(x, y, z, batch);
-								}
-							}
+			base_ptr = _the_buffers[interleaved].ptr();
 		}
+		else if ( is_planar() )
+		{
+			real_ptr = _the_buffers[re].ptr();
+			imag_ptr = _the_buffers[im].ptr();
+		}
+		else if ( is_real() )
+		{
+			base_ptr = _the_buffers[re].ptr();
+		}
+
+		for( size_t batch = 0; batch < batch_size(); batch++ )
+			for( size_t z = 0; z < length(dimz); z++ )
+				for( size_t y = 0; y < length(dimy); y++ )
+					for( size_t x = 0; x < length(dimx); x++ )
+					{		
+						the_index = index(x, y, z, batch);
+						if( is_interleaved() )
+						{
+							*( base_ptr + the_index ) *= other_buffer.real(x, y, z, batch);
+		
+							if (!other_buffer.is_real())
+							{
+								the_index = the_index + 1; // the imaginary component immediately follows the real
+								*( base_ptr + the_index ) *= other_buffer.imag(x, y, z, batch);
+							}
+						}
+						else if ( is_planar() )
+						{
+							*( real_ptr + the_index ) *= other_buffer.real(x, y, z, batch);
+							if (!other_buffer.is_real())
+							{
+								*( imag_ptr + the_index ) *= other_buffer.imag(x, y, z, batch);
+							}
+						}
+						else if ( is_real() )
+						{
+							*( base_ptr + the_index ) *= other_buffer.real(x, y, z, batch);
+						}
+					}
 	}
 
 	/*****************************************************/

@@ -440,7 +440,7 @@ public:
 		input = other_buffer;
 	}
 
-	void set_precallback_complex()
+	void set_input_precallback()
 	{
 		//precallback user data
 		buffer<T> userdata( 	input.number_of_dimensions(),
@@ -453,7 +453,7 @@ public:
 					);
 		
 		userdata.set_all_to_random_data(_lengths[0], 10);
-
+		
 		input *= userdata;
 	}
 

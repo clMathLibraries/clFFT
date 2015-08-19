@@ -172,13 +172,13 @@ void precallback_complex_to_complex( data_pattern pattern, direction::direction_
 	//set precallback values
 	if (hasUserDatatype)
 	{
-		test_fft.set_precallback_complex_userdatatype();
+		test_fft.set_input_precallback_userdatatype();
 	}
 	else
 	{
-		test_fft.set_precallback_complex();
+		test_fft.set_input_precallback();
 	}
-	reference.set_precallback_complex();
+	reference.set_input_precallback();
 
 	if( direction == direction::forward )
 	{
@@ -255,6 +255,69 @@ void real_to_complex( data_pattern pattern,
 
 	// if we're starting with unequal data, we're destined for failure
 	EXPECT_EQ( true, test_fft.input_buffer() == reference.input_buffer() );
+
+	test_fft.forward_scale( scale );
+	reference.forward_scale( scale );
+
+	test_fft.transform();
+	reference.transform();
+
+	EXPECT_EQ( true, test_fft.result() == reference.result() );
+}
+
+/*****************************************************/
+/*****************************************************/
+// dimension is inferred from lengths.size()
+// tightly packed is inferred from strides.empty()
+// input layout is always real
+template< class T, class cl_T, class fftw_T >
+void precallback_real_to_complex( data_pattern pattern,
+	std::vector<size_t> lengths, size_t batch,
+	std::vector<size_t> input_strides, std::vector<size_t> output_strides,
+	size_t input_distance, size_t output_distance,
+	layout::buffer_layout_t out_layout,
+	placeness::placeness_t placeness,
+	T scale = 1.0f )
+{
+	clfft<T, cl_T> test_fft( static_cast<clfftDim>(lengths.size()), &lengths[0],
+		input_strides.empty() ? NULL : &input_strides[0],
+		output_strides.empty() ? NULL : &output_strides[0],
+		batch, input_distance, output_distance,
+		cl_layout(layout::real), cl_layout(out_layout),
+		cl_placeness(placeness) );
+
+	fftw<T, fftw_T> reference( lengths.size(), &lengths[0], batch, r2c );
+
+	if( pattern == sawtooth )
+	{
+		test_fft.set_input_to_sawtooth( 1.0f );
+		reference.set_data_to_sawtooth( 1.0f );
+	}
+	else if( pattern == value )
+	{
+		test_fft.set_input_to_value( 2.0f );
+		reference.set_all_data_to_value( 2.0f );
+	}
+	else if( pattern == impulse )
+	{
+		test_fft.set_input_to_impulse();
+		reference.set_data_to_impulse();
+	}
+	else if( pattern == erratic )
+	{
+		test_fft.set_input_to_random();
+		reference.set_data_to_random();
+	}
+	else
+	{
+		throw std::runtime_error( "invalid pattern type in real_to_complex()" );
+	}
+
+	// if we're starting with unequal data, we're destined for failure
+	EXPECT_EQ( true, test_fft.input_buffer() == reference.input_buffer() );
+
+	test_fft.set_input_precallback();
+	reference.set_input_precallback();
 
 	test_fft.forward_scale( scale );
 	reference.forward_scale( scale );
