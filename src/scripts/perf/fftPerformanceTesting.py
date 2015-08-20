@@ -96,9 +96,9 @@ def executable(library):
             exe = 'clFFT-client'
     elif library == 'cuFFT':
         if sys.platform == 'win32':
-            exe = 'cuFFT-Client.exe'
+            exe = 'cuFFT-client.exe'
         elif sys.platform == 'linux2':
-            exe = 'cuFFT-Client'
+            exe = 'cuFFT-client'
     else:
         print 'ERROR: unknown library -- cannot determine executable name'
         quit()
