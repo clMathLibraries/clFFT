@@ -91,9 +91,9 @@ def executable(library):
 
     if library == 'clFFT' or library == 'null':
         if sys.platform == 'win32':
-            exe = 'clFFT-client-2.5.0.exe'
+            exe = 'clFFT-client.exe'
         elif sys.platform == 'linux2':
-            exe = 'clFFT-client-2.5.0'
+            exe = 'clFFT-client'
     elif library == 'cuFFT':
         if sys.platform == 'win32':
             exe = 'cuFFT-Client.exe'
@@ -115,8 +115,6 @@ def max_mem_available_in_bytes(exe, device):
     return int(maxMemoryAvailable.group(0))
 
 def max_problem_size(exe, layout, precision, device):
-    if layout == 1 or layout == 1:
-        numbers_in_one_datapoint = 2
 
     if precision == 'single':
         bytes_in_one_number = 4
@@ -126,22 +124,15 @@ def max_problem_size(exe, layout, precision, device):
         print 'max_problem_size(): unknown precision'
         quit()
 
-    max_problem_size = pow(2,25) #max_mem_available_in_bytes(exe, device)
+    max_problem_size = pow(2,25)
     if layout == '5':
-      max_problem_size = pow(2,24) #max_mem_available_in_bytes(exe, device)
-    #max_problem_size=max_problem_size/ (numbers_in_one_datapoint * bytes_in_one_number)
-    #max_problem_size = max_problem_size / 16
+      max_problem_size = pow(2,24) # TODO: Upper size limit for real transform
     return max_problem_size
 
 def maxBatchSize(lengthx, lengthy, lengthz, layout, precision, exe, device):
     problemSize = int(lengthx) * int(lengthy) * int(lengthz)
     maxBatchSize = max_problem_size(exe, layout, precision, device) / problemSize
     return str(maxBatchSize)
-    #if int(lengthx) == pow(2,16) or int(lengthx) == pow(2,17):
-    #    # special cases in the kernel. extra padding is added in, so we need to shrink the batch size to accommodate
-    #    return str(maxBatchSize/2)
-    #else:
-    #    return str(maxBatchSize)
 
 def create_ini_file_if_requested(args):
     if args.createIniFilename:
