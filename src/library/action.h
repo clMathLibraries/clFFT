@@ -254,4 +254,45 @@ public:
     }
 };
 
+
+// FFTGeneratedTransposeINPLACEAction
+//
+// Implements a TransposeINPLACE action for the FFT
+// Its signature is represented by FFTKernelGenKeyParams structure
+// 
+// This class implements:
+//  - the generation of the kernel string
+//  - the build of the kernel
+// 
+// The structure FFTKernelGenKeyParams is used to characterize and generate
+// the appropriate transpose kernel. That structure is used for the signature of
+// this action. It is common to Stockham, copy and transpose methods. For
+// convenience, this structure is used for every FFTGenerated*Action class,
+// but in practice the transpose action only use a few information of that
+// structure, so a proper structure should be used instead.
+//
+class FFTGeneratedTransposeINPLACEAction : public FFTTransposeINPLACEAction
+{
+public:
+    FFTGeneratedTransposeINPLACEAction(clfftPlanHandle plHandle, FFTPlan * plan, cl_command_queue queue, clfftStatus & err);
+
+    typedef FFTKernelSignature<FFTKernelGenKeyParams, FFT_DEFAULT_TRANSPOSE_ACTION> Signature;
+
+private:
+    Signature signature;
+
+    clfftStatus generateKernel  (FFTRepo& fftRepo, const cl_command_queue commQueueFFT );
+    clfftStatus getWorkSizes    (std::vector<size_t> & globalws, std::vector<size_t> & localws);
+    clfftStatus initParams      ();
+
+    bool buildForwardKernel();
+    bool buildBackwardKernel();
+
+public:
+
+    virtual const Signature * getSignatureData()
+    {
+        return &this->signature;
+    }
+};
 #endif // AMD_CLFFT_action_H
