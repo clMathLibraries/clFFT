@@ -743,7 +743,7 @@ for params in test_combinations:
             if args.library == 'cuFFT':
               output = itertools.ifilter( lambda x: x.count('gflops'), output)
             else:
-              output = itertools.ifilter( lambda x: x.count('Gflops'), output)
+              output = itertools.ifilter( lambda x: x.count('gflops'), output)
 
             output = list(itertools.islice(output, None))
             thisResult = re.search('\d+\.*\d*e*-*\d*$', output[-1])
@@ -751,8 +751,6 @@ for params in test_combinations:
                 thisResult = re.search('[-+]?\d*\.\d+|\d+$', output[-1])
             thisResult = float(thisResult.group(0))
 
-            if args.library=='clFFT' and params.inlayout=='5':
-              thisResult=thisResult/2;
             thisResult = (params.x, params.y, params.z, batchSize, params.device, params.inlayout, params.outlayout, params.placeness, params.precision, params.label, thisResult)
 
             outputRow = ''
