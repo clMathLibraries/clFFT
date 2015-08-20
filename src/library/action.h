@@ -255,9 +255,9 @@ public:
 };
 
 
-// FFTGeneratedTransposeINPLACEAction
+// FFTGeneratedTransposeInplaceAction
 //
-// Implements a TransposeINPLACE action for the FFT
+// Implements a TransposeInplace action for the FFT
 // Its signature is represented by FFTKernelGenKeyParams structure
 // 
 // This class implements:
@@ -271,10 +271,10 @@ public:
 // but in practice the transpose action only use a few information of that
 // structure, so a proper structure should be used instead.
 //
-class FFTGeneratedTransposeINPLACEAction : public FFTTransposeINPLACEAction
+class FFTGeneratedTransposeInplaceAction : public FFTTransposeInplaceAction
 {
 public:
-    FFTGeneratedTransposeINPLACEAction(clfftPlanHandle plHandle, FFTPlan * plan, cl_command_queue queue, clfftStatus & err);
+    FFTGeneratedTransposeInplaceAction(clfftPlanHandle plHandle, FFTPlan * plan, cl_command_queue queue, clfftStatus & err);
 
     typedef FFTKernelSignature<FFTKernelGenKeyParams, FFT_DEFAULT_TRANSPOSE_ACTION> Signature;
 

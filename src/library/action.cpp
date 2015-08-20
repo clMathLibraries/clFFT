@@ -65,7 +65,7 @@ FFTTransposeGCNAction::FFTTransposeGCNAction(clfftPlanHandle plHandle, FFTPlan *
     err = CLFFT_SUCCESS;
 }
 
-FFTTransposeINPLACEAction::FFTTransposeINPLACEAction(clfftPlanHandle plHandle, FFTPlan * plan, cl_command_queue queue, clfftStatus & err)
+FFTTransposeInplaceAction::FFTTransposeInplaceAction(clfftPlanHandle plHandle, FFTPlan * plan, cl_command_queue queue, clfftStatus & err)
     : FFTAction(plan, err)
 {
     if (err != CLFFT_SUCCESS)

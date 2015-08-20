@@ -25,18 +25,18 @@
 #include <math.h>
 #include <iomanip>
 
-#include "generator.transpose.INPLACE.h"
+#include "generator.transpose.inplace.h"
 #include "generator.stockham.h"
 
 #include "action.h"
 
-FFTGeneratedTransposeINPLACEAction::FFTGeneratedTransposeINPLACEAction(clfftPlanHandle plHandle, FFTPlan * plan, cl_command_queue queue, clfftStatus & err)
-    : FFTTransposeINPLACEAction(plHandle, plan, queue, err)
+FFTGeneratedTransposeInplaceAction::FFTGeneratedTransposeInplaceAction(clfftPlanHandle plHandle, FFTPlan * plan, cl_command_queue queue, clfftStatus & err)
+    : FFTTransposeInplaceAction(plHandle, plan, queue, err)
 {
     if (err != CLFFT_SUCCESS)
     {
-        // FFTTransposeINPLACEAction() failed, exit
-        fprintf(stderr, "FFTTransposeINPLACEAction() failed!\n");
+        // FFTTransposeInplaceAction() failed, exit
+        fprintf(stderr, "FFTTransposeInplaceAction() failed!\n");
         return;
     }
 
@@ -45,7 +45,7 @@ FFTGeneratedTransposeINPLACEAction::FFTGeneratedTransposeINPLACEAction(clfftPlan
 
     if (err != CLFFT_SUCCESS)
     {
-        fprintf(stderr, "FFTGeneratedTransposeINPLACEAction::initParams() failed!\n");
+        fprintf(stderr, "FFTGeneratedTransposeInplaceAction::initParams() failed!\n");
         return;
     }
 
@@ -55,7 +55,7 @@ FFTGeneratedTransposeINPLACEAction::FFTGeneratedTransposeINPLACEAction(clfftPlan
 
     if (err != CLFFT_SUCCESS)
     {
-        fprintf(stderr, "FFTGeneratedTransposeINPLACEAction::generateKernel failed\n");
+        fprintf(stderr, "FFTGeneratedTransposeInplaceAction::generateKernel failed\n");
         return;
     }
 
@@ -63,7 +63,7 @@ FFTGeneratedTransposeINPLACEAction::FFTGeneratedTransposeINPLACEAction(clfftPlan
 
     if (err != CLFFT_SUCCESS)
     {
-        fprintf(stderr, "FFTGeneratedTransposeINPLACEAction::compileKernels failed\n");
+        fprintf(stderr, "FFTGeneratedTransposeInplaceAction::compileKernels failed\n");
         return;
     }
 
@@ -71,7 +71,7 @@ FFTGeneratedTransposeINPLACEAction::FFTGeneratedTransposeINPLACEAction(clfftPlan
 }
 
 
-bool FFTGeneratedTransposeINPLACEAction::buildForwardKernel()
+bool FFTGeneratedTransposeInplaceAction::buildForwardKernel()
 {
     clfftLayout inputLayout = this->getSignatureData()->fft_inputLayout;
     clfftLayout outputLayout = this->getSignatureData()->fft_outputLayout;
@@ -83,7 +83,7 @@ bool FFTGeneratedTransposeINPLACEAction::buildForwardKernel()
     return (!real_transform) || r2c_transform;
 }
 
-bool FFTGeneratedTransposeINPLACEAction::buildBackwardKernel()
+bool FFTGeneratedTransposeInplaceAction::buildBackwardKernel()
 {
     clfftLayout inputLayout = this->getSignatureData()->fft_inputLayout;
     clfftLayout outputLayout = this->getSignatureData()->fft_outputLayout;
@@ -203,7 +203,7 @@ const std::string pmImagOut( "pmImagOut" );
 const std::string pmComplexIn( "pmComplexIn" );
 const std::string pmComplexOut( "pmComplexOut" );
 
-static clfftStatus genTransposePrototype( const FFTGeneratedTransposeINPLACEAction::Signature & params, const tile& lwSize, const std::string& dtPlanar, const std::string& dtComplex, 
+static clfftStatus genTransposePrototype( const FFTGeneratedTransposeInplaceAction::Signature & params, const tile& lwSize, const std::string& dtPlanar, const std::string& dtComplex, 
                                          const std::string &funcName, std::stringstream& transKernel, std::string& dtInput, std::string& dtOutput )
 {
 
@@ -221,7 +221,7 @@ static clfftStatus genTransposePrototype( const FFTGeneratedTransposeINPLACEActi
 
         switch( params.fft_placeness )
         {
-        case CLFFT_INPLACE:
+        case CLFFT_Inplace:
             dtOutput = dtComplex;
             break;
         case CLFFT_OUTOFPLACE:
@@ -253,7 +253,7 @@ static clfftStatus genTransposePrototype( const FFTGeneratedTransposeINPLACEActi
 
         switch( params.fft_placeness )
         {
-        case CLFFT_INPLACE:
+        case CLFFT_Inplace:
             dtOutput = dtPlanar;
             break;
         case CLFFT_OUTOFPLACE:
@@ -288,7 +288,7 @@ static clfftStatus genTransposePrototype( const FFTGeneratedTransposeINPLACEActi
 
 		switch( params.fft_placeness )
         {
-        case CLFFT_INPLACE:
+        case CLFFT_Inplace:
             dtOutput = dtPlanar;
             break;
         case CLFFT_OUTOFPLACE:
@@ -321,7 +321,7 @@ static clfftStatus genTransposePrototype( const FFTGeneratedTransposeINPLACEActi
     return CLFFT_SUCCESS;
 }
 
-static clfftStatus genTransposeKernel( const FFTGeneratedTransposeINPLACEAction::Signature & params, std::string& strKernel, const tile& lwSize, const size_t reShapeFactor, 
+static clfftStatus genTransposeKernel( const FFTGeneratedTransposeInplaceAction::Signature & params, std::string& strKernel, const tile& lwSize, const size_t reShapeFactor, 
                                             const size_t loopCount, const tile& blockSize, const size_t outRowPadding )
 {
     strKernel.reserve( 4096 );
@@ -386,7 +386,7 @@ static clfftStatus genTransposeKernel( const FFTGeneratedTransposeINPLACEAction:
     // This detects whether the input matrix is square
     bool notSquare = ( params.fft_N[ 0 ] == params.fft_N[ 1 ] ) ? false : true;
 
-    if( notSquare && (params.fft_placeness == CLFFT_INPLACE) )
+    if( notSquare && (params.fft_placeness == CLFFT_Inplace) )
         return CLFFT_TRANSPOSED_NOTIMPLEMENTED;
 
 
@@ -398,9 +398,9 @@ static clfftStatus genTransposeKernel( const FFTGeneratedTransposeINPLACEAction:
 
 		std::string funcName;
 		if(params.fft_3StepTwiddle)
-			funcName = fwd ? "transpose_INPLACE_tw_fwd" : "transpose_INPLACE_tw_back";
+			funcName = fwd ? "transpose_Inplace_tw_fwd" : "transpose_Inplace_tw_back";
 		else
-			funcName = "transpose_INPLACE";
+			funcName = "transpose_Inplace";
 
 		genTransposePrototype( params, lwSize, dtPlanar, dtComplex, funcName, transKernel, dtInput, dtOutput );
 
@@ -855,7 +855,7 @@ static clfftStatus genTransposeKernel( const FFTGeneratedTransposeINPLACEAction:
 }
 
 
-clfftStatus FFTGeneratedTransposeINPLACEAction::initParams ()
+clfftStatus FFTGeneratedTransposeInplaceAction::initParams ()
 {
 
     this->signature.fft_precision    = this->plan->precision;
@@ -872,7 +872,7 @@ clfftStatus FFTGeneratedTransposeINPLACEAction::initParams ()
 
     ARG_CHECK( this->plan->inStride.size( ) == this->plan->outStride.size( ) );
 
-    if( CLFFT_INPLACE == this->signature.fft_placeness )
+    if( CLFFT_Inplace == this->signature.fft_placeness )
     {
         //	If this is an in-place transform the
         //	input and output layout, dimensions and strides
@@ -933,7 +933,7 @@ tile blockSize = {0, 0};
 
 //	OpenCL does not take unicode strings as input, so this routine returns only ASCII strings
 //	Feed this generator the FFTPlan, and it returns the generated program as a string
-clfftStatus FFTGeneratedTransposeINPLACEAction::generateKernel ( FFTRepo& fftRepo, const cl_command_queue commQueueFFT )
+clfftStatus FFTGeneratedTransposeInplaceAction::generateKernel ( FFTRepo& fftRepo, const cl_command_queue commQueueFFT )
 {
 	
     switch( this->signature.fft_precision )
@@ -969,23 +969,23 @@ clfftStatus FFTGeneratedTransposeINPLACEAction::generateKernel ( FFTRepo& fftRep
     OPENCL_V( status, _T( "clGetCommandQueueInfo failed" ) );
 
 
-    OPENCL_V( fftRepo.setProgramCode( Transpose_INPLACE, this->getSignatureData(), programCode, Device, QueueContext ), _T( "fftRepo.setclString() failed!" ) );
+    OPENCL_V( fftRepo.setProgramCode( Transpose_Inplace, this->getSignatureData(), programCode, Device, QueueContext ), _T( "fftRepo.setclString() failed!" ) );
 
     // Note:  See genFunctionPrototype( )
     if( this->signature.fft_3StepTwiddle )
     {
-        OPENCL_V( fftRepo.setProgramEntryPoints( Transpose_INPLACE, this->getSignatureData(), "transpose_INPLACE_tw_fwd", "transpose_INPLACE_tw_back", Device, QueueContext ), _T( "fftRepo.setProgramEntryPoint() failed!" ) );
+        OPENCL_V( fftRepo.setProgramEntryPoints( Transpose_Inplace, this->getSignatureData(), "transpose_Inplace_tw_fwd", "transpose_Inplace_tw_back", Device, QueueContext ), _T( "fftRepo.setProgramEntryPoint() failed!" ) );
     }
     else
     {
-        OPENCL_V( fftRepo.setProgramEntryPoints( Transpose_INPLACE, this->getSignatureData(), "transpose_INPLACE", "transpose_INPLACE", Device, QueueContext ), _T( "fftRepo.setProgramEntryPoint() failed!" ) );
+        OPENCL_V( fftRepo.setProgramEntryPoints( Transpose_Inplace, this->getSignatureData(), "transpose_Inplace", "transpose_Inplace", Device, QueueContext ), _T( "fftRepo.setProgramEntryPoint() failed!" ) );
     }
 
     return CLFFT_SUCCESS;
 }
 
 
-clfftStatus FFTGeneratedTransposeINPLACEAction::getWorkSizes( std::vector< size_t >& globalWS, std::vector< size_t >& localWS )
+clfftStatus FFTGeneratedTransposeInplaceAction::getWorkSizes( std::vector< size_t >& globalWS, std::vector< size_t >& localWS )
 {
 
     // We need to make sure that the global work size is evenly divisible by the local work size
