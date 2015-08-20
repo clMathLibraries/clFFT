@@ -22,6 +22,7 @@ set( clFFT.Source	transform.cpp
 								generator.stockham.cpp 
 								generator.transpose.vliw.cpp 
 								generator.transpose.gcn.cpp 
+								generator.transpose.inplace.cpp 
 								generator.copy.cpp
 								lifetime.cpp 
 								fft_binary_lookup.cpp
@@ -44,6 +45,7 @@ set( clFFT.Headers	private.h
 					generator.stockham.h 
 					generator.transpose.vliw.h 
 					generator.transpose.gcn.h 
+					generator.transpose.inplace.h 
 					fft_binary_lookup.h
 					md5sum.h
 					../include/stdafx.h 

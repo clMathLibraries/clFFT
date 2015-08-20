@@ -221,7 +221,7 @@ static clfftStatus genTransposePrototype( const FFTGeneratedTransposeInplaceActi
 
         switch( params.fft_placeness )
         {
-        case CLFFT_Inplace:
+        case CLFFT_INPLACE:
             dtOutput = dtComplex;
             break;
         case CLFFT_OUTOFPLACE:
@@ -253,7 +253,7 @@ static clfftStatus genTransposePrototype( const FFTGeneratedTransposeInplaceActi
 
         switch( params.fft_placeness )
         {
-        case CLFFT_Inplace:
+        case CLFFT_INPLACE:
             dtOutput = dtPlanar;
             break;
         case CLFFT_OUTOFPLACE:
@@ -288,7 +288,7 @@ static clfftStatus genTransposePrototype( const FFTGeneratedTransposeInplaceActi
 
 		switch( params.fft_placeness )
         {
-        case CLFFT_Inplace:
+        case CLFFT_INPLACE:
             dtOutput = dtPlanar;
             break;
         case CLFFT_OUTOFPLACE:
@@ -386,7 +386,7 @@ static clfftStatus genTransposeKernel( const FFTGeneratedTransposeInplaceAction:
     // This detects whether the input matrix is square
     bool notSquare = ( params.fft_N[ 0 ] == params.fft_N[ 1 ] ) ? false : true;
 
-    if( notSquare && (params.fft_placeness == CLFFT_Inplace) )
+    if( notSquare && (params.fft_placeness == CLFFT_INPLACE) )
         return CLFFT_TRANSPOSED_NOTIMPLEMENTED;
 
 
@@ -872,7 +872,7 @@ clfftStatus FFTGeneratedTransposeInplaceAction::initParams ()
 
     ARG_CHECK( this->plan->inStride.size( ) == this->plan->outStride.size( ) );
 
-    if( CLFFT_Inplace == this->signature.fft_placeness )
+    if( CLFFT_INPLACE == this->signature.fft_placeness )
     {
         //	If this is an in-place transform the
         //	input and output layout, dimensions and strides
@@ -927,8 +927,8 @@ const size_t reShapeFactor = 4;   // wgTileSize = { lwSize.x * reShapeFactor, lw
 const size_t outRowPadding = 0;
 
 // This is global, but should consider to be part of FFTPlan
-size_t loopCount = 0;
-tile blockSize = {0, 0};
+extern size_t loopCount;
+extern tile blockSize;
 
 
 //	OpenCL does not take unicode strings as input, so this routine returns only ASCII strings
@@ -969,16 +969,16 @@ clfftStatus FFTGeneratedTransposeInplaceAction::generateKernel ( FFTRepo& fftRep
     OPENCL_V( status, _T( "clGetCommandQueueInfo failed" ) );
 
 
-    OPENCL_V( fftRepo.setProgramCode( Transpose_Inplace, this->getSignatureData(), programCode, Device, QueueContext ), _T( "fftRepo.setclString() failed!" ) );
+    OPENCL_V( fftRepo.setProgramCode( Transpose_INPLACE, this->getSignatureData(), programCode, Device, QueueContext ), _T( "fftRepo.setclString() failed!" ) );
 
     // Note:  See genFunctionPrototype( )
     if( this->signature.fft_3StepTwiddle )
     {
-        OPENCL_V( fftRepo.setProgramEntryPoints( Transpose_Inplace, this->getSignatureData(), "transpose_Inplace_tw_fwd", "transpose_Inplace_tw_back", Device, QueueContext ), _T( "fftRepo.setProgramEntryPoint() failed!" ) );
+        OPENCL_V( fftRepo.setProgramEntryPoints( Transpose_INPLACE, this->getSignatureData(), "transpose_Inplace_tw_fwd", "transpose_Inplace_tw_back", Device, QueueContext ), _T( "fftRepo.setProgramEntryPoint() failed!" ) );
     }
     else
     {
-        OPENCL_V( fftRepo.setProgramEntryPoints( Transpose_Inplace, this->getSignatureData(), "transpose_Inplace", "transpose_Inplace", Device, QueueContext ), _T( "fftRepo.setProgramEntryPoint() failed!" ) );
+        OPENCL_V( fftRepo.setProgramEntryPoints( Transpose_INPLACE, this->getSignatureData(), "transpose_Inplace", "transpose_Inplace", Device, QueueContext ), _T( "fftRepo.setProgramEntryPoint() failed!" ) );
     }
 
     return CLFFT_SUCCESS;

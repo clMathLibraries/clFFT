@@ -86,6 +86,22 @@ public:
 };
 
 //
+// FFTTransposeInplaceAction
+//
+// Base class for every TransposeInplace action for the FFT.
+// Currently do nothing special. The kernel generation and compilation occurs
+// by the subclass FFTGeneratedTransposeInplaceAction
+// 
+class FFTTransposeInplaceAction : public FFTAction
+{
+public:
+    FFTTransposeInplaceAction(clfftPlanHandle plHandle, FFTPlan * plan, cl_command_queue queue, clfftStatus & err);
+
+    clfftGenerators getGenerator() { return Transpose_INPLACE; }
+};
+
+
+//
 // FFTGeneratedCopyAction
 //
 // Implements a Copy action for the FFT
