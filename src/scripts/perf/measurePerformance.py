@@ -701,7 +701,7 @@ for params in test_combinations:
         else:
           print"Wrong input/outputlayout. Only C2C/R2C/C2R are supported for Cuda"
           exit()
-        arguments=[prefix+'cuFFT-Client',
+        arguments=[prefix+executable(args.library),
                      '-x', lengthx,
                      '-y', lengthy,
                      '-z', lengthz,
