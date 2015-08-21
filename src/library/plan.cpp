@@ -239,6 +239,7 @@ std::string getKernelName(const clfftGenerators gen, const clfftPlanHandle plHan
     {
     case Stockham:			generatorName = "Stockham"; break;
 	case Transpose_GCN:		generatorName = "Transpose"; break;
+	case Transpose_INPLACE:	generatorName = "Transpose"; break;
     case Transpose_VLIW:	generatorName = "Transpose"; break;
 	case Copy:				generatorName = "Copy"; break;
     }
