@@ -383,10 +383,7 @@ static clfftStatus genTransposeKernel( const FFTGeneratedTransposeGCNAction::Sig
     clKernWrite( transKernel, 3 ) << "size_t y;" << std::endl;
     clKernWrite( transKernel, 0 ) << "} Tile;" << std::endl << std::endl;
 
-    // This detects whether the input matrix is square
-    bool notSquare = ( params.fft_N[ 0 ] == params.fft_N[ 1 ] ) ? false : true;
-
-    if( notSquare && (params.fft_placeness == CLFFT_INPLACE) )
+    if( params.fft_placeness == CLFFT_INPLACE )
         return CLFFT_TRANSPOSED_NOTIMPLEMENTED;
 
 
@@ -535,18 +532,24 @@ static clfftStatus genTransposeKernel( const FFTGeneratedTransposeGCNAction::Sig
 				}
 				else if(i == 1)
 				{
+					if(!cornerGroupY) continue;
+
 					clKernWrite( transKernel, 3 ) << "else if( " << gIndexX << " == " << 
 						cornerGroupX << " )" << std::endl;
 					clKernWrite( transKernel, 3 ) << "{" << std::endl;
 				}
 				else if(i == 2)
 				{
+					if(!cornerGroupX) continue;
+
 					clKernWrite( transKernel, 3 ) << "else if( " << gIndexY << " == " <<
 						cornerGroupY << " )" << std::endl;
 					clKernWrite( transKernel, 3 ) << "{" << std::endl;
 				}
 				else
 				{
+					if( (!cornerGroupX) || (!cornerGroupY) ) continue;
+
 					clKernWrite( transKernel, 3 ) << "else" << std::endl;
 					clKernWrite( transKernel, 3 ) << "{" << std::endl;
 				}
@@ -568,6 +571,8 @@ static clfftStatus genTransposeKernel( const FFTGeneratedTransposeGCNAction::Sig
 				}
 				else
 				{
+					if( (!cornerGroupX) || (!cornerGroupY) ) continue;
+
 					clKernWrite( transKernel, 3 ) << "else" << std::endl;
 					clKernWrite( transKernel, 3 ) << "{" << std::endl;
 				}
@@ -708,18 +713,24 @@ static clfftStatus genTransposeKernel( const FFTGeneratedTransposeGCNAction::Sig
 				}
 				else if(i == 1)
 				{
+					if(!cornerGroupY) continue;
+
 					clKernWrite( transKernel, 3 ) << "else if( " << gIndexX << " == " << 
 						cornerGroupX << " )" << std::endl;
 					clKernWrite( transKernel, 3 ) << "{" << std::endl;
 				}
 				else if(i == 2)
 				{
+					if(!cornerGroupX) continue;
+
 					clKernWrite( transKernel, 3 ) << "else if( " << gIndexY << " == " <<
 						cornerGroupY << " )" << std::endl;
 					clKernWrite( transKernel, 3 ) << "{" << std::endl;
 				}
 				else
 				{
+					if( (!cornerGroupX) || (!cornerGroupY) ) continue;
+
 					clKernWrite( transKernel, 3 ) << "else" << std::endl;
 					clKernWrite( transKernel, 3 ) << "{" << std::endl;
 				}
@@ -741,6 +752,8 @@ static clfftStatus genTransposeKernel( const FFTGeneratedTransposeGCNAction::Sig
 				}
 				else
 				{
+					if( (!cornerGroupX) || (!cornerGroupY) ) continue;
+
 					clKernWrite( transKernel, 3 ) << "else" << std::endl;
 					clKernWrite( transKernel, 3 ) << "{" << std::endl;
 				}
