@@ -927,8 +927,8 @@ const size_t reShapeFactor = 4;   // wgTileSize = { lwSize.x * reShapeFactor, lw
 const size_t outRowPadding = 0;
 
 // This is global, but should consider to be part of FFTPlan
-extern size_t loopCount;
-extern tile blockSize;
+size_t loopCount;
+tile blockSize;
 
 
 //	OpenCL does not take unicode strings as input, so this routine returns only ASCII strings

@@ -322,7 +322,7 @@ static clfftStatus genTransposePrototype( const FFTGeneratedTransposeGCNAction::
 }
 
 static clfftStatus genTransposeKernel( const FFTGeneratedTransposeGCNAction::Signature & params, std::string& strKernel, const tile& lwSize, const size_t reShapeFactor, 
-                                            const size_t loopCount, const tile& blockSize, const size_t outRowPadding )
+                                            const size_t loopCount, const tile& blockSize )
 {
     strKernel.reserve( 4096 );
     std::stringstream transKernel( std::stringstream::out );
@@ -924,19 +924,11 @@ clfftStatus FFTGeneratedTransposeGCNAction::initParams ()
 // Constants that specify the bounding sizes of the block that each workgroup will transpose
 const tile lwSize = { 16, 16 };
 const size_t reShapeFactor = 4;   // wgTileSize = { lwSize.x * reShapeFactor, lwSize.y / reShapeFactor }
-const size_t outRowPadding = 0;
-
-// This is global, but should consider to be part of FFTPlan
-size_t loopCount = 0;
-tile blockSize = {0, 0};
 
 
-//	OpenCL does not take unicode strings as input, so this routine returns only ASCII strings
-//	Feed this generator the FFTPlan, and it returns the generated program as a string
-clfftStatus FFTGeneratedTransposeGCNAction::generateKernel ( FFTRepo& fftRepo, const cl_command_queue commQueueFFT )
+static clfftStatus CalculateBlockSize(const clfftPrecision precision, size_t &loopCount, tile &blockSize)
 {
-	
-    switch( this->signature.fft_precision )
+    switch( precision )
     {
     case CLFFT_SINGLE:
     case CLFFT_SINGLE_FAST:
@@ -955,9 +947,23 @@ clfftStatus FFTGeneratedTransposeGCNAction::generateKernel ( FFTRepo& fftRepo, c
 	blockSize.x = lwSize.x * reShapeFactor;
 	blockSize.y = lwSize.y / reShapeFactor * loopCount;
 
+	return CLFFT_SUCCESS;
+}
+
+
+
+
+//	OpenCL does not take unicode strings as input, so this routine returns only ASCII strings
+//	Feed this generator the FFTPlan, and it returns the generated program as a string
+clfftStatus FFTGeneratedTransposeGCNAction::generateKernel ( FFTRepo& fftRepo, const cl_command_queue commQueueFFT )
+{
+	
+	size_t loopCount = 0;
+	tile blockSize = {0, 0};
+	OPENCL_V( CalculateBlockSize(this->signature.fft_precision, loopCount, blockSize), _T("CalculateBlockSize() failed!") );
 
     std::string programCode;
-    OPENCL_V( genTransposeKernel( this->signature, programCode, lwSize, reShapeFactor, loopCount, blockSize, outRowPadding ), _T( "GenerateTransposeKernel() failed!" ) );
+    OPENCL_V( genTransposeKernel( this->signature, programCode, lwSize, reShapeFactor, loopCount, blockSize ), _T( "GenerateTransposeKernel() failed!" ) );
 
     cl_int status = CL_SUCCESS;
     cl_device_id Device = NULL;
@@ -987,6 +993,10 @@ clfftStatus FFTGeneratedTransposeGCNAction::generateKernel ( FFTRepo& fftRepo, c
 
 clfftStatus FFTGeneratedTransposeGCNAction::getWorkSizes( std::vector< size_t >& globalWS, std::vector< size_t >& localWS )
 {
+	size_t loopCount = 0;
+	tile blockSize = {0, 0};
+	OPENCL_V( CalculateBlockSize(this->signature.fft_precision, loopCount, blockSize), _T("CalculateBlockSize() failed!") );
+
 
     // We need to make sure that the global work size is evenly divisible by the local work size
     // Our transpose works in tiles, so divide tiles in each dimension to get count of blocks, rounding up for remainder items
