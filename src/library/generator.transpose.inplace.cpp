@@ -96,22 +96,6 @@ bool FFTGeneratedTransposeInplaceAction::buildBackwardKernel()
 }
 
 
-// A structure that represents a bounding box or tile, with convenient names for the row and column addresses
-// local work sizes
-struct tile
-{
-    union
-    {
-        size_t x;
-        size_t col;
-    };
-
-    union
-    {
-        size_t y;
-        size_t row;
-    };
-};
 
 inline std::stringstream& clKernWrite( std::stringstream& rhs, const size_t tabIndex )
 {
@@ -203,12 +187,12 @@ const std::string pmImagOut( "pmImagOut" );
 const std::string pmComplexIn( "pmComplexIn" );
 const std::string pmComplexOut( "pmComplexOut" );
 
-static clfftStatus genTransposePrototype( const FFTGeneratedTransposeInplaceAction::Signature & params, const tile& lwSize, const std::string& dtPlanar, const std::string& dtComplex, 
+static clfftStatus genTransposePrototype( const FFTGeneratedTransposeInplaceAction::Signature & params, const size_t& lwSize, const std::string& dtPlanar, const std::string& dtComplex, 
                                          const std::string &funcName, std::stringstream& transKernel, std::string& dtInput, std::string& dtOutput )
 {
 
     // Declare and define the function
-    clKernWrite( transKernel, 0 ) << "__attribute__(( reqd_work_group_size( " << lwSize.x << ", " << lwSize.y << ", 1 ) ))" << std::endl;
+    clKernWrite( transKernel, 0 ) << "__attribute__(( reqd_work_group_size( " << lwSize << ", 1, 1 ) ))" << std::endl;
     clKernWrite( transKernel, 0 ) << "kernel void" << std::endl;
 
     clKernWrite( transKernel, 0 ) << funcName << "( ";
@@ -217,99 +201,24 @@ static clfftStatus genTransposePrototype( const FFTGeneratedTransposeInplaceActi
     {
     case CLFFT_COMPLEX_INTERLEAVED:
         dtInput = dtComplex;
-        clKernWrite( transKernel, 0 ) << "global " << dtInput << "* restrict " << pmComplexIn;
-
-        switch( params.fft_placeness )
-        {
-        case CLFFT_INPLACE:
-            dtOutput = dtComplex;
-            break;
-        case CLFFT_OUTOFPLACE:
-            switch( params.fft_outputLayout )
-            {
-            case CLFFT_COMPLEX_INTERLEAVED:
-                dtOutput = dtComplex;
-                clKernWrite( transKernel, 0 ) << ", global " << dtOutput << "* restrict " << pmComplexOut;
-                break;
-            case CLFFT_COMPLEX_PLANAR:
-                dtOutput = dtPlanar;
-                clKernWrite( transKernel, 0 ) << ", global " << dtOutput << "* restrict " << pmRealOut
-                    << ", global " << dtOutput << "* restrict " << pmImagOut;
-                break;
-            case CLFFT_HERMITIAN_INTERLEAVED:
-            case CLFFT_HERMITIAN_PLANAR:
-            case CLFFT_REAL:
-            default:
-                return CLFFT_TRANSPOSED_NOTIMPLEMENTED;
-            }
-            break;
-        default:
-            return CLFFT_TRANSPOSED_NOTIMPLEMENTED;
-        }
-        break;
+		dtOutput = dtComplex;
+        clKernWrite( transKernel, 0 ) << "global " << dtInput << "* restrict inputA";
+		clKernWrite(transKernel, 0) << ", global " << dtOutput << "* restrict outputA";
+		break;
     case CLFFT_COMPLEX_PLANAR:
         dtInput = dtPlanar;
-        clKernWrite( transKernel, 0 ) << "global " << dtInput << "* restrict " << pmRealIn << ", global " << dtInput << "* restrict " << pmImagIn;
-
-        switch( params.fft_placeness )
-        {
-        case CLFFT_INPLACE:
-            dtOutput = dtPlanar;
-            break;
-        case CLFFT_OUTOFPLACE:
-            switch( params.fft_outputLayout )
-            {
-            case CLFFT_COMPLEX_INTERLEAVED:
-                dtOutput = dtComplex;
-                clKernWrite( transKernel, 0 ) << ", global " << dtOutput << "* restrict " << pmComplexOut;
-                break;
-            case CLFFT_COMPLEX_PLANAR:
-                dtOutput = dtPlanar;
-                clKernWrite( transKernel, 0 ) << ", global " << dtOutput << "* restrict " << pmRealOut
-                    << ", global " << dtOutput << "* restrict " << pmImagOut;
-                break;
-            case CLFFT_HERMITIAN_INTERLEAVED:
-            case CLFFT_HERMITIAN_PLANAR:
-            case CLFFT_REAL:
-            default:
-                return CLFFT_TRANSPOSED_NOTIMPLEMENTED;
-            }
-            break;
-        default:
-            return CLFFT_TRANSPOSED_NOTIMPLEMENTED;
-        }
+		return CLFFT_TRANSPOSED_NOTIMPLEMENTED;
+        // clKernWrite( transKernel, 0 ) << "global " << dtInput << "* restrict " << pmRealIn << ", global " << dtInput << "* restrict " << pmImagIn;
         break;
     case CLFFT_HERMITIAN_INTERLEAVED:
     case CLFFT_HERMITIAN_PLANAR:
 		return CLFFT_TRANSPOSED_NOTIMPLEMENTED;
     case CLFFT_REAL:
 		dtInput = dtPlanar;
-		clKernWrite( transKernel, 0 ) << "global " << dtInput << "* restrict " << pmRealIn;
+		dtOutput = dtPlanar;
 
-		switch( params.fft_placeness )
-        {
-        case CLFFT_INPLACE:
-            dtOutput = dtPlanar;
-            break;
-        case CLFFT_OUTOFPLACE:
-            switch( params.fft_outputLayout )
-            {
-            case CLFFT_COMPLEX_INTERLEAVED:
-            case CLFFT_COMPLEX_PLANAR:
-            case CLFFT_HERMITIAN_INTERLEAVED:
-            case CLFFT_HERMITIAN_PLANAR:
-				return CLFFT_TRANSPOSED_NOTIMPLEMENTED;
-            case CLFFT_REAL:
-                dtOutput = dtPlanar;
-                clKernWrite( transKernel, 0 ) << ", global " << dtOutput << "* restrict " << pmRealOut;
-				break;
-            default:
-                return CLFFT_TRANSPOSED_NOTIMPLEMENTED;
-            }
-            break;
-        default:
-            return CLFFT_TRANSPOSED_NOTIMPLEMENTED;
-        }
+		clKernWrite(transKernel, 0) << "global " << dtInput << "* restrict inputA";
+		clKernWrite(transKernel, 0) << ", global " << dtOutput << "* restrict outputA";
 		break;
     default:
         return CLFFT_TRANSPOSED_NOTIMPLEMENTED;
@@ -317,12 +226,10 @@ static clfftStatus genTransposePrototype( const FFTGeneratedTransposeInplaceActi
 
     // Close the method signature
     clKernWrite( transKernel, 0 ) << " )\n{" << std::endl;
-
     return CLFFT_SUCCESS;
 }
 
-static clfftStatus genTransposeKernel( const FFTGeneratedTransposeInplaceAction::Signature & params, std::string& strKernel, const tile& lwSize, const size_t reShapeFactor, 
-                                            const size_t loopCount, const tile& blockSize, const size_t outRowPadding )
+static clfftStatus genTransposeKernel( const FFTGeneratedTransposeInplaceAction::Signature & params, std::string& strKernel, const size_t& lwSize, const size_t reShapeFactor)
 {
     strKernel.reserve( 4096 );
     std::stringstream transKernel( std::stringstream::out );
@@ -337,6 +244,9 @@ static clfftStatus genTransposeKernel( const FFTGeneratedTransposeInplaceAction:
     // NOTE:  Enable only for debug
     // clKernWrite( transKernel, 0 ) << "#pragma OPENCL EXTENSION cl_amd_printf : enable\n" << std::endl;
 
+	if (params.fft_inputLayout != params.fft_outputLayout)
+		return CLFFT_TRANSPOSED_NOTIMPLEMENTED;
+
     switch( params.fft_precision )
     {
     case CLFFT_SINGLE:
@@ -348,13 +258,6 @@ static clfftStatus genTransposeKernel( const FFTGeneratedTransposeInplaceAction:
     case CLFFT_DOUBLE_FAST:
         dtPlanar = "double";
         dtComplex = "double2";
-
-        // Emit code that enables double precision in the kernel
-        clKernWrite( transKernel, 0 ) << "#ifdef cl_khr_fp64" << std::endl;
-        clKernWrite( transKernel, 3 ) << "#pragma OPENCL EXTENSION cl_khr_fp64 : enable" << std::endl;
-        clKernWrite( transKernel, 0 ) << "#else" << std::endl;
-        clKernWrite( transKernel, 3 ) <<  "#pragma OPENCL EXTENSION cl_amd_fp64 : enable" << std::endl;
-        clKernWrite( transKernel, 0 ) << "#endif\n" << std::endl;
         break;
     default:
         return CLFFT_TRANSPOSED_NOTIMPLEMENTED;
@@ -376,12 +279,6 @@ static clfftStatus genTransposeKernel( const FFTGeneratedTransposeInplaceAction:
 	}
 
 
-    clKernWrite( transKernel, 0 ) << "// Local structure to embody/capture tile dimensions" << std::endl;
-    clKernWrite( transKernel, 0 ) << "typedef struct tag_Tile" << std::endl;
-    clKernWrite( transKernel, 0 ) << "{" << std::endl;
-    clKernWrite( transKernel, 3 ) << "size_t x;" << std::endl;
-    clKernWrite( transKernel, 3 ) << "size_t y;" << std::endl;
-    clKernWrite( transKernel, 0 ) << "} Tile;" << std::endl << std::endl;
 
     // This detects whether the input matrix is square
     bool notSquare = ( params.fft_N[ 0 ] == params.fft_N[ 1 ] ) ? false : true;
@@ -389,465 +286,177 @@ static clfftStatus genTransposeKernel( const FFTGeneratedTransposeInplaceAction:
     if( notSquare && (params.fft_placeness == CLFFT_INPLACE) )
         return CLFFT_TRANSPOSED_NOTIMPLEMENTED;
 
+	// This detects whether the input matrix is a multiple of 16*reshapefactor or not
+	
+	bool mult_of_16 = (params.fft_N[0] % (reShapeFactor * 16) == 0) ? true : false;
+	
+	size_t grid_dim_0;
 
-	for(size_t bothDir=0; bothDir<2; bothDir++)
+	if (mult_of_16)
+		grid_dim_0 = params.fft_N[0] / 16 / reShapeFactor;
+	else
+		grid_dim_0 = params.fft_N[0] / (16 * reShapeFactor) + 1;
+
+
+	for (size_t bothDir = 0; bothDir < 2; bothDir++)
 	{
-		//	Generate the kernel entry point and parameter list
-		//
 		bool fwd = bothDir ? false : true;
 
 		std::string funcName;
-		if(params.fft_3StepTwiddle)
+		if (params.fft_3StepTwiddle) // TODO
 			funcName = fwd ? "transpose_Inplace_tw_fwd" : "transpose_Inplace_tw_back";
 		else
 			funcName = "transpose_Inplace";
 
-		genTransposePrototype( params, lwSize, dtPlanar, dtComplex, funcName, transKernel, dtInput, dtOutput );
+		genTransposePrototype(params, lwSize, dtPlanar, dtComplex, funcName, transKernel, dtInput, dtOutput);
 
-		clKernWrite( transKernel, 3 ) << "const Tile localIndex = { get_local_id( 0 ), get_local_id( 1 ) }; " << std::endl;
-		clKernWrite( transKernel, 3 ) << "const Tile localExtent = { get_local_size( 0 ), get_local_size( 1 ) }; " << std::endl;
-		clKernWrite( transKernel, 3 ) << "const Tile groupIndex = { get_group_id( 0 ), get_group_id( 1 ) };" << std::endl;
-		clKernWrite( transKernel, 3 ) << std::endl;
-
-
-
-		clKernWrite( transKernel, 3 ) << "// Calculate the unit address (in terms of datatype) of the beginning of the Tile for the WG block" << std::endl;
-		clKernWrite( transKernel, 3 ) << "// Transpose of input & output blocks happens with the Offset calculation" << std::endl;
-		clKernWrite( transKernel, 3 ) << "const size_t reShapeFactor = " << reShapeFactor << ";" << std::endl;
-		clKernWrite( transKernel, 3 ) << "const size_t wgUnroll = " << loopCount << ";" << std::endl;
-		clKernWrite( transKernel, 3 ) << "const Tile wgTileExtent = { localExtent.x * reShapeFactor, localExtent.y / reShapeFactor };" << std::endl;
-		clKernWrite( transKernel, 3 ) << "const size_t tileSizeinUnits = wgTileExtent.x * wgTileExtent.y * wgUnroll;" << std::endl << std::endl;
-
-
-		// This is the size of a matrix in the y dimension in units of group size; used to calculate stride[2] indexing
-		//size_t numGroupsY = DivRoundingUp( params.fft_N[ 1 ], lwSize.y / reShapeFactor * loopCount );
-
-		//numGroupY_1 is the number of cumulative work groups up to 1st dimension
-		//numGroupY_2 is the number of cumulative work groups up to 2nd dimension and so forth
-
-		size_t numGroupsTemp;
-		if(params.transOutHorizontal)
-			numGroupsTemp = DivRoundingUp( params.fft_N[0], blockSize.x );
+		if (mult_of_16)
+			clKernWrite(transKernel, 3) << "const int grid_dim = " << (params.fft_N[0] / 16 / reShapeFactor)*(params.fft_N[0] / 16 / reShapeFactor + 1) / 2 << ";" << std::endl;
 		else
-			numGroupsTemp = DivRoundingUp( params.fft_N[1], blockSize.y );
+			clKernWrite(transKernel, 3) << "const int grid_dim = " << (params.fft_N[0] / (16 * reShapeFactor) + 1)*(params.fft_N[0] / (16 * reShapeFactor) + 1 + 1) / 2 << ";" << std::endl;
 
-		clKernWrite( transKernel, 3 ) << "const size_t numGroupsY_1" << " = " << numGroupsTemp << ";" << std::endl;
-		for(int i = 2; i < params.fft_DataDim - 1; i++)
-		{
-			numGroupsTemp *= params.fft_N[i];
-			clKernWrite( transKernel, 3 ) << "const size_t numGroupsY_" << i << " = " << numGroupsTemp << ";" << std::endl;
-		}
+		clKernWrite(transKernel, 3) << "const int z = get_group_id(0) / grid_dim; " << std::endl;
+		clKernWrite(transKernel, 3) << "inputA = &inputA[z*" << params.fft_N[0] * params.fft_N[0] << "];" << std::endl;  // Set A ptr to the start of each slice " << std::endl;
+		clKernWrite(transKernel, 3) << "outputA = &outputA[z*" << params.fft_N[0] * params.fft_N[0] << "];" << std::endl;  // Set A ptr to the start of each slice " << std::endl;
 
+		clKernWrite(transKernel, 3) << "" << std::endl;
 
-		// Generate the amount of local data share we need
-		// Assumption: Even for planar data, we will still store values in LDS as interleaved
-		tile ldsSize = { blockSize.x, blockSize.y };
-		switch( params.fft_outputLayout )
-		{
-		case CLFFT_COMPLEX_INTERLEAVED:
-		case CLFFT_COMPLEX_PLANAR:
-			clKernWrite( transKernel, 3 ) << "// LDS is always complex and allocated transposed: lds[ wgTileExtent.y * wgUnroll ][ wgTileExtent.x ];" << std::endl;
-			clKernWrite( transKernel, 3 ) << "local " << dtComplex << " lds[ " << ldsSize.x << " ][ " << ldsSize.y << " ];" << std::endl << std::endl;
-			break;
-		case CLFFT_HERMITIAN_INTERLEAVED:
-		case CLFFT_HERMITIAN_PLANAR:
-			return CLFFT_TRANSPOSED_NOTIMPLEMENTED;
-		case CLFFT_REAL:
-			clKernWrite( transKernel, 3 ) << "local " << dtPlanar << " lds[ " << ldsSize.x << " ][ " << ldsSize.y << " ];" << std::endl << std::endl;
-			break;
-		}
+		clKernWrite(transKernel, 3) << "const int g_index = get_group_id(0) - z*grid_dim; " << std::endl;
+		
+		// Now compute the corresponding y,x coordinates
+		// for a triangular indexing
+		if (mult_of_16)
+			clKernWrite(transKernel, 3) << "float row = (" << -2.0f*params.fft_N[0] / 16 / reShapeFactor - 1 << "+sqrt((" << 4.0f*params.fft_N[0] / 16 / reShapeFactor*(params.fft_N[0] / 16 / reShapeFactor + 1) << "-8.0f*g_index- 7)))/ (-2.0f);" << std::endl;
+		else
+			clKernWrite(transKernel, 3) << "float row = (" << -2.0f*(params.fft_N[0] / (16 * reShapeFactor) + 1) - 1 << "+sqrt((" << 4.0f*(params.fft_N[0] / (16 * reShapeFactor) + 1)*(params.fft_N[0] / (16 * reShapeFactor) + 1 + 1) << "-8.0f*g_index- 7)))/ (-2.0f);" << std::endl;
 
 
-		clKernWrite( transKernel, 3 ) << "size_t currDimIndex;" << std::endl ;
-		clKernWrite( transKernel, 3 ) << "size_t rowSizeinUnits;" << std::endl << std::endl ;
+		clKernWrite(transKernel, 3) << "if (row == (float)(int)row) row -= 1; " << std::endl;
+		clKernWrite(transKernel, 3) << "const int t_gy = (int)row;" << std::endl;
+
+		clKernWrite(transKernel, 3) << "" << std::endl;
+
+		if (mult_of_16)
+			clKernWrite(transKernel, 3) << "const int t_gx_p = g_index - " << (params.fft_N[0] / 16 / reShapeFactor) << "*t_gy + t_gy*(t_gy + 1) / 2;" << std::endl;
+		else
+			clKernWrite(transKernel, 3) << "const int t_gx_p = g_index - " << (params.fft_N[0] / (16 * reShapeFactor) + 1) << "*t_gy + t_gy*(t_gy + 1) / 2;" << std::endl;
+
+		clKernWrite(transKernel, 3) << "const int t_gy_p = t_gx_p - t_gy;" << std::endl;
 
 
-		OffsetCalc(transKernel, params, true);
+		clKernWrite(transKernel, 3) << "" << std::endl;
 
+		clKernWrite(transKernel, 3) << "const int d_lidx = get_local_id(0) % 16;" << std::endl;
+		clKernWrite(transKernel, 3) << "const int d_lidy = get_local_id(0) / 16;" << std::endl;
 
-		switch( params.fft_inputLayout )
-		{
-		case CLFFT_COMPLEX_INTERLEAVED:
-			clKernWrite( transKernel, 3 ) << "global " << dtInput << "* tileIn = " << pmComplexIn << " + iOffset;" << std::endl;
-			break;
-		case CLFFT_COMPLEX_PLANAR:
-			clKernWrite( transKernel, 3 ) << "global " << dtInput << "* realTileIn = " << pmRealIn << " + iOffset;" << std::endl;
-			clKernWrite( transKernel, 3 ) << "global " << dtInput << "* imagTileIn = " << pmImagIn << " + iOffset;" << std::endl;
-			break;
-		case CLFFT_HERMITIAN_INTERLEAVED:
-		case CLFFT_HERMITIAN_PLANAR:
-			return CLFFT_TRANSPOSED_NOTIMPLEMENTED;
-		case CLFFT_REAL:
-			clKernWrite( transKernel, 3 ) << "global " << dtInput << "* tileIn = " << pmRealIn << " + iOffset;" << std::endl;
-			break;
+		clKernWrite(transKernel, 3) << "" << std::endl;
+
+		clKernWrite(transKernel, 3) << "const int lidy = (d_lidy * 16 + d_lidx) /"<<(16 * reShapeFactor)<<";" << std::endl;
+		clKernWrite(transKernel, 3) << "const int lidx = (d_lidy * 16 + d_lidx) %"<<(16 * reShapeFactor)<<";" << std::endl;
+
+		clKernWrite(transKernel, 3) << "" << std::endl;
+
+		clKernWrite(transKernel, 3) << "const int idx = lidx + t_gx_p*" << 16 * reShapeFactor << ";" << std::endl;
+		clKernWrite(transKernel, 3) << "const int idy = lidy + t_gy_p*" << 16 * reShapeFactor << ";" << std::endl;
+
+		clKernWrite(transKernel, 3) << "" << std::endl;
+
+		clKernWrite(transKernel, 3) << "const int starting_index_yx = t_gy_p*" << 16 * reShapeFactor << " + t_gx_p*" << 16 * reShapeFactor*params.fft_N[0] << ";" << std::endl;
+
+		clKernWrite(transKernel, 3) << "" << std::endl;
+
+		clKernWrite(transKernel, 3) << "__local "<<dtComplex<<" xy_s[" << 16 * reShapeFactor * 16 * reShapeFactor << "];" << std::endl;
+		clKernWrite(transKernel, 3) << "__local "<<dtComplex<<" yx_s[" << 16 * reShapeFactor * 16 * reShapeFactor << "];" << std::endl;
+		
+		clKernWrite(transKernel, 3) << "" << std::endl;
+
+		// Step 1: Load both blocks into local memory
+		// Here I load inputA for both blocks contiguously and write it contigously into
+		// the corresponding shared memories.
+		// Afterwards I use non-contiguous access from local memory and write contiguously
+		// back into the arrays
+
+		if (mult_of_16){
+			clKernWrite(transKernel, 3) << "int index;" << std::endl;
+			clKernWrite(transKernel, 3) << "for (int loop = 0; loop<" << reShapeFactor*reShapeFactor << "; ++loop){" << std::endl;
+			clKernWrite(transKernel, 6) << "index = lidy*" << 16 * reShapeFactor << " + lidx + loop*256;" << std::endl;
+			clKernWrite(transKernel, 6) << "xy_s[index] = inputA[(idy + loop *" << 16 / reShapeFactor << ")*" << params.fft_N[0] << " + idx];" << std::endl;
+			clKernWrite(transKernel, 6) << "yx_s[index] = inputA[(lidy + loop *" << 16 / reShapeFactor << ")*" << params.fft_N[0] << " + lidx + starting_index_yx];" << std::endl;
+			clKernWrite(transKernel, 3) << "}" << std::endl;
+
+			clKernWrite(transKernel, 3) << "" << std::endl;
+
+			clKernWrite(transKernel, 3) << "barrier(CLK_LOCAL_MEM_FENCE);" << std::endl;
 			
-		}
+			clKernWrite(transKernel, 3) << "" << std::endl;
 
-		// This is the loop reading through the Tile
-		if( params.fft_inputLayout == CLFFT_REAL )
-		{
-			clKernWrite( transKernel, 3 ) << dtPlanar << " tmp;" << std::endl;
-		}
-		else
-		{
-			clKernWrite( transKernel, 3 ) << dtComplex << " tmp;" << std::endl;
-		}
 
-		clKernWrite( transKernel, 3 ) << "rowSizeinUnits = " << params.fft_inStride[ 1 ] << ";" << std::endl; 
-		clKernWrite( transKernel, 3 ) << std::endl << std::endl;
+			// Step2: Write from shared to global
+			clKernWrite(transKernel, 3) << "for (int loop = 0; loop<" << reShapeFactor*reShapeFactor << "; ++loop){" << std::endl;
+			clKernWrite(transKernel, 6) << "index = lidx*" << 16 * reShapeFactor << " + lidy + " << 16 / reShapeFactor << "*loop;" << std::endl;
+			clKernWrite(transKernel, 6) << "outputA[(idy + loop*" << 16 / reShapeFactor << ")*" << params.fft_N[0] << " + idx] = yx_s[index];" << std::endl;
+			clKernWrite(transKernel, 6) << "outputA[(lidy + loop*" << 16 / reShapeFactor << ")*" << params.fft_N[0] << " + lidx+ starting_index_yx] = xy_s[index];" << std::endl;
+			clKernWrite(transKernel, 3) << "}" << std::endl;
 
-		//
-		// Group index traversal is logical where X direction is horizontal in input buffer and vertical in output buffer
-		// when transOutHorizontal is enabled X direction is vertical in input buffer and horizontal in output buffer
-		// Not to be confused within a tile, where X is horizontal in input and vertical in output always
+		}
+		else{
+
+			clKernWrite(transKernel, 3) << "int index;" << std::endl;
+			clKernWrite(transKernel, 3) << "if ("<<params.fft_N[0]<<" - (t_gx_p + 1) *"<<16*reShapeFactor<<">0){" << std::endl;
+			clKernWrite(transKernel, 6) << "for (int loop = 0; loop<" << reShapeFactor*reShapeFactor << "; ++loop){" << std::endl;
+			clKernWrite(transKernel, 9) << "index = lidy*"<<16*reShapeFactor<<" + lidx + loop*256;" << std::endl;
+			clKernWrite(transKernel, 9) << "xy_s[index] = inputA[(idy + loop*"<<16/reShapeFactor<<")*"<<params.fft_N[0]<<" + idx];" << std::endl;
+			clKernWrite(transKernel, 9) << "yx_s[index] = inputA[(lidy + loop*"<<16/reShapeFactor<<")*"<<params.fft_N[0]<<" + lidx + starting_index_yx];" << std::endl;
+			clKernWrite(transKernel, 6) << "}" << std::endl;
+			clKernWrite(transKernel, 3) << "}" << std::endl;
+
+			clKernWrite(transKernel, 3) << "else{" << std::endl;
+			clKernWrite(transKernel, 6) << "for (int loop = 0; loop<" << reShapeFactor*reShapeFactor << "; ++loop){" << std::endl;
+			clKernWrite(transKernel, 9) << "index = lidy*" << 16 * reShapeFactor << " + lidx + loop*256;" << std::endl;
+			clKernWrite(transKernel, 9) << "if ((idy + loop*" << 16/reShapeFactor << ")<" << params.fft_N[0] << "&& idx<" << params.fft_N[0] << ")" << std::endl;
+			
+			clKernWrite(transKernel, 12) << "xy_s[index] = inputA[(idy + loop*" << 16 / reShapeFactor << ")*" << params.fft_N[0] << " + idx];" << std::endl;
+			clKernWrite(transKernel, 9) << "if ((t_gy_p *" <<16*reShapeFactor << " + lidx)<" << params.fft_N[0] << " && (t_gx_p * " << 16*reShapeFactor << " + lidy + loop*" << 16/reShapeFactor << ")<" << params.fft_N[0] << ") " << std::endl;
+			clKernWrite(transKernel, 12) << "yx_s[index] = inputA[(lidy + loop*" << 16/reShapeFactor << ")*" << params.fft_N[0] << " + lidx + starting_index_yx];" << std::endl;
+			clKernWrite(transKernel, 9) << "}" << std::endl;
+			clKernWrite(transKernel, 3) << "}" << std::endl;
+
+			clKernWrite(transKernel, 3) << "" << std::endl;
+			clKernWrite(transKernel, 3) << "barrier(CLK_LOCAL_MEM_FENCE);" << std::endl;
+			clKernWrite(transKernel, 3) << "" << std::endl;
+
+			// Step2: Write from shared to global
+
+			clKernWrite(transKernel, 3) << "if (" << params.fft_N[0] << " - (t_gx_p + 1) *" << 16 * reShapeFactor << ">0){" << std::endl;
+			clKernWrite(transKernel, 6) << "for (int loop = 0; loop<" << reShapeFactor*reShapeFactor << "; ++loop){" << std::endl;
+			clKernWrite(transKernel, 9) << "index = lidx*" << 16 * reShapeFactor << " + lidy + "<<16/reShapeFactor<<"*loop ;" << std::endl;
+			clKernWrite(transKernel, 9) << "outputA[(idy + loop*" << 16 / reShapeFactor << ")*" << params.fft_N[0] << " + idx] = yx_s[index];" << std::endl;
+			clKernWrite(transKernel, 9) << "outputA[(lidy + loop*" << 16 / reShapeFactor << ")*" << params.fft_N[0] << " + lidx + starting_index_yx] = xy_s[index]; " << std::endl;
+
+
+			clKernWrite(transKernel, 6) << "}" << std::endl;
+			clKernWrite(transKernel, 3) << "}" << std::endl;
+
+			clKernWrite(transKernel, 3) << "else{" << std::endl;
+			clKernWrite(transKernel, 6) << "for (int loop = 0; loop<" << reShapeFactor*reShapeFactor << "; ++loop){" << std::endl;
+			
+			clKernWrite(transKernel, 9) << "index = lidx*" << 16 * reShapeFactor << " + lidy + " << 16 / reShapeFactor << "*loop;" << std::endl;
+			clKernWrite(transKernel, 9) << "if ((idy + loop*" << 16 / reShapeFactor << ")<" << params.fft_N[0] << " && idx<" << params.fft_N[0] << ")" << std::endl;
+			clKernWrite(transKernel, 12) << "outputA[(idy + loop*" << 16 / reShapeFactor << ")*" << params.fft_N[0] << " + idx] = yx_s[index]; " << std::endl;
+			clKernWrite(transKernel, 9) << "if ((t_gy_p * " << 16 * reShapeFactor << " + lidx)<" << params.fft_N[0] << " && (t_gx_p * " << 16 * reShapeFactor << " + lidy + loop*" << 16 / reShapeFactor << ")<" << params.fft_N[0] << ")" << std::endl;
+			clKernWrite(transKernel, 12) << "outputA[(lidy + loop*" << 16 / reShapeFactor << ")*" << params.fft_N[0] << " + lidx + starting_index_yx] = xy_s[index];" << std::endl;
+
+			clKernWrite(transKernel, 6) << "}" << std::endl; // end for
+			clKernWrite(transKernel, 3) << "}" << std::endl; // end else
+
 		
-
-
-		bool branchingInGroupX = params.transOutHorizontal ? ((params.fft_N[1] % blockSize.y) != 0) : ((params.fft_N[0] % blockSize.x) != 0);
-		bool branchingInGroupY = params.transOutHorizontal ? ((params.fft_N[0] % blockSize.x) != 0) : ((params.fft_N[1] % blockSize.y) != 0);
-		bool branchingInBoth = branchingInGroupX && branchingInGroupY;
-		bool branchingInAny = branchingInGroupX || branchingInGroupY;
-
-		size_t branchBlocks = branchingInBoth ? 4 : ( branchingInAny ? 2 : 1 );
-
-		size_t cornerGroupX = params.transOutHorizontal ? (params.fft_N[1] / blockSize.y) : (params.fft_N[0] / blockSize.x);
-		size_t cornerGroupY = params.transOutHorizontal ? (params.fft_N[0] / blockSize.x) : (params.fft_N[1] / blockSize.y);
-
-		std::string gIndexX = "groupIndex.x"; //params.transOutHorizontal ? "currDimIndex" : "groupIndex.x";
-		std::string gIndexY = "currDimIndex"; //params.transOutHorizontal ? "groupIndex.x" : "currDimIndex";		
+		}
+		clKernWrite(transKernel, 0) << "}" << std::endl;
 		
-		std::string wIndexX = params.transOutHorizontal ? "yInd" : "xInd";
-		std::string wIndexY = params.transOutHorizontal ? "xInd" : "yInd";
-				
-		size_t wIndexXEnd = params.transOutHorizontal ? params.fft_N[1] % blockSize.y : params.fft_N[0] % blockSize.x;
-		size_t wIndexYEnd = params.transOutHorizontal ? params.fft_N[0] % blockSize.x : params.fft_N[1] % blockSize.y;
-
-
-		for(size_t i = 0; i<branchBlocks; i++)
-		{
-			if(branchingInBoth)
-				if(i == 0)
-				{
-					clKernWrite( transKernel, 3 ) << "if( (" << gIndexX << " == " << 
-						cornerGroupX << ") && (" << gIndexY << " == " <<
-						cornerGroupY << ") )" << std::endl;
-					clKernWrite( transKernel, 3 ) << "{" << std::endl;
-				}
-				else if(i == 1)
-				{
-					clKernWrite( transKernel, 3 ) << "else if( " << gIndexX << " == " << 
-						cornerGroupX << " )" << std::endl;
-					clKernWrite( transKernel, 3 ) << "{" << std::endl;
-				}
-				else if(i == 2)
-				{
-					clKernWrite( transKernel, 3 ) << "else if( " << gIndexY << " == " <<
-						cornerGroupY << " )" << std::endl;
-					clKernWrite( transKernel, 3 ) << "{" << std::endl;
-				}
-				else
-				{
-					clKernWrite( transKernel, 3 ) << "else" << std::endl;
-					clKernWrite( transKernel, 3 ) << "{" << std::endl;
-				}
-			else if(branchingInAny)
-				if(i == 0)
-				{
-					if(branchingInGroupX)
-					{
-						clKernWrite( transKernel, 3 ) << "if( " << gIndexX << " == " << 
-							cornerGroupX << " )" << std::endl;
-						clKernWrite( transKernel, 3 ) << "{" << std::endl;
-					}
-					else
-					{
-						clKernWrite( transKernel, 3 ) << "if( " << gIndexY << " == " <<
-							cornerGroupY << " )" << std::endl;
-						clKernWrite( transKernel, 3 ) << "{" << std::endl;
-					}
-				}
-				else
-				{
-					clKernWrite( transKernel, 3 ) << "else" << std::endl;
-					clKernWrite( transKernel, 3 ) << "{" << std::endl;
-				}
-
-
-
-			clKernWrite( transKernel, 6 ) << "for( uint t=0; t < wgUnroll; t++ )" << std::endl;
-			clKernWrite( transKernel, 6 ) << "{" << std::endl;
-
-			clKernWrite( transKernel, 9 ) << "size_t xInd = localIndex.x + localExtent.x * ( localIndex.y % wgTileExtent.y ); " << std::endl;
-			clKernWrite( transKernel, 9 ) << "size_t yInd = localIndex.y/wgTileExtent.y + t * wgTileExtent.y; " << std::endl;
-
-			// Calculating the index seperately enables easier debugging through tools
-			clKernWrite( transKernel, 9 ) << "size_t gInd = xInd + rowSizeinUnits * yInd;" << std::endl;
-
-
-			if(branchingInBoth)
-			{
-				if(i == 0)
-				{
-					clKernWrite( transKernel, 9 ) << std::endl;
-					clKernWrite( transKernel, 9 ) << "if( (" << wIndexX << "< " << wIndexXEnd << ") && (" << wIndexY << " < " << wIndexYEnd << ") )" << std::endl;
-					clKernWrite( transKernel, 9 ) << "{" << std::endl;
-				}
-				else if(i == 1)
-				{
-					clKernWrite( transKernel, 9 ) << std::endl;
-					clKernWrite( transKernel, 9 ) << "if( (" << wIndexX << " < " << wIndexXEnd << ") )" << std::endl;
-					clKernWrite( transKernel, 9 ) << "{" << std::endl;
-				}
-				else if(i == 2)
-				{
-					clKernWrite( transKernel, 9 ) << std::endl;
-					clKernWrite( transKernel, 9 ) << "if( (" << wIndexY << " < " << wIndexYEnd << ") )" << std::endl;
-					clKernWrite( transKernel, 9 ) << "{" << std::endl;
-				}
-				else
-					clKernWrite( transKernel, 9 ) << "{" << std::endl;
-			}
-			else if(branchingInAny)
-			{
-				if(i == 0)
-				{
-					if(branchingInGroupX)
-					{
-						clKernWrite( transKernel, 9 ) << std::endl;
-						clKernWrite( transKernel, 9 ) << "if( (" << wIndexX << " < " << wIndexXEnd << ") )" << std::endl;
-						clKernWrite( transKernel, 9 ) << "{" << std::endl;
-					}
-					else
-					{
-						clKernWrite( transKernel, 9 ) << std::endl;
-						clKernWrite( transKernel, 9 ) << "if( (" << wIndexY << " < " << wIndexYEnd << ") )" << std::endl;
-						clKernWrite( transKernel, 9 ) << "{" << std::endl;
-					}
-				}
-				else
-					clKernWrite( transKernel, 9 ) << "{" << std::endl;
-			}
-
-			switch( params.fft_inputLayout )
-			{
-			case CLFFT_COMPLEX_INTERLEAVED:
-				clKernWrite( transKernel, 9 ) << "tmp = tileIn[ gInd ];" << std::endl;
-				break;
-			case CLFFT_COMPLEX_PLANAR:
-				clKernWrite( transKernel, 9 ) << "tmp.s0 = realTileIn[ gInd ];" << std::endl;
-				clKernWrite( transKernel, 9 ) << "tmp.s1 = imagTileIn[ gInd ];" << std::endl;
-				break;
-			case CLFFT_HERMITIAN_INTERLEAVED:
-			case CLFFT_HERMITIAN_PLANAR:
-				return CLFFT_TRANSPOSED_NOTIMPLEMENTED;
-			case CLFFT_REAL:
-				clKernWrite( transKernel, 9 ) << "tmp = tileIn[ gInd ];" << std::endl;
-				break;
-
-			}
-
-			if(branchingInAny)
-			{
-				clKernWrite( transKernel, 9 ) << "}" << std::endl;
-				clKernWrite( transKernel, 9 ) << std::endl;
-			}
-
-			clKernWrite( transKernel, 9 ) << "// Transpose of Tile data happens here" << std::endl;
-
-
-			// If requested, generate the Twiddle math to multiply constant values
-			if( params.fft_3StepTwiddle )
-				genTwiddleMath( params, transKernel, dtComplex, fwd );
-
-			clKernWrite( transKernel, 9 ) << "lds[ xInd ][ yInd ] = tmp; " << std::endl;
-			clKernWrite( transKernel, 6 ) << "}" << std::endl;
-
-			if(branchingInAny)
-				clKernWrite( transKernel, 3 ) << "}" << std::endl;
-		}
-
-		clKernWrite( transKernel, 3 ) << std::endl;
-		clKernWrite( transKernel, 3 ) << "barrier( CLK_LOCAL_MEM_FENCE );" << std::endl;
-		clKernWrite( transKernel, 3 ) << std::endl;
-
-		OffsetCalc(transKernel, params, false);
-
-
-		switch( params.fft_outputLayout )
-		{
-		case CLFFT_COMPLEX_INTERLEAVED:
-			clKernWrite( transKernel, 3 ) << "global " << dtOutput << "* tileOut = " << pmComplexOut << " + oOffset;" << std::endl << std::endl;
-			break;
-		case CLFFT_COMPLEX_PLANAR:
-			clKernWrite( transKernel, 3 ) << "global " << dtOutput << "* realTileOut = " << pmRealOut << " + oOffset;" << std::endl;
-			clKernWrite( transKernel, 3 ) << "global " << dtOutput << "* imagTileOut = " << pmImagOut << " + oOffset;" << std::endl;
-			break;
-		case CLFFT_HERMITIAN_INTERLEAVED:
-		case CLFFT_HERMITIAN_PLANAR:
-			return CLFFT_TRANSPOSED_NOTIMPLEMENTED;
-		case CLFFT_REAL:
-			clKernWrite( transKernel, 3 ) << "global " << dtOutput << "* tileOut = " << pmRealOut << " + oOffset;" << std::endl << std::endl;
-			break;
-		}
-
-		// Write the transposed values from LDS into global memory
-		clKernWrite( transKernel, 3 ) << "rowSizeinUnits = " << params.fft_outStride[ 1 ] << ";" << std::endl; 
-		clKernWrite( transKernel, 3 ) << "const size_t transposeRatio = wgTileExtent.x / ( wgTileExtent.y * wgUnroll );" << std::endl;
-		clKernWrite( transKernel, 3 ) << "const size_t groupingPerY = wgUnroll / wgTileExtent.y;" << std::endl;
-		clKernWrite( transKernel, 3 ) << std::endl << std::endl;
-
-		for(size_t i = 0; i<branchBlocks; i++)
-		{
-			if(branchingInBoth)
-				if(i == 0)
-				{
-					clKernWrite( transKernel, 3 ) << "if( (" << gIndexX << " == " << 
-						cornerGroupX << ") && (" << gIndexY << " == " <<
-						cornerGroupY << ") )" << std::endl;
-					clKernWrite( transKernel, 3 ) << "{" << std::endl;
-				}
-				else if(i == 1)
-				{
-					clKernWrite( transKernel, 3 ) << "else if( " << gIndexX << " == " << 
-						cornerGroupX << " )" << std::endl;
-					clKernWrite( transKernel, 3 ) << "{" << std::endl;
-				}
-				else if(i == 2)
-				{
-					clKernWrite( transKernel, 3 ) << "else if( " << gIndexY << " == " <<
-						cornerGroupY << " )" << std::endl;
-					clKernWrite( transKernel, 3 ) << "{" << std::endl;
-				}
-				else
-				{
-					clKernWrite( transKernel, 3 ) << "else" << std::endl;
-					clKernWrite( transKernel, 3 ) << "{" << std::endl;
-				}
-			else if(branchingInAny)
-				if(i == 0)
-				{
-					if(branchingInGroupX)
-					{
-						clKernWrite( transKernel, 3 ) << "if( " << gIndexX << " == " << 
-							cornerGroupX << " )" << std::endl;
-						clKernWrite( transKernel, 3 ) << "{" << std::endl;
-					}
-					else
-					{
-						clKernWrite( transKernel, 3 ) << "if( " << gIndexY << " == " <<
-							cornerGroupY << " )" << std::endl;
-						clKernWrite( transKernel, 3 ) << "{" << std::endl;
-					}
-				}
-				else
-				{
-					clKernWrite( transKernel, 3 ) << "else" << std::endl;
-					clKernWrite( transKernel, 3 ) << "{" << std::endl;
-				}
-
-
-			clKernWrite( transKernel, 6 ) << "for( uint t=0; t < wgUnroll; t++ )" << std::endl;
-			clKernWrite( transKernel, 6 ) << "{" << std::endl;
-			clKernWrite( transKernel, 9 ) << "size_t xInd = localIndex.x + localExtent.x * ( localIndex.y % groupingPerY ); " << std::endl;
-			clKernWrite( transKernel, 9 ) << "size_t yInd = localIndex.y/groupingPerY + t * (wgTileExtent.y * transposeRatio); " << std::endl;
-			clKernWrite( transKernel, 9 ) << "tmp = lds[ yInd ][ xInd ]; " << std::endl;
-			clKernWrite( transKernel, 9 ) << "size_t gInd = xInd + rowSizeinUnits * yInd;" << std::endl;
-
-			if(branchingInBoth)
-			{
-				if(i == 0)
-				{
-					clKernWrite( transKernel, 9 ) << std::endl;
-					clKernWrite( transKernel, 9 ) << "if( (" << wIndexY << " < " << wIndexXEnd << ") && (" << wIndexX << " < " << wIndexYEnd << ") )" << std::endl;
-					clKernWrite( transKernel, 9 ) << "{" << std::endl;
-				}
-				else if(i == 1)
-				{
-					clKernWrite( transKernel, 9 ) << std::endl;
-					clKernWrite( transKernel, 9 ) << "if( (" << wIndexY << " < " << wIndexXEnd << ") )" << std::endl;
-					clKernWrite( transKernel, 9 ) << "{" << std::endl;
-
-				}
-				else if(i == 2)
-				{
-					clKernWrite( transKernel, 9 ) << std::endl;
-					clKernWrite( transKernel, 9 ) << "if( (" << wIndexX << " < " << wIndexYEnd << ") )" << std::endl;
-					clKernWrite( transKernel, 9 ) << "{" << std::endl;
-				}
-				else
-					clKernWrite( transKernel, 9 ) << "{" << std::endl;
-			}
-			else if(branchingInAny)
-			{
-				if(i == 0)
-				{
-					if(branchingInGroupX)
-					{
-						clKernWrite( transKernel, 9 ) << std::endl;
-						if(params.fft_realSpecial)
-						{
-							clKernWrite( transKernel, 9 ) << "if( (" << wIndexY << " < " << wIndexXEnd << ") && (" <<
-								wIndexX << " < 1) )" << std::endl;
-						}
-						else
-						{
-							clKernWrite( transKernel, 9 ) << "if( (" << wIndexY << " < " << wIndexXEnd << ") )" << std::endl;
-						}
-						clKernWrite( transKernel, 9 ) << "{" << std::endl;
-					}
-					else
-					{
-						clKernWrite( transKernel, 9 ) << std::endl;
-						if(params.fft_realSpecial)
-						{
-							clKernWrite( transKernel, 9 ) << "if( (" << wIndexX << " < " << wIndexYEnd << ") && (" <<
-								wIndexY << " < 1) )" << std::endl;
-						}
-						else
-						{
-							clKernWrite( transKernel, 9 ) << "if( (" << wIndexX << " < " << wIndexYEnd << ") )" << std::endl;
-						}
-						clKernWrite( transKernel, 9 ) << "{" << std::endl;
-					}
-				}
-				else
-					clKernWrite( transKernel, 9 ) << "{" << std::endl;
-			}
-
-			switch( params.fft_outputLayout )
-			{
-			case CLFFT_COMPLEX_INTERLEAVED:
-				clKernWrite( transKernel, 9 ) << "tileOut[ gInd ] = tmp;" << std::endl;
-				break;
-			case CLFFT_COMPLEX_PLANAR:
-				clKernWrite( transKernel, 9 ) << "realTileOut[ gInd ] = tmp.s0;" << std::endl;
-				clKernWrite( transKernel, 9 ) << "imagTileOut[ gInd ] = tmp.s1;" << std::endl;
-				break;
-			case CLFFT_HERMITIAN_INTERLEAVED:
-			case CLFFT_HERMITIAN_PLANAR:
-				return CLFFT_TRANSPOSED_NOTIMPLEMENTED;
-			case CLFFT_REAL:
-				clKernWrite( transKernel, 9 ) << "tileOut[ gInd ] = tmp;" << std::endl;
-				break;
-			}
-
-			if(branchingInAny)
-			{
-				clKernWrite( transKernel, 9 ) << "}" << std::endl;
-			}
-
-			clKernWrite( transKernel, 6 ) << "}" << std::endl;
-
-			if(branchingInAny)
-				clKernWrite( transKernel, 3 ) << "}" << std::endl;
-		}
-
-		clKernWrite( transKernel, 0 ) << "}\n" << std::endl;
-
-		strKernel = transKernel.str( );
+		strKernel = transKernel.str();
 		//std::cout << strKernel;
-
-		if(!params.fft_3StepTwiddle)
+		
+		if (!params.fft_3StepTwiddle)
 			break;
 	}
 
@@ -922,13 +531,9 @@ clfftStatus FFTGeneratedTransposeInplaceAction::initParams ()
 }
 
 // Constants that specify the bounding sizes of the block that each workgroup will transpose
-const tile lwSize = { 16, 16 };
-const size_t reShapeFactor = 4;   // wgTileSize = { lwSize.x * reShapeFactor, lwSize.y / reShapeFactor }
-const size_t outRowPadding = 0;
+const size_t lwSize = 256;
+const size_t reShapeFactor = 2;   // wgTileSize = { lwSize.x * reShapeFactor, lwSize.y / reShapeFactor }
 
-// This is global, but should consider to be part of FFTPlan
-size_t loopCount;
-tile blockSize;
 
 
 //	OpenCL does not take unicode strings as input, so this routine returns only ASCII strings
@@ -936,28 +541,9 @@ tile blockSize;
 clfftStatus FFTGeneratedTransposeInplaceAction::generateKernel ( FFTRepo& fftRepo, const cl_command_queue commQueueFFT )
 {
 	
-    switch( this->signature.fft_precision )
-    {
-    case CLFFT_SINGLE:
-    case CLFFT_SINGLE_FAST:
-        loopCount = 16;
-        break;
-    case CLFFT_DOUBLE:
-    case CLFFT_DOUBLE_FAST:
-        // Double precisions need about half the amount of LDS space as singles do
-        loopCount = 8;
-        break;
-    default:
-        return CLFFT_TRANSPOSED_NOTIMPLEMENTED;
-        break;
-    }
-
-	blockSize.x = lwSize.x * reShapeFactor;
-	blockSize.y = lwSize.y / reShapeFactor * loopCount;
-
 
     std::string programCode;
-    OPENCL_V( genTransposeKernel( this->signature, programCode, lwSize, reShapeFactor, loopCount, blockSize, outRowPadding ), _T( "GenerateTransposeKernel() failed!" ) );
+    OPENCL_V( genTransposeKernel( this->signature, programCode, lwSize, reShapeFactor ), _T( "GenerateTransposeKernel() failed!" ) );
 
     cl_int status = CL_SUCCESS;
     cl_device_id Device = NULL;
@@ -988,6 +574,7 @@ clfftStatus FFTGeneratedTransposeInplaceAction::generateKernel ( FFTRepo& fftRep
 clfftStatus FFTGeneratedTransposeInplaceAction::getWorkSizes( std::vector< size_t >& globalWS, std::vector< size_t >& localWS )
 {
 
+#if 0
     // We need to make sure that the global work size is evenly divisible by the local work size
     // Our transpose works in tiles, so divide tiles in each dimension to get count of blocks, rounding up for remainder items
 	size_t numBlocksX = this->signature.transOutHorizontal ?
@@ -1006,15 +593,21 @@ clfftStatus FFTGeneratedTransposeInplaceAction::getWorkSizes( std::vector< size_
 	{
 		numWIY *= this->signature.fft_N[i];
 	}
+#endif
 
+	size_t wg_slice;
+	if (this->signature.fft_N[0] % (16 * reShapeFactor) == 0)
+		wg_slice = this->signature.fft_N[0] / reShapeFactor / 16;
+	else
+		wg_slice = ((this->signature.fft_N[0] / (16 * reShapeFactor) + 1) * 16 * reShapeFactor) / 16 / reShapeFactor;
+
+	size_t global_item_size = wg_slice*(wg_slice + 1) / 2 * 16 * 16 * this->plan->batchsize;
 
     globalWS.clear( );
-    globalWS.push_back( numWIX );
-    globalWS.push_back( numWIY );
+	globalWS.push_back(global_item_size);
 
     localWS.clear( );
-    localWS.push_back( lwSize.x );
-    localWS.push_back( lwSize.y );
+    localWS.push_back( lwSize );
 
     return CLFFT_SUCCESS;
 }
