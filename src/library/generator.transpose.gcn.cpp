@@ -799,8 +799,16 @@ static clfftStatus genTransposeKernel( const FFTGeneratedTransposeGCNAction::Sig
 						clKernWrite( transKernel, 9 ) << std::endl;
 						if(params.fft_realSpecial)
 						{
-							clKernWrite( transKernel, 9 ) << "if( (" << wIndexY << " < " << wIndexXEnd << ") && (" <<
-								wIndexX << " < 1) )" << std::endl;
+							clKernWrite( transKernel, 9 ) << "if( ((" << wIndexY << " == " << wIndexXEnd - 1 << ") && (" <<
+								wIndexX << " < 1)) ";
+							if(wIndexXEnd > 1)
+							{
+								clKernWrite( transKernel, 0 ) << "|| (" << wIndexY << " < " << wIndexXEnd - 1 << ") )" << std::endl;
+							}
+							else
+							{
+								clKernWrite( transKernel, 0 ) << ")" << std::endl;
+							}
 						}
 						else
 						{
@@ -813,8 +821,16 @@ static clfftStatus genTransposeKernel( const FFTGeneratedTransposeGCNAction::Sig
 						clKernWrite( transKernel, 9 ) << std::endl;
 						if(params.fft_realSpecial)
 						{
-							clKernWrite( transKernel, 9 ) << "if( (" << wIndexX << " < " << wIndexYEnd << ") && (" <<
-								wIndexY << " < 1) )" << std::endl;
+							clKernWrite( transKernel, 9 ) << "if( ((" << wIndexX << " == " << wIndexYEnd - 1 << ") && (" <<
+								wIndexY << " < 1)) ";
+							if(wIndexYEnd > 1)
+							{
+								clKernWrite( transKernel, 0 ) << "|| (" << wIndexX << " < " << wIndexYEnd - 1 << ") )" << std::endl;
+							}
+							else
+							{
+								clKernWrite( transKernel, 0 ) << ")" << std::endl;
+							}
 						}
 						else
 						{

@@ -802,14 +802,6 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 					&& (fftPlan->length[0] > 4096) && (fftPlan->length.size() == 1) )
 				{
 
-					if( (fftPlan->length[0] == 8192) )
-					{
-						size_t tmp = length0;
-						clLengths[0] = length0 = length1;
-						clLengths[1] = length1 = tmp;
-					}
-
-
 					ARG_CHECK(clLengths[0] <= Large1DThreshold);
 
 
