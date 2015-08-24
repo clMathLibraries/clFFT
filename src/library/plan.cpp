@@ -1258,6 +1258,14 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 						copyPlan->inStride.push_back(fftPlan->inStride[index]);
 					}
 
+					//Set callback data if set on top level plan
+					if (fftPlan->hasPreCallback)
+					{
+						copyPlan->hasPreCallback = true;
+						copyPlan->preCallback = fftPlan->preCallback;
+						copyPlan->precallUserData = fftPlan->precallUserData;
+					}
+
 					OPENCL_V(clfftBakePlan(fftPlan->planRCcopy, numQueues, commQueueFFT, NULL, NULL ), _T( "BakePlan large1d RC copy plan failed" ) );
 
 					// column FFT, size clLengths[1], batch clLengths[0], with length[0] twiddle factor multiplication

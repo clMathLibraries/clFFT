@@ -629,16 +629,25 @@ public:
 						{
 							*( base_ptr + the_index ) *= other_buffer.real(x, y, z, batch);
 		
-							if (!other_buffer.is_real())
+							the_index = the_index + 1; // the imaginary component immediately follows the real
+							if (other_buffer.is_real())
 							{
-								the_index = the_index + 1; // the imaginary component immediately follows the real
+								*( base_ptr + the_index ) *= other_buffer.real(x, y, z, batch);
+							}
+							else
+							{	
 								*( base_ptr + the_index ) *= other_buffer.imag(x, y, z, batch);
 							}
 						}
 						else if ( is_planar() )
 						{
 							*( real_ptr + the_index ) *= other_buffer.real(x, y, z, batch);
-							if (!other_buffer.is_real())
+							
+							if (other_buffer.is_real())
+							{
+								*( imag_ptr + the_index ) *= other_buffer.real(x, y, z, batch);
+							}
+							else
 							{
 								*( imag_ptr + the_index ) *= other_buffer.imag(x, y, z, batch);
 							}
@@ -646,6 +655,70 @@ public:
 						else if ( is_real() )
 						{
 							*( base_ptr + the_index ) *= other_buffer.real(x, y, z, batch);
+						}
+					}
+	}
+
+	//Calculates a 3 point average of other_buffer and
+	//multiplies with buffer
+	//only real layout is supported for other_buffer currently
+	void multiply_3pt_average( buffer<T> & other_buffer )
+	{
+		if (!other_buffer.is_real())
+		{
+			throw std::runtime_error( "only real layout is supported currently for other_buffer" );
+		}
+
+		size_t the_index, o_the_index;
+		T *base_ptr, *o_base_ptr;
+		T *real_ptr;
+		T *imag_ptr;
+		T o_prev_val, o_next_val;
+		T average;
+
+		if( is_interleaved() )
+		{
+			base_ptr = _the_buffers[interleaved].ptr();
+		}
+		else if ( is_planar() )
+		{
+			real_ptr = _the_buffers[re].ptr();
+			imag_ptr = _the_buffers[im].ptr();
+		}
+		else if ( is_real() )
+		{
+			base_ptr = _the_buffers[re].ptr();
+		}
+		o_base_ptr = other_buffer.real_ptr();
+
+		for( size_t batch = 0; batch < batch_size(); batch++ )
+			for( size_t z = 0; z < length(dimz); z++ )
+				for( size_t y = 0; y < length(dimy); y++ )
+					for( size_t x = 0; x < length(dimx); x++ )
+					{		
+						the_index = index(x, y, z, batch);
+						o_the_index = other_buffer.index(x, y, z, batch);
+						o_prev_val = o_the_index <= 0 ? 0 : *(o_base_ptr + o_the_index - 1);
+						o_next_val = o_the_index >= (other_buffer.total_number_of_points_including_data_and_intervening() - 1) ? 0 : *(o_base_ptr + o_the_index +  1);
+						
+						average = (o_prev_val + *(o_base_ptr + o_the_index) + o_next_val)/ 3.0 ;
+
+						if( is_interleaved() )
+						{
+							*( base_ptr + the_index ) *= average;
+		
+							the_index = the_index + 1; // the imaginary component immediately follows the real
+							*( base_ptr + the_index ) *= average;
+						}
+						else if ( is_planar() )
+						{
+							*( real_ptr + the_index ) *= average;
+							
+							*( imag_ptr + the_index ) *= average;
+						}
+						else if ( is_real() )
+						{
+							*( base_ptr + the_index ) *= average;
 						}
 					}
 	}

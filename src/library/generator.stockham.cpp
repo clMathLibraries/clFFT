@@ -40,7 +40,7 @@ FFTGeneratedStockhamAction::FFTGeneratedStockhamAction(clfftPlanHandle plHandle,
         fprintf(stderr, "FFTGeneratedStockhamAction::initParams() failed!\n");
         return;
     }
-
+	
     FFTRepo &fftRepo = FFTRepo::getInstance();
 
     err = this->generateKernel(fftRepo, queue);
@@ -51,7 +51,7 @@ FFTGeneratedStockhamAction::FFTGeneratedStockhamAction(clfftPlanHandle plHandle,
         return;
     }
 
-    err = compileKernels( queue, plHandle, plan);
+	err = compileKernels( queue, plHandle, plan);
 
     if (err != CLFFT_SUCCESS)
     {
@@ -3759,13 +3759,6 @@ clfftStatus FFTGeneratedStockhamAction::initParams ()
     this->signature.fft_inputLayout  = this->plan->inputLayout;
 	this->signature.fft_MaxWorkGroupSize = this->plan->envelope.limit_WorkGroupSize;
 
-	//Set callback if specified
-	if (this->plan->hasPreCallback)
-	{
-		this->signature.fft_hasPreCallback = true;
-		this->signature.fft_preCallback = this->plan->preCallback;
-	}
-
     ARG_CHECK(this->plan->length.size()    > 0);
 	ARG_CHECK(this->plan->inStride.size()  > 0);
     ARG_CHECK(this->plan->outStride.size() > 0);
@@ -3859,6 +3852,12 @@ clfftStatus FFTGeneratedStockhamAction::initParams ()
 	this->signature.fft_R = (nt * this->signature.fft_N[0])/wgs;
 	this->signature.fft_SIMD = wgs;
 
+	//Set callback if specified
+	if (this->plan->hasPreCallback)
+	{
+		this->signature.fft_hasPreCallback = true;
+		this->signature.fft_preCallback = this->plan->preCallback;
+	}
 
     if (this->plan->large1D != 0) {
         ARG_CHECK (this->signature.fft_N[0] != 0)
@@ -3961,6 +3960,42 @@ clfftStatus FFTGeneratedStockhamAction::generateKernel(FFTRepo& fftRepo, const c
 			Kernel<P_DOUBLE> kernel(this->signature);
 			kernel.GenerateKernel(programCode, Device);
 		} break;
+	}
+
+	//Requested local memory size by callback must not exceed the device LDS limits after factoring the LDS size required by main FFT kernel
+	if (this->signature.fft_hasPreCallback && this->signature.fft_preCallback.localMemSize > 0)
+	{
+		bool validLDSSize = false;
+		if (this->plan->blockCompute)
+		{
+			validLDSSize = ((this->signature.blockLDS * this->plan->ElementSize()) +  this->signature.fft_preCallback.localMemSize) < this->plan->envelope.limit_LocalMemSize;
+		}
+		else
+		{
+			size_t length = this->signature.fft_N[0];
+			size_t workGroupSize = this->signature.fft_SIMD;
+			size_t numTrans = (workGroupSize * this->signature.fft_R) / length;
+
+			//TODO - Need to abstract this out. Repeating the same compute as in GenerateKernel. 
+			// Set half lds only for power-of-2 problem sizes & interleaved data
+			bool halfLds = ( (this->signature.fft_inputLayout == CLFFT_COMPLEX_INTERLEAVED) &&
+						(this->signature.fft_outputLayout == CLFFT_COMPLEX_INTERLEAVED) ) ? true : false;
+			halfLds = halfLds ? ((length & (length-1)) ? false : true) : false;
+
+			// Set half lds for real transforms
+			halfLds = ( (this->signature.fft_inputLayout == CLFFT_REAL) &&
+						(this->signature.fft_outputLayout == CLFFT_REAL) ) ? true : halfLds;
+
+			size_t ldsSize = halfLds ? length*numTrans : 2*length*numTrans;
+			size_t elementSize = ((this->signature.fft_precision == CLFFT_DOUBLE) || (this->signature.fft_precision == CLFFT_DOUBLE_FAST)) ? sizeof(double) : sizeof(float);
+
+			validLDSSize = ((ldsSize * elementSize) + this->signature.fft_preCallback.localMemSize) < this->plan->envelope.limit_LocalMemSize;
+		}
+		if(!validLDSSize)
+		{
+			fprintf(stderr, "Requested local memory size not available\n");
+			return CLFFT_INVALID_ARG_VALUE;
+		}
 	}
 
 #ifdef KERNEL_INTERJECT

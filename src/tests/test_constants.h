@@ -77,6 +77,20 @@
 				return ret; \n \
 				}
 
+//Precallback test for LDS - works when 1 WI works on one input element
+#define MULVAL_LDS float2 mulval(__global void* in, uint offset, __global void* userdata, __local void* localmem)\n \
+				{ \n \
+				uint lid = get_local_id(0); \n \
+				__local float* lds = (__local float*)localmem + lid; \n \
+				lds[0] = *((__global float*)userdata + offset); \n \
+				barrier(CLK_LOCAL_MEM_FENCE); \n \
+				float prev = offset <= 0 ? 0 : *(lds - 1); \n \
+				float next = offset >= get_global_size(0) ? 0 : *(lds + 1); \n \
+				float avg = (prev + *lds + next)/3.0;\n \
+				float2 ret = *((__global float2*)in + offset) * avg; \n \
+				return ret; \n \
+				}
+
 #define STRUCT_USERDATA typedef struct USER_DATA  \
 					   {  \
 						float scalar1;  \

@@ -1052,6 +1052,20 @@ clfftStatus FFTGeneratedTransposeGCNAction::generateKernel ( FFTRepo& fftRepo, c
 	blockSize.x = lwSize.x * reShapeFactor;
 	blockSize.y = lwSize.y / reShapeFactor * loopCount;
 
+	//Requested local memory size by callback must not exceed the device LDS limits after factoring the LDS size required by main FFT kernel
+	if (this->signature.fft_hasPreCallback && this->signature.fft_preCallback.localMemSize > 0)
+	{
+		bool validLDSSize = false;
+		size_t length = blockSize.x * blockSize.y;
+		
+		validLDSSize = ((length * this->plan->ElementSize()) + this->signature.fft_preCallback.localMemSize) < this->plan->envelope.limit_LocalMemSize;
+		
+		if(!validLDSSize)
+		{
+			fprintf(stderr, "Requested local memory size not available\n");
+			return CLFFT_INVALID_ARG_VALUE;
+		}
+	}
 
     std::string programCode;
     OPENCL_V( genTransposeKernel( this->signature, programCode, lwSize, reShapeFactor, loopCount, blockSize, outRowPadding ), _T( "GenerateTransposeKernel() failed!" ) );

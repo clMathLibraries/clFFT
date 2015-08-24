@@ -205,6 +205,84 @@ void precallback_complex_to_complex( data_pattern pattern, direction::direction_
 	EXPECT_EQ( true, test_fft.result() == reference.result() );
 }
 
+template< class T, class cl_T, class fftw_T >
+void precallback_complex_to_complex_lds( data_pattern pattern, direction::direction_t direction,
+	std::vector<size_t> lengths, size_t batch,
+	std::vector<size_t> input_strides, std::vector<size_t> output_strides,
+	size_t input_distance, size_t output_distance,
+	layout::buffer_layout_t in_layout, layout::buffer_layout_t out_layout,
+	placeness::placeness_t placeness, 
+	T scale = 1.0f )
+{
+	clfft<T, cl_T> test_fft( static_cast<clfftDim>(lengths.size()), &lengths[0],
+		input_strides.empty() ? NULL : &input_strides[0],
+		output_strides.empty() ? NULL : &output_strides[0],
+		batch, input_distance, output_distance,
+		cl_layout(in_layout), cl_layout(out_layout),
+		cl_placeness(placeness) );
+
+	fftw<T, fftw_T> reference( lengths.size(), &lengths[0], batch, c2c );
+
+	//initialize input
+	if( pattern == sawtooth )
+	{
+		test_fft.set_input_to_sawtooth( 1.0f );
+		reference.set_data_to_sawtooth( 1.0f );
+	}
+	else if( pattern == value )
+	{
+		test_fft.set_input_to_value( 2.0f, 2.5f );
+		reference.set_all_data_to_value( 2.0f, 2.5f );
+	}
+	else if( pattern == impulse )
+	{
+		test_fft.set_input_to_impulse();
+		reference.set_data_to_impulse();
+	}
+	else if( pattern == erratic )
+	{
+		test_fft.set_input_to_random();
+		reference.set_data_to_random();
+	}
+	else
+	{
+		throw std::runtime_error( "invalid pattern type in complex_to_complex()" );
+	}
+
+	// if we're starting with unequal data, we're destined for failure
+	EXPECT_EQ( true, test_fft.input_buffer() == reference.input_buffer() );
+
+	//set precallback values
+	//Test assumes 64 length data
+	unsigned int localMemSize = 64 * sizeof(T);
+	test_fft.set_input_precallback(localMemSize);
+	reference.set_input_precallback_special();
+
+	if( direction == direction::forward )
+	{
+		test_fft.set_forward_transform();
+		test_fft.forward_scale( scale );
+
+		reference.set_forward_transform();
+		reference.forward_scale( scale );
+	}
+	else if( direction == direction::backward )
+	{
+		test_fft.set_backward_transform();
+		test_fft.backward_scale( scale );
+
+		reference.set_backward_transform();
+		reference.backward_scale( scale );
+	}
+	else
+		throw std::runtime_error( "invalid direction in complex_to_complex()" );
+
+	reference.transform();
+	test_fft.transform();
+
+	EXPECT_EQ( true, test_fft.result() == reference.result() );
+}
+
 /*****************************************************/
 /*****************************************************/
 // dimension is inferred from lengths.size()
@@ -380,6 +458,71 @@ void complex_to_real( data_pattern pattern,
 
 	// if we're starting with unequal data, we're destined for failure
 	EXPECT_EQ( true, test_fft.input_buffer() == reference.input_buffer() );
+
+	test_fft.backward_scale( scale );
+	reference.backward_scale( scale );
+
+	test_fft.transform();
+	reference.transform();
+
+	EXPECT_EQ( true, test_fft.result() == reference.result() );
+}
+
+/*****************************************************/
+/*****************************************************/
+// dimension is inferred from lengths.size()
+// tightly packed is inferred from strides.empty()
+// output layout is always real
+template< class T, class cl_T, class fftw_T >
+void precallback_complex_to_real( data_pattern pattern,
+	std::vector<size_t> lengths, size_t batch,
+	std::vector<size_t> input_strides, std::vector<size_t> output_strides,
+	size_t input_distance, size_t output_distance,
+	layout::buffer_layout_t in_layout,
+	placeness::placeness_t placeness,
+	T scale = 1.0f )
+{
+	fftw<T, fftw_T> data_maker( lengths.size(), &lengths[0], batch, r2c );
+
+	if( pattern == sawtooth )
+	{
+		data_maker.set_data_to_sawtooth(1.0f);
+	}
+	else if( pattern == value )
+	{
+		data_maker.set_all_data_to_value(2.0f);
+	}
+	else if( pattern == impulse )
+	{
+		data_maker.set_data_to_impulse();
+	}
+	else if( pattern == erratic )
+	{
+		data_maker.set_data_to_random();
+	}
+	else
+	{
+		throw std::runtime_error( "invalid pattern type in complex_to_real()" );
+	}
+
+	data_maker.transform();
+
+	clfft<T, cl_T> test_fft( static_cast<clfftDim>(lengths.size()), &lengths[0],
+		input_strides.empty() ? NULL : &input_strides[0],
+		output_strides.empty() ? NULL : &output_strides[0],
+		batch, input_distance, output_distance,
+		cl_layout(in_layout), cl_layout(layout::real),
+		cl_placeness(placeness) );
+	test_fft.set_input_to_buffer( data_maker.result() );
+
+	fftw<T, fftw_T> reference( lengths.size(), &lengths[0], batch, c2r );
+	reference.set_input_to_buffer(data_maker.result());
+
+	// if we're starting with unequal data, we're destined for failure
+	EXPECT_EQ( true, test_fft.input_buffer() == reference.input_buffer() );
+
+	test_fft.set_input_precallback();
+	reference.set_input_precallback();
 
 	test_fft.backward_scale( scale );
 	reference.backward_scale( scale );
