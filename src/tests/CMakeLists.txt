@@ -98,20 +98,3 @@ ENDIF( )
 set_target_properties( Test PROPERTIES VERSION ${CLFFT_VERSION} )
 set_target_properties( Test PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIR}/staging" )
 
-# CPack configuration; include the executable into the package
-install( TARGETS Test
-        RUNTIME DESTINATION bin${SUFFIX_BIN}
-        LIBRARY DESTINATION lib${SUFFIX_LIB}
-        ARCHIVE DESTINATION lib${SUFFIX_LIB}/import
-        )
-
-get_target_property( testLocation Test LOCATION )
-
-configure_file(
-    "${CMAKE_CURRENT_SOURCE_DIR}/copyTestDependencies.cmake.in"
-    "${CMAKE_CURRENT_BINARY_DIR}/copyTestDependencies.cmake"
-    @ONLY
-)
-
-# Register script at run at install time to analyze the executable and copy dependencies into package
-install( SCRIPT "${CMAKE_CURRENT_BINARY_DIR}/copyTestDependencies.cmake")

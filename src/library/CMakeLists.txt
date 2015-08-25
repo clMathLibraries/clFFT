@@ -89,13 +89,13 @@ set_target_properties( clFFT PROPERTIES VERSION ${CLFFT_VERSION} )
 set_target_properties( clFFT PROPERTIES SOVERSION ${CLFFT_SOVERSION} )
 set_target_properties( clFFT PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIR}/staging" )
 
-if( CMAKE_COMPILER_IS_GNUCC )
-    configure_file( ${CMAKE_CURRENT_SOURCE_DIR}/clFFT.pc.in
-                    ${CMAKE_CURRENT_BINARY_DIR}/clFFT.pc @ONLY )
-
-    install( FILES ${CMAKE_CURRENT_BINARY_DIR}/clFFT.pc
-             DESTINATION lib${SUFFIX_LIB}/pkgconfig )
-endif( )
+# if( CMAKE_COMPILER_IS_GNUCC )
+#     configure_file( ${CMAKE_CURRENT_SOURCE_DIR}/clFFT.pc.in
+#                     ${CMAKE_CURRENT_BINARY_DIR}/clFFT.pc @ONLY )
+# 
+#     install( FILES ${CMAKE_CURRENT_BINARY_DIR}/clFFT.pc
+#              DESTINATION lib${SUFFIX_LIB}/pkgconfig )
+# endif( )
 
 # CPack configuration; include the executable into the package
 install( TARGETS clFFT
@@ -105,33 +105,3 @@ install( TARGETS clFFT
         ARCHIVE DESTINATION lib${SUFFIX_LIB}/import
         )
         
-# For debug builds, include the debug runtimes into the package for testing on non-developer machines
-set( CMAKE_INSTALL_SYSTEM_RUNTIME_LIBS_SKIP true )
-set( CMAKE_INSTALL_DEBUG_LIBRARIES true )
-set( CMAKE_INSTALL_DEBUG_LIBRARIES_ONLY true )
-
-if( WIN32 )
-    set( CLFFT_RUNTIME_DESTINATION bin${SUFFIX_BIN} )
-else( )
-    set( CLFFT_RUNTIME_DESTINATION lib${SUFFIX_LIB} )
-endif( )
-
-include( InstallRequiredSystemLibraries )
-
-# Install necessary runtime files for debug builds
-install(    PROGRAMS ${CMAKE_INSTALL_SYSTEM_RUNTIME_LIBS}
-            CONFIGURATIONS Debug
-            DESTINATION ${CLFFT_RUNTIME_DESTINATION} )
-
-# Install all *.pdb files for debug builds
-install(    DIRECTORY ${PROJECT_BINARY_DIR}/staging/
-            DESTINATION ${CLFFT_RUNTIME_DESTINATION}
-            OPTIONAL
-            CONFIGURATIONS Debug
-            FILES_MATCHING PATTERN "*.pdb" )
-
-# Install a snapshot of the source as it was for this build; useful for the .pdb's
-install(    DIRECTORY ${PROJECT_SOURCE_DIR}
-            DESTINATION ${CLFFT_RUNTIME_DESTINATION}
-            OPTIONAL
-            CONFIGURATIONS Debug )
