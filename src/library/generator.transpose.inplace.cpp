@@ -203,12 +203,11 @@ static clfftStatus genTransposePrototype( const FFTGeneratedTransposeInplaceActi
         dtInput = dtComplex;
 		dtOutput = dtComplex;
         clKernWrite( transKernel, 0 ) << "global " << dtInput << "* restrict inputA";
-		clKernWrite(transKernel, 0) << ", global " << dtOutput << "* restrict outputA";
 		break;
     case CLFFT_COMPLEX_PLANAR:
         dtInput = dtPlanar;
-		return CLFFT_TRANSPOSED_NOTIMPLEMENTED;
-        // clKernWrite( transKernel, 0 ) << "global " << dtInput << "* restrict " << pmRealIn << ", global " << dtInput << "* restrict " << pmImagIn;
+		dtOutput = dtPlanar;
+		clKernWrite(transKernel, 0) << "global " << dtInput << "* restrict inputA_R" << ", global " << dtInput << "* restrict inputA_I";
         break;
     case CLFFT_HERMITIAN_INTERLEAVED:
     case CLFFT_HERMITIAN_PLANAR:
@@ -218,11 +217,38 @@ static clfftStatus genTransposePrototype( const FFTGeneratedTransposeInplaceActi
 		dtOutput = dtPlanar;
 
 		clKernWrite(transKernel, 0) << "global " << dtInput << "* restrict inputA";
-		clKernWrite(transKernel, 0) << ", global " << dtOutput << "* restrict outputA";
 		break;
     default:
         return CLFFT_TRANSPOSED_NOTIMPLEMENTED;
     }
+
+
+	switch (params.fft_outputLayout)
+	{
+		case CLFFT_COMPLEX_INTERLEAVED:
+			dtInput = dtComplex;
+			dtOutput = dtComplex;
+			clKernWrite(transKernel, 0) << ", global " << dtOutput << "* restrict outputA";
+			break;
+		case CLFFT_COMPLEX_PLANAR:
+			dtInput = dtPlanar;
+			dtOutput = dtPlanar;
+			clKernWrite(transKernel, 0) << ", global " << dtOutput << "* restrict outputA_R" << ", global " << dtOutput << "* restrict outputA_I";
+			break;
+		case CLFFT_HERMITIAN_INTERLEAVED:
+		case CLFFT_HERMITIAN_PLANAR:
+			return CLFFT_TRANSPOSED_NOTIMPLEMENTED;
+		case CLFFT_REAL:
+			dtInput = dtPlanar;
+			dtOutput = dtPlanar;
+			clKernWrite(transKernel, 0) << ", global " << dtOutput << "* restrict outputA";
+			break;
+		default:
+			return CLFFT_TRANSPOSED_NOTIMPLEMENTED;
+	}
+
+
+
 
     // Close the method signature
     clKernWrite( transKernel, 0 ) << " )\n{" << std::endl;
@@ -244,8 +270,8 @@ static clfftStatus genTransposeKernel( const FFTGeneratedTransposeInplaceAction:
     // NOTE:  Enable only for debug
     // clKernWrite( transKernel, 0 ) << "#pragma OPENCL EXTENSION cl_amd_printf : enable\n" << std::endl;
 
-	if (params.fft_inputLayout != params.fft_outputLayout)
-		return CLFFT_TRANSPOSED_NOTIMPLEMENTED;
+	//if (params.fft_inputLayout != params.fft_outputLayout)
+	//	return CLFFT_TRANSPOSED_NOTIMPLEMENTED;
 
     switch( params.fft_precision )
     {
@@ -308,7 +334,14 @@ static clfftStatus genTransposeKernel( const FFTGeneratedTransposeInplaceAction:
 		else
 			funcName = "transpose_Inplace";
 
+
+		// Generate kernel API
 		genTransposePrototype(params, lwSize, dtPlanar, dtComplex, funcName, transKernel, dtInput, dtOutput);
+
+
+		
+
+
 
 		if (mult_of_16)
 			clKernWrite(transKernel, 3) << "const int grid_dim = " << (params.fft_N[0] / 16 / reShapeFactor)*(params.fft_N[0] / 16 / reShapeFactor + 1) / 2 << ";" << std::endl;
@@ -316,9 +349,54 @@ static clfftStatus genTransposeKernel( const FFTGeneratedTransposeInplaceAction:
 			clKernWrite(transKernel, 3) << "const int grid_dim = " << (params.fft_N[0] / (16 * reShapeFactor) + 1)*(params.fft_N[0] / (16 * reShapeFactor) + 1 + 1) / 2 << ";" << std::endl;
 
 		clKernWrite(transKernel, 3) << "const int z = get_group_id(0) / grid_dim; " << std::endl;
-		clKernWrite(transKernel, 3) << "inputA = &inputA[z*" << params.fft_N[0] * params.fft_N[0] << "];" << std::endl;  // Set A ptr to the start of each slice " << std::endl;
-		clKernWrite(transKernel, 3) << "outputA = &outputA[z*" << params.fft_N[0] * params.fft_N[0] << "];" << std::endl;  // Set A ptr to the start of each slice " << std::endl;
 
+
+
+
+
+		// Handle planar and interleaved right here
+		switch (params.fft_inputLayout)
+		{
+			case CLFFT_COMPLEX_INTERLEAVED:
+				clKernWrite(transKernel, 3) << "inputA = &inputA[z*" << params.fft_N[0] * params.fft_N[0] << "];" << std::endl;  // Set A ptr to the start of each slice " << std::endl;
+
+				break;
+			case CLFFT_COMPLEX_PLANAR:
+
+				clKernWrite(transKernel, 3) << "inputA_R = &inputA_R[z*" << params.fft_N[0] * params.fft_N[0] << "];" << std::endl;  // Set A ptr to the start of each slice " << std::endl;
+				clKernWrite(transKernel, 3) << "inputA_I = &inputA_I[z*" << params.fft_N[0] * params.fft_N[0] << "];" << std::endl;  // Set A ptr to the start of each slice " << std::endl;
+
+				
+				break;
+			case CLFFT_HERMITIAN_INTERLEAVED:
+			case CLFFT_HERMITIAN_PLANAR:
+				return CLFFT_TRANSPOSED_NOTIMPLEMENTED;
+			case CLFFT_REAL:
+				break;
+			default:
+				return CLFFT_TRANSPOSED_NOTIMPLEMENTED;
+		}
+		switch (params.fft_outputLayout)
+		{
+			case CLFFT_COMPLEX_INTERLEAVED:
+				clKernWrite(transKernel, 3) << "outputA = &outputA[z*" << params.fft_N[0] * params.fft_N[0] << "];" << std::endl;  // Set A ptr to the start of each slice " << std::endl;
+
+				break;
+			case CLFFT_COMPLEX_PLANAR:
+
+				clKernWrite(transKernel, 3) << "outputA_R = &outputA_R[z*" << params.fft_N[0] * params.fft_N[0] << "];" << std::endl;  // Set A ptr to the start of each slice " << std::endl;
+				clKernWrite(transKernel, 3) << "outputA_I = &outputA_I[z*" << params.fft_N[0] * params.fft_N[0] << "];" << std::endl;  // Set A ptr to the start of each slice " << std::endl;
+				break;
+			case CLFFT_HERMITIAN_INTERLEAVED:
+			case CLFFT_HERMITIAN_PLANAR:
+				return CLFFT_TRANSPOSED_NOTIMPLEMENTED;
+			case CLFFT_REAL:
+				break;
+			default:
+				return CLFFT_TRANSPOSED_NOTIMPLEMENTED;
+		}
+
+		
 		clKernWrite(transKernel, 3) << "" << std::endl;
 
 		clKernWrite(transKernel, 3) << "const int g_index = get_group_id(0) - z*grid_dim; " << std::endl;
@@ -380,8 +458,34 @@ static clfftStatus genTransposeKernel( const FFTGeneratedTransposeInplaceAction:
 			clKernWrite(transKernel, 3) << "int index;" << std::endl;
 			clKernWrite(transKernel, 3) << "for (int loop = 0; loop<" << reShapeFactor*reShapeFactor << "; ++loop){" << std::endl;
 			clKernWrite(transKernel, 6) << "index = lidy*" << 16 * reShapeFactor << " + lidx + loop*256;" << std::endl;
-			clKernWrite(transKernel, 6) << "xy_s[index] = inputA[(idy + loop *" << 16 / reShapeFactor << ")*" << params.fft_N[0] << " + idx];" << std::endl;
-			clKernWrite(transKernel, 6) << "yx_s[index] = inputA[(lidy + loop *" << 16 / reShapeFactor << ")*" << params.fft_N[0] << " + lidx + starting_index_yx];" << std::endl;
+
+			// Handle planar and interleaved right here
+			switch (params.fft_inputLayout)
+			{
+				case CLFFT_COMPLEX_INTERLEAVED:
+					clKernWrite(transKernel, 6) << "xy_s[index] = inputA[(idy + loop *" << 16 / reShapeFactor << ")*" << params.fft_N[0] << " + idx];" << std::endl;
+					clKernWrite(transKernel, 6) << "yx_s[index] = inputA[(lidy + loop *" << 16 / reShapeFactor << ")*" << params.fft_N[0] << " + lidx + starting_index_yx];" << std::endl;
+					break;
+				case CLFFT_COMPLEX_PLANAR:
+					dtInput = dtPlanar;
+					dtOutput = dtPlanar;
+					clKernWrite(transKernel, 6) << "xy_s[index].x = inputA_R[(idy + loop *" << 16 / reShapeFactor << ")*" << params.fft_N[0] << " + idx];" << std::endl;
+					clKernWrite(transKernel, 6) << "xy_s[index].y = inputA_I[(idy + loop *" << 16 / reShapeFactor << ")*" << params.fft_N[0] << " + idx];" << std::endl;
+
+					clKernWrite(transKernel, 6) << "yx_s[index].x = inputA_R[(lidy + loop *" << 16 / reShapeFactor << ")*" << params.fft_N[0] << " + lidx + starting_index_yx];" << std::endl;
+					clKernWrite(transKernel, 6) << "yx_s[index].y = inputA_I[(lidy + loop *" << 16 / reShapeFactor << ")*" << params.fft_N[0] << " + lidx + starting_index_yx];" << std::endl;
+
+					break;
+				case CLFFT_HERMITIAN_INTERLEAVED:
+				case CLFFT_HERMITIAN_PLANAR:
+					return CLFFT_TRANSPOSED_NOTIMPLEMENTED;
+				case CLFFT_REAL:
+					break;
+				default:
+					return CLFFT_TRANSPOSED_NOTIMPLEMENTED;
+			}
+
+
 			clKernWrite(transKernel, 3) << "}" << std::endl;
 
 			clKernWrite(transKernel, 3) << "" << std::endl;
@@ -394,8 +498,35 @@ static clfftStatus genTransposeKernel( const FFTGeneratedTransposeInplaceAction:
 			// Step2: Write from shared to global
 			clKernWrite(transKernel, 3) << "for (int loop = 0; loop<" << reShapeFactor*reShapeFactor << "; ++loop){" << std::endl;
 			clKernWrite(transKernel, 6) << "index = lidx*" << 16 * reShapeFactor << " + lidy + " << 16 / reShapeFactor << "*loop;" << std::endl;
-			clKernWrite(transKernel, 6) << "outputA[(idy + loop*" << 16 / reShapeFactor << ")*" << params.fft_N[0] << " + idx] = yx_s[index];" << std::endl;
-			clKernWrite(transKernel, 6) << "outputA[(lidy + loop*" << 16 / reShapeFactor << ")*" << params.fft_N[0] << " + lidx+ starting_index_yx] = xy_s[index];" << std::endl;
+
+
+			// Handle planar and interleaved right here
+			switch (params.fft_outputLayout)
+			{
+				case CLFFT_COMPLEX_INTERLEAVED:
+					clKernWrite(transKernel, 6) << "outputA[(idy + loop*" << 16 / reShapeFactor << ")*" << params.fft_N[0] << " + idx] = yx_s[index];" << std::endl;
+					clKernWrite(transKernel, 6) << "outputA[(lidy + loop*" << 16 / reShapeFactor << ")*" << params.fft_N[0] << " + lidx+ starting_index_yx] = xy_s[index];" << std::endl;
+
+					break;
+				case CLFFT_COMPLEX_PLANAR:
+
+					clKernWrite(transKernel, 6) << "outputA_R[(idy + loop*" << 16 / reShapeFactor << ")*" << params.fft_N[0] << " + idx] = yx_s[index].x;" << std::endl;
+					clKernWrite(transKernel, 6) << "outputA_I[(idy + loop*" << 16 / reShapeFactor << ")*" << params.fft_N[0] << " + idx] = yx_s[index].y;" << std::endl;
+
+					clKernWrite(transKernel, 6) << "outputA_R[(lidy + loop*" << 16 / reShapeFactor << ")*" << params.fft_N[0] << " + lidx+ starting_index_yx] = xy_s[index].x;" << std::endl;
+					clKernWrite(transKernel, 6) << "outputA_I[(lidy + loop*" << 16 / reShapeFactor << ")*" << params.fft_N[0] << " + lidx+ starting_index_yx] = xy_s[index].y;" << std::endl;
+					break;
+				case CLFFT_HERMITIAN_INTERLEAVED:
+				case CLFFT_HERMITIAN_PLANAR:
+					return CLFFT_TRANSPOSED_NOTIMPLEMENTED;
+				case CLFFT_REAL:
+					break;
+				default:
+					return CLFFT_TRANSPOSED_NOTIMPLEMENTED;
+			}
+
+
+
 			clKernWrite(transKernel, 3) << "}" << std::endl;
 
 		}
