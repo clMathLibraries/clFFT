@@ -841,16 +841,6 @@ void compareWithReference(clfftLayout in_layout, clfftLayout out_layout, size_t 
 							if (!compare<fftwf_complex, T>(refout, output, outfftBatchSize))
 								checkflag = true;
 
-							//for( cl_uint i = 0; i < outfftBatchSize; i = i + outStrides[0])
-							//{
-							//	std::cout << "i " << i << " refreal " << refout[i][0] << " refimag " << refout[i][1] << " clreal " << output[i].real() << " climag " << output[i].imag() << std::endl;
-							//}
-							
-							/*for( cl_uint i = 0; i < outfftBatchSize; i = i + outStrides[0])
-							{
-								std::cout << "i " << i << " refreal " << refout[i][0] << " refimag " << refout[i][1] << " clreal " << output[i].real() << " climag " << output[i].imag() << std::endl;
-							}*/
-
 							fftwf_free(refout);
 						}
 						else if (precision == CLFFT_DOUBLE)
@@ -863,11 +853,6 @@ void compareWithReference(clfftLayout in_layout, clfftLayout out_layout, size_t 
 							if (!compare<fftw_complex, T>(refout, output, outfftBatchSize))
 								checkflag = true;
 
-							/*for( cl_uint i = 0; i < outfftBatchSize; i = i + outStrides[0])
-							{
-								std::cout << "i " << i << " refreal " << refout[i][0] << " refimag " << refout[i][1] << " clreal " << output[i].real() << " climag " << output[i].imag() << std::endl;
-							}*/
-							
 							fftw_free(refout);
 						}
 					}
@@ -1123,12 +1108,6 @@ int transform( size_t* lengths, const size_t *inStrides, const size_t *outStride
 	//Valudate input and output data layout
 	validateDataLayout(in_layout, out_layout, place);
 	
-	if (hasPrecallback && !(in_layout == CLFFT_COMPLEX_INTERLEAVED || in_layout == CLFFT_COMPLEX_PLANAR || in_layout == CLFFT_HERMITIAN_INTERLEAVED || in_layout == CLFFT_HERMITIAN_PLANAR))
-	{
-		terr << _T("Pre-callback feature is currently supported only for Complex-Complex and Complex-Real FFT " ) << std::endl;
-		return 1;
-	}
-
 	//Initializations
 	OPENCL_V_THROW( dataInitialize<T>(lengths, &dim, batch_size, inStrides, strides, outStrides, o_strides, &fftBatchSize, &outfftBatchSize, 
 						&fftVectorSizePadded, in_layout, out_layout, &outfftVectorSizePadded, &fftVectorSize, &outfftVectorSize, place, 

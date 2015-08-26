@@ -41,7 +41,7 @@ def plotGraph(dataForAllPlots, title, plottype, plotkwargs, xaxislabel, yaxislab
   display a pretty graph
   """
   dh.write('Making graph\n')
-  colors = ['k','y','m','c','r','b','g']
+  colors = ['k','y','m','c','b','r','g']
   #plottype = 'plot'
   for thisPlot in dataForAllPlots:
     getattr(pylab, plottype)(thisPlot.xdata, thisPlot.ydata,
@@ -150,18 +150,35 @@ def plotFromDataFile():
     else: # small numbers on x-axis
       args.xaxisscale = 'linear'
   
+  if args.yaxisscale == None:
+    args.yaxisscale = 'linear'
+
+  plotkwargs = {}
   if args.xaxisscale == 'linear':
-    plotkwargs = {}
     plottype = 'plot'
   elif args.xaxisscale == 'log2':
     plottype = 'semilogx'
-    plotkwargs = {'basex':2}
+    if (args.yaxisscale=='log2'):
+      plottype = 'loglog'
+      plotkwargs = {'basex':2,'basey':2}
+    elif (args.yaxisscale=='log10'):
+      plottype = 'loglog'
+      plotkwargs = {'basex':2,'basey':10}
+    elif (args.yaxisscale=='linear'):
+      plottype = 'semilogx'
+      plotkwargs = {'basex':2}
   elif args.xaxisscale == 'log10':
     plottype = 'semilogx'
-    plotkwargs = {'basex':10}
+    if (args.yaxisscale=='log2'):
+      plottype = 'loglog'
+      plotkwargs = {'basex':10,'basey':2}
+    elif (args.yaxisscale=='log10'):
+      plottype = 'loglog'
+      plotkwargs = {'basex':10,'basey':10}
   else:
     print 'ERROR: invalid value for x-axis scale'
     quit()
+
   
   plots = set(getattr(row, multiplePlots) for row in data)
   
@@ -171,7 +188,7 @@ def plotFromDataFile():
       self.xdata = inxdata
       self.ydata = inydata
   
-  dataForAllPlots = []
+  dataForAllPlots=[]
   for plot in plots:
     dataForThisPlot = itertools.ifilter( lambda x: getattr(x, multiplePlots) == plot, data)
     dataForThisPlot = list(itertools.islice(dataForThisPlot, None))
@@ -216,9 +233,12 @@ def plotFromDataFile():
   """
   display a pretty graph
   """
-  colors = ['k','y','m','c','r','b','g']
-  
-  for thisPlot in dataForAllPlots:
+  colors = ['k','y','m','c','b','g','r']
+  def getkey(item):
+    return str(item.label)
+  dataForAllPlots.sort(key=getkey)
+  #for thisPlot in sorted(dataForAllPlots,key=getkey):
+  for thisPlot in sorted(dataForAllPlots,key=getkey):
     getattr(pylab, plottype)(thisPlot.xdata, thisPlot.ydata, '{}.-'.format(colors.pop()), label=thisPlot.label, **plotkwargs)
   
   if len(dataForAllPlots) > 1:
@@ -287,6 +307,10 @@ parser.add_argument('--x_axis_scale',
   dest='xaxisscale', default=None, choices=['linear','log2','log10'],
   help='the desired scale for the graph\'s x-axis. if nothing is specified,\
       it will be selected automatically')
+parser.add_argument('--y_axis_scale',
+  dest='yaxisscale', default=None, choices=['linear','log2','log10'],
+  help='the desired scale for the graph\'s y-axis. if nothing is specified,\
+      linear will be selected')
 parser.add_argument('--y_axis_label',
   dest='yaxislabel', default=None,
   help='the desired label for the graph\'s y-axis. if YAXISLABEL contains any\

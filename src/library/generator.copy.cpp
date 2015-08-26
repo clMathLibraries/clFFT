@@ -277,7 +277,7 @@ namespace CopyGenerator
 			
 			// Setup registers
 			str += "\t"; str += RegBaseType<PR>(2); str += " R;\n\n";
-
+			
 			size_t NtRounded64 = DivRoundingUp<size_t>(Nt,64) * 64;
 
 			if(!general)
@@ -286,7 +286,6 @@ namespace CopyGenerator
 				str += "\tuint batch, meg, mel, mel2;\n\t";
 				str += "batch = me/"; str += SztToStr(NtRounded64); str += ";\n\t";
 				str += "meg = me%"; str += SztToStr(NtRounded64); str += ";\n\t";
-
 				str += "mel = me%"; str += SztToStr(Nt); str += ";\n\t";
 				str += "mel2 = ("; str += SztToStr(N); str += " - mel)%"; str += SztToStr(N); str += ";\n\n";
 			}
@@ -531,7 +530,7 @@ clfftStatus FFTGeneratedCopyAction::getWorkSizes (std::vector<size_t> & globalWS
 				}
 				else
 				{
-					count *= (DivRoundingUp<size_t>((1 + this->signature.fft_N[0]/2), 64) * 64);
+					count *= (DivRoundingUp<size_t>((1 + this->signature.fft_N[0]/2), 64) * 64); 
 				}
 			}
 			break;

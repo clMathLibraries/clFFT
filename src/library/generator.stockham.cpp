@@ -727,7 +727,7 @@ namespace StockhamGenerator
 		void SweepRegs(	size_t flag, bool fwd, bool interleaved, size_t stride, size_t component,
 						double scale, bool frontTwiddle,
 						const std::string &bufferRe, const std::string &bufferIm, const std::string &offset,
-						size_t regC, size_t numB, size_t numPrev, std::string &passStr) const
+						size_t regC, size_t numB, size_t numPrev, std::string &passStr, bool isPrecallVector = false) const
 		{
 			assert( (flag == SR_READ )			||
 					(flag == SR_TWMUL)			||
@@ -826,6 +826,216 @@ namespace StockhamGenerator
 			}
 
 			int hid;
+
+			// block to rearrange reads of adjacent memory locations together
+			if(linearRegs && (flag == SR_READ))
+			{
+				for(size_t r=0; r<radix; r++)
+				{
+					for(size_t i=0; i<numB; i++)
+					{
+						for(size_t c=cStart; c<cEnd; c++) // component loop: 0 - real, 1 - imaginary
+						{
+							std::string tail;
+							std::string regIndex;
+							std::string regIndexC;
+							regIndex = "(*R";
+							std::string buffer;
+
+							// Read real & imag at once
+							if(interleaved && (component == SR_COMP_BOTH))
+							{
+								assert(bufferRe.compare(bufferIm) == 0); // Make sure Real & Imag buffer strings are same for interleaved data
+								buffer = bufferRe;
+								RegBaseAndCountAndPos("", i*radix + r, regIndex); regIndex += ")";
+								tail = ";";
+							}
+							else
+							{
+								if(c == 0)
+								{
+									RegBaseAndCountAndPos("", i*radix + r, regIndex); 
+									
+									hid = (i * radix + r) / (numB * radix / 2);
+									if (fft_doPreCallback && c2r && component == SR_COMP_REAL && hid != 0)
+									{
+										regIndexC = regIndex; regIndexC += ").y";
+									}
+									
+									regIndex += ").x";
+									buffer = bufferRe;
+									tail = interleaved ? ".x;" : ";";
+								}
+								else
+								{
+									RegBaseAndCountAndPos("", i*radix + r, regIndex); regIndex += ").y";
+									buffer = bufferIm;
+									tail = interleaved ? ".y;" : ";";
+								}
+							}
+
+							//get offset 
+							std::string bufOffset;
+							bufOffset += offset; bufOffset += " + ( "; bufOffset += SztToStr(numPrev); bufOffset += " + ";
+							bufOffset += "me*"; bufOffset += SztToStr(numButterfly); bufOffset += " + ";
+							bufOffset += SztToStr(i); bufOffset += " + ";
+							bufOffset += SztToStr(r*length/radix); bufOffset += " )*";
+							bufOffset += SztToStr(stride);
+
+							//If precallback is set invoke callback function
+							//Invoke callback only once in Planar data layout (i.e.c==0)
+							if (fft_doPreCallback && c == 0 && component == SR_COMP_BOTH)
+							{
+								passStr += "\n\t";
+								passStr += "retPrecallback = "; passStr += fft_preCallback.funcname; passStr += "("; 
+								if(interleaved)
+								{
+									passStr += buffer; passStr += ", ";
+								}
+								else
+								{
+									passStr += bufferRe; passStr += ", "; passStr += bufferIm; passStr += ", ";
+								}
+								passStr += bufOffset; passStr += ", userdata";
+								if (fft_preCallback.localMemSize > 0)
+								{
+									passStr += ", localmem";
+								}
+								passStr += ");";
+							}
+
+							if (fft_doPreCallback && c2r && component == SR_COMP_REAL && hid != 0)
+							{
+								passStr += "\n\t";
+								passStr += regIndexC; passStr += " = "; passStr += regIndex; passStr += ";";
+							}
+
+							passStr += "\n\t";
+							passStr += regIndex;
+							passStr += " = ";
+
+							//Use the return value from precallback if set
+							if (fft_doPreCallback && (component == SR_COMP_BOTH || r2c))
+							{
+								if (component == SR_COMP_BOTH)
+								{
+									passStr += "retPrecallback"; 
+									passStr += interleaved ? tail : (c == 0) ? ".x;" : ".y;";
+								}
+								else if (r2c)
+								{
+									passStr += fft_preCallback.funcname; passStr += "("; passStr += buffer; passStr += ", ";
+									passStr += bufOffset; passStr += ", userdata";
+
+									if (fft_preCallback.localMemSize > 0)
+									{
+										passStr += ", localmem";
+									}
+									passStr += ");";
+								}
+							}
+							else
+							{
+								passStr += buffer;
+								passStr += "["; passStr += bufOffset; passStr += "]"; passStr += tail;
+							}
+
+							// Since we read real & imag at once, we break the loop
+							if(interleaved && (component == SR_COMP_BOTH) )
+								break;
+						}
+					}
+				}
+				return;
+			}
+
+			// block to rearrange writes of adjacent memory locations together
+			if(linearRegs && (flag == SR_WRITE) && (nextPass == NULL))
+			{
+				for(size_t r=0; r<radix; r++)
+				{
+					butterflyIndex = numPrev;
+
+					for(size_t i=0; i<numB; i++)
+					{
+						if(realSpecial && (nextPass == NULL) && (r > (radix/2)))
+							break;
+
+						if(realSpecial && (nextPass == NULL) && (r == radix/2) && (i != 0))
+							break;
+
+						if(realSpecial && (nextPass == NULL) && (r == radix/2) && (i == 0))
+							passStr += "\n\t}\n\tif( rw && !me)\n\t{";
+
+						for(size_t c=cStart; c<cEnd; c++) // component loop: 0 - real, 1 - imaginary
+						{
+							std::string tail;
+							std::string regIndex;
+							regIndex = "(*R";
+							std::string buffer;
+
+							// Write real & imag at once
+							if(interleaved && (component == SR_COMP_BOTH))
+							{
+								assert(bufferRe.compare(bufferIm) == 0); // Make sure Real & Imag buffer strings are same for interleaved data
+								buffer = bufferRe;
+								RegBaseAndCountAndPos("", i*radix + r, regIndex); regIndex += ")";
+								tail = "";
+							}
+							else
+							{
+								if(c == 0)
+								{
+									RegBaseAndCountAndPos("", i*radix + r, regIndex); regIndex += ").x";
+									buffer = bufferRe;
+									tail = interleaved ? ".x" : "";
+								}
+								else
+								{
+									RegBaseAndCountAndPos("", i*radix + r, regIndex); regIndex += ").y";
+									buffer = bufferIm;
+									tail = interleaved ? ".y" : "";
+								}
+							}
+
+							passStr += "\n\t";
+							passStr += buffer; passStr += "["; passStr += offset; passStr += " + ( ";
+
+							if( (numButterfly * workGroupSize) > algLS )
+							{
+								passStr += "(("; passStr += SztToStr(numButterfly);
+								passStr += "*me + "; passStr += SztToStr(butterflyIndex); passStr += ")/";
+								passStr += SztToStr(algLS); passStr += ")*"; passStr += SztToStr(algL); passStr += " + (";
+								passStr += SztToStr(numButterfly); passStr += "*me + "; passStr += SztToStr(butterflyIndex);
+								passStr += ")%"; passStr += SztToStr(algLS); passStr += " + ";
+							}
+							else
+							{
+								passStr += SztToStr(numButterfly); passStr += "*me + "; passStr += SztToStr(butterflyIndex);
+								passStr += " + ";
+							}
+
+							passStr += SztToStr(r*algLS); passStr += " )*"; passStr += SztToStr(stride); passStr += "]";
+							passStr += tail; passStr += " = "; passStr += regIndex;
+							if(scale != 1.0f) { passStr += " * "; passStr += FloatToStr(scale); passStr += FloatSuffix<PR>(); }
+							passStr += ";";
+
+							// Since we write real & imag at once, we break the loop
+							if(interleaved && (component == SR_COMP_BOTH))
+								break;
+						}
+
+						if(realSpecial && (nextPass == NULL) && (r == radix/2) && (i == 0))
+							passStr += "\n\t}\n\tif(rw)\n\t{";
+
+						butterflyIndex++;
+					}
+				}
+
+				return;
+			}
+			
+			
 			for(size_t i=0; i<numB; i++)
 			{
 				std::string regBaseCount = regBase;
@@ -904,7 +1114,14 @@ namespace StockhamGenerator
 								if (fft_doPreCallback && c == 0 && component == SR_COMP_BOTH)
 								{
 									passStr += "\n\t";
-									passStr += "retPrecallback["; passStr += SztToStr(v); passStr += "] = "; passStr += fft_preCallback.funcname; passStr += "("; 
+									passStr += "retPrecallback"; 
+									
+									if (isPrecallVector)
+									{
+										passStr += "["; passStr += SztToStr(v); passStr += "]"; 
+									}
+
+									passStr += " = "; passStr += fft_preCallback.funcname; passStr += "("; 
 									if(interleaved)
 									{
 										passStr += buffer; passStr += ", ";
@@ -936,7 +1153,12 @@ namespace StockhamGenerator
 								{
 									if (component == SR_COMP_BOTH)
 									{
-										passStr += "retPrecallback["; passStr += SztToStr(v); passStr += "]"; 
+										passStr += "retPrecallback"; 
+									
+										if (isPrecallVector)
+										{
+											passStr += "["; passStr += SztToStr(v); passStr += "]"; 
+										} 
 										passStr += interleaved ? tail : (c == 0) ? ".x;" : ".y;";
 									}
 									else if (r2c)
@@ -1291,7 +1513,14 @@ namespace StockhamGenerator
 						std::string oddpadd = oddp ? " (me/2) + " : " ";
 
 						std::string idxStr, idxStrRev;
-						idxStr += SztToStr(bid); idxStr += "*me +"; idxStr += oddpadd; idxStr += SztToStr(lid);
+						if((length <= 2) || ((length & (length - 1)) != 0))
+						{
+							idxStr += SztToStr(bid); idxStr += "*me +"; idxStr += oddpadd; idxStr += SztToStr(lid);
+						}
+						else
+						{
+							idxStr += "me + "; idxStr += SztToStr(1 + length*(r%bid)/numCR); idxStr += oddpadd;
+						}
 						idxStrRev += SztToStr(length); idxStrRev += " - ("; idxStrRev += idxStr; idxStrRev += " )";
 
 						bool act = ( fwd || ((cid == 0) && (!batch2)) || ((cid != 0) && batch2) );
@@ -1424,7 +1653,14 @@ namespace StockhamGenerator
 							if(fwd)
 							{
 								std::string idxStr, idxStrRev;
+								if((length <= 2) || ((length & (length - 1)) != 0))
+								{
 								idxStr += SztToStr(length/(2*workGroupSize)); idxStr += "*me +"; idxStr += oddpadd; idxStr += SztToStr(lid);
+								}
+								else
+								{
+								idxStr += "me + "; idxStr += SztToStr(1 + length*(r%bid)/numCR); idxStr += oddpadd;
+								}
 								idxStrRev += SztToStr(length); idxStrRev += " - ("; idxStrRev += idxStr; idxStrRev += " )";
 
 								std::string val1Str, val2Str;
@@ -1490,7 +1726,14 @@ namespace StockhamGenerator
 							else
 							{
 								std::string idxStr, idxStrRev;
+								if((length <= 2) || ((length & (length - 1)) != 0))
+								{
 								idxStr += SztToStr(bid); idxStr += "*me +"; idxStr += oddpadd; idxStr += SztToStr(lid);
+								}
+								else
+								{								
+								idxStr += "me + "; idxStr += SztToStr(1 + length*(r%bid)/numCR); idxStr += oddpadd;
+								}
 								idxStrRev += SztToStr(length); idxStrRev += " - ("; idxStrRev += idxStr; idxStrRev += " )";
 
 								passStr += "\n\t";
@@ -2052,17 +2295,26 @@ namespace StockhamGenerator
 			{
 				if( (!halfLds) || (halfLds && (position == 0)) )
 				{
+					bool isPrecallVector = false;
 					//If precallback is set
 					if (fft_doPreCallback)
 					{
-						passStr += "\n\t"; passStr += regB2Type; passStr += " retPrecallback["; 
-						passStr += (numB4 > 0) ? "4" : (numB2 > 0) ? "2" : "1"; 
-						passStr += "];";
+						passStr += "\n\t"; passStr += regB2Type; passStr += " retPrecallback"; 
+						
+						if (numB4 > 0 || numB2 > 0)
+						{
+							passStr += "["; 
+							passStr += (numB4 > 0) ? "4" : (numB2 > 0) ? "2" : "1"; 
+							passStr += "]";
+
+							isPrecallVector = true;
+						}
+						passStr += ";";
 					}
 					passStr += "\n\tif(rw)\n\t{";
-					SweepRegs(SR_READ, fwd, inInterleaved, inStride, SR_COMP_BOTH, 1.0f, false, bufferInRe, bufferInIm, "inOffset", 1, numB1, 0, passStr);
-					SweepRegs(SR_READ, fwd, inInterleaved, inStride, SR_COMP_BOTH, 1.0f, false, bufferInRe, bufferInIm, "inOffset", 2, numB2, numB1, passStr);
-					SweepRegs(SR_READ, fwd, inInterleaved, inStride, SR_COMP_BOTH, 1.0f, false, bufferInRe, bufferInIm, "inOffset", 4, numB4, 2*numB2 + numB1, passStr);
+					SweepRegs(SR_READ, fwd, inInterleaved, inStride, SR_COMP_BOTH, 1.0f, false, bufferInRe, bufferInIm, "inOffset", 1, numB1, 0, passStr, isPrecallVector);
+					SweepRegs(SR_READ, fwd, inInterleaved, inStride, SR_COMP_BOTH, 1.0f, false, bufferInRe, bufferInIm, "inOffset", 2, numB2, numB1, passStr, isPrecallVector);
+					SweepRegs(SR_READ, fwd, inInterleaved, inStride, SR_COMP_BOTH, 1.0f, false, bufferInRe, bufferInIm, "inOffset", 4, numB4, 2*numB2 + numB1, passStr, isPrecallVector);
 					passStr += "\n\t}\n";
 				}
 			}

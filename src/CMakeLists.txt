@@ -40,7 +40,7 @@ if( NOT DEFINED CLFFT_VERSION_MAJOR )
 endif( )
 
 if( NOT DEFINED CLFFT_VERSION_MINOR )
-    set( CLFFT_VERSION_MINOR 6 )
+    set( CLFFT_VERSION_MINOR 7 )
 endif( )
 
 if( NOT DEFINED CLFFT_VERSION_PATCH )
@@ -305,7 +305,7 @@ endif()
 if(WIN32)
   set(destdir CMake)
 else()
-  set(destdir share/clFFT)
+  set(destdir lib${SUFFIX_LIB}/cmake/clFFT)
 endif()
 string(REGEX REPLACE "[^/]+" ".." reldir "${destdir}")
 configure_file(

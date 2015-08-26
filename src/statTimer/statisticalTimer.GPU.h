@@ -48,6 +48,9 @@ struct StatData
 	clfftPlanHandle planTY;
 	clfftPlanHandle planTZ;
 
+	clfftPlanHandle planRCcopy;
+	clfftPlanHandle planCopy;
+
 	std::vector< size_t > lengths;
 	std::vector< size_t > inStride;
 	std::vector< size_t > outStride;
@@ -62,6 +65,7 @@ struct StatData
 		deltaNanoSec( 0 ), kernel( kern ), batchSize( plan->batchsize ), dim( plan->dim ),
 		plHandle( id ), planX( plan->planX ), planY( plan->planY ), planZ( plan->planZ ),
 		planTX( plan->planTX ), planTY( plan->planTY ), planTZ( plan->planTZ ),
+		planRCcopy( plan->planRCcopy ), planCopy( plan->planCopy ),
 		inStride( plan->inStride ), outStride( plan->outStride ),
 		lengths( plan->length ), enqueueWorkSize( gWorkSize )
 	{
@@ -181,6 +185,8 @@ class GpuStatTimer : public baseStatTimer
 	std::vector< StatData > getMinimumTime( size_t id );
 
 	void queryOpenCL( size_t id );
+
+	void ReleaseEvents();
 
 public:
 	/**

@@ -25,7 +25,7 @@
 #include <fcntl.h>
 #include <sys/types.h>
 #include <sys/stat.h>
-
+#include <stdlib.h>
 
 #ifdef _WIN32
 #include <windows.h>
@@ -49,7 +49,7 @@ extern "C"
 
 #include <string.h>
 
-char * sep()
+static char * sep()
 {
 #ifdef __WIN32
     return (char*)"\\";
@@ -193,7 +193,7 @@ enum BinaryRepresentation
     UNKNOWN
 };
 
-enum BinaryRepresentation getStorageMode(char * data)
+static enum BinaryRepresentation getStorageMode(char * data)
 {
     if (data[0] == 'C' && 
         data[1] == 'L' && 

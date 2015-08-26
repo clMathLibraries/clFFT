@@ -103,6 +103,11 @@ INSTANTIATE_TEST_CASE_P(
 namespace precallback
 {
 
+/**********************************************************************************************
+**************************************Complex To Real***************************************
+**********************************************************************************************/
+#pragma region Complex_To_Real
+
 template< typename T, typename cl_T, typename fftw_T >
 void mixed_radix_real_to_hermitian( size_t problem_size )
 {
@@ -201,6 +206,58 @@ TEST_F(accuracy_test_precallback_double, pow2_large_1D_out_of_place_hermitian_pl
 	try { pow2_large_1D_out_of_place_hermitian_planar_to_real< double, cl_double, fftw_complex >(); }
 	catch( const std::exception& err ) { handle_exception(err);	}
 }
+
+#pragma endregion
+
+/**********************************************************************************************
+**************************************Complex To Complex***************************************
+**********************************************************************************************/
+#pragma region Complex_To_Complex
+
+template< typename T, typename cl_T, typename fftw_T >
+void mixed_radix_complex_to_complex( size_t problem_size )
+{
+	try
+	{
+		if(verbose) std::cout << "Now testing problem size " << problem_size << std::endl;
+
+		std::vector<size_t> lengths;
+		lengths.push_back( problem_size );
+		size_t batch = 1;
+
+		std::vector<size_t> input_strides;
+		std::vector<size_t> output_strides;
+
+		size_t input_distance = 0;
+		size_t output_distance = 0;
+
+		layout::buffer_layout_t in_layout = layout::complex_planar;
+		layout::buffer_layout_t out_layout = layout::complex_planar;
+
+		placeness::placeness_t placeness = placeness::in_place;
+
+		direction::direction_t direction = direction::forward;
+
+		data_pattern pattern = sawtooth;
+		precallback_complex_to_complex<T, cl_T, fftw_T>( pattern, direction, lengths, batch, input_strides, output_strides, input_distance, output_distance, in_layout, out_layout, placeness );
+	}
+	catch( const std::exception& err ) {
+		handle_exception(err);
+	}
+}
+
+TEST_P( mixed_radix_precallback, single_precision_complex_to_complex_auto_generated ) {
+	size_t problem_size = GetParam();
+	RecordProperty("problem_size", (int)problem_size);
+	mixed_radix_complex_to_complex<float, cl_float, fftwf_complex>(problem_size);
+}
+
+TEST_P( mixed_radix_precallback, double_precision_complex_to_complex_auto_generated ) {
+	size_t problem_size = GetParam();
+	RecordProperty("problem_size", (int)problem_size);
+	mixed_radix_complex_to_complex<double, cl_double, fftw_complex>(problem_size);
+}
+
 
 // *****************************************************
 // *****************************************************
@@ -357,6 +414,13 @@ TEST_F(accuracy_test_precallback_single, pow2_normal_1D_forward_in_place_complex
 	try { pow2_normal_1D_forward_in_place_complex_to_complex_userdatatype< float, cl_float, fftwf_complex >(); }
 	catch( const std::exception& err ) { handle_exception(err);	}
 }
+
+#pragma endregion
+
+/**********************************************************************************************
+**************************************Real To Complex***************************************
+**********************************************************************************************/
+#pragma region Real_To_Complex
 
 template< class T, class cl_T, class fftw_T >
 void pow2_normal_1D_forward_in_place_real_to_hermitian_interleaved()
@@ -1486,6 +1550,8 @@ TEST_F(accuracy_test_precallback_double, pow2_large_3D_in_place_real_to_hermitia
 	try { pow2_large_3D_in_place_real_to_hermitian_interleaved< double, cl_double, fftw_complex >(); }
 	catch( const std::exception& err ) { handle_exception(err);	}
 }
+
+#pragma endregion
 
 template< class T, class cl_T, class fftw_T >
 void lds_1D_forward_64_in_place_complex_interleaved_to_complex_interleaved()
