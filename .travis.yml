@@ -18,11 +18,6 @@ before_script:
 
 script: 
   - make install
-#  - ls -Rla package
-# Run a simple test to validate that the build works; CPU device in a VM
-  - cd package/bin
-  - export LD_LIBRARY_PATH=${TRAVIS_BUILD_DIR}/bin/clFFT/package/lib64:${LD_LIBRARY_PATH}
-  - ./clFFT-client -i
 
 after_success:
   - cd ${TRAVIS_BUILD_DIR}/bin/clFFT
