@@ -727,7 +727,7 @@ namespace StockhamGenerator
 		void SweepRegs(	size_t flag, bool fwd, bool interleaved, size_t stride, size_t component,
 						double scale, bool frontTwiddle,
 						const std::string &bufferRe, const std::string &bufferIm, const std::string &offset,
-						size_t regC, size_t numB, size_t numPrev, std::string &passStr, bool isPrecallVector = false) const
+						size_t regC, size_t numB, size_t numPrev, std::string &passStr, bool isPrecallVector = false, bool oddt = false) const
 		{
 			assert( (flag == SR_READ )			||
 					(flag == SR_TWMUL)			||
@@ -825,7 +825,9 @@ namespace StockhamGenerator
 				return;
 			}
 
-			int hid;
+			int hid = 0;
+			bool swapElement = false;
+			int tIter = numB * radix;
 
 			// block to rearrange reads of adjacent memory locations together
 			if(linearRegs && (flag == SR_READ))
@@ -836,6 +838,8 @@ namespace StockhamGenerator
 					{
 						for(size_t c=cStart; c<cEnd; c++) // component loop: 0 - real, 1 - imaginary
 						{
+							swapElement = (fft_doPreCallback && c2r && component == SR_COMP_REAL); //reset at start of loop
+
 							std::string tail;
 							std::string regIndex;
 							std::string regIndexC;
@@ -856,8 +860,10 @@ namespace StockhamGenerator
 								{
 									RegBaseAndCountAndPos("", i*radix + r, regIndex); 
 									
-									hid = (i * radix + r) / (numB * radix / 2);
-									if (fft_doPreCallback && c2r && component == SR_COMP_REAL && hid != 0)
+									hid = (i * radix + r) / (tIter / 2);
+									swapElement = swapElement && hid != 0;
+									swapElement = (oddt && ((i * radix + r) >= (tIter - 1))) ? false : swapElement;  //for c2r odd size don't swap for last register
+									if (swapElement)
 									{
 										regIndexC = regIndex; regIndexC += ").y";
 									}
@@ -904,7 +910,7 @@ namespace StockhamGenerator
 								passStr += ");";
 							}
 
-							if (fft_doPreCallback && c2r && component == SR_COMP_REAL && hid != 0)
+							if (swapElement)
 							{
 								passStr += "\n\t";
 								passStr += regIndexC; passStr += " = "; passStr += regIndex; passStr += ";";
@@ -1756,7 +1762,7 @@ namespace StockhamGenerator
 								}
 								else
 								{
-									regIndex += ".y"; regIndexPair += ".y";
+									regIndex += ".y"; regIndexPair += (fft_doPreCallback && oddt) ? ".x" : ".y";
 
 									if(!batch2)	{					passStr += regIndex; passStr += " + "; passStr += regIndexPair; }
 									else		{ passStr += " - "; passStr += regIndex; passStr += " + "; passStr += regIndexPair; }
@@ -2200,7 +2206,14 @@ namespace StockhamGenerator
 							SweepRegsRC(SR_READ, fwd, inInterleaved, inStride, SR_COMP_REAL, 1.0f, false, false, true, bufferInRe, bufferInRe, "inOffset", passStr);
 							passStr += "\n\t}";
 							passStr += "\n\tif((rw > 1) && (me%2))\n\t{";
-							SweepRegsRC(SR_READ, fwd, inInterleaved, inStride, SR_COMP_REAL, 1.0f, false, true, true, bufferInIm2, bufferInIm2, "inOffset", passStr);
+							if (fft_doPreCallback)
+							{
+								SweepRegsRC(SR_READ, fwd, inInterleaved, inStride, SR_COMP_REAL, 1.0f, false, true, true, bufferInRe2, bufferInIm2, "inOffset2", passStr);
+							}
+							else
+							{
+								SweepRegsRC(SR_READ, fwd, inInterleaved, inStride, SR_COMP_REAL, 1.0f, false, true, true, bufferInIm2, bufferInIm2, "inOffset", passStr);
+							}
 							passStr += "\n\t}\n";
 						}
 
@@ -2222,7 +2235,7 @@ namespace StockhamGenerator
 					}
 
 					passStr += "\n\n\tbarrier(CLK_LOCAL_MEM_FENCE);\n";
-					SweepRegs(SR_READ, fwd, outInterleaved, processBufStride, SR_COMP_REAL, 1.0f, false, processBufRe, processBufIm, processBufOffset, 1, numB1, 0, passStr);
+					SweepRegs(SR_READ, fwd, outInterleaved, processBufStride, SR_COMP_REAL, 1.0f, false, processBufRe, processBufIm, processBufOffset, 1, numB1, 0, passStr, false, oddp);
 					passStr += "\n\n\tbarrier(CLK_LOCAL_MEM_FENCE);\n";
 
 
@@ -2257,18 +2270,19 @@ namespace StockhamGenerator
 							passStr += "\n\t}\n\telse\n\t{";
 							SweepRegsRC(SR_READ, fwd, inInterleaved, inStride, SR_COMP_IMAG, 1.0f, true, true, false, bufferInRe2, bufferInRe2, "inOffset", passStr);
 							passStr += "\n\t}";
+						
+						
+							if(oddp)
+							{
+								passStr += "\n\tif(rw && (me%2))\n\t{";
+								SweepRegsRC(SR_READ, fwd, inInterleaved, inStride, SR_COMP_IMAG, 1.0f, false, false, true, bufferInIm, bufferInIm, "inOffset", passStr);
+								passStr += "\n\t}";
+								passStr += "\n\tif((rw > 1) && (me%2))\n\t{";
+								SweepRegsRC(SR_READ, fwd, inInterleaved, inStride, SR_COMP_IMAG, 1.0f, false, true, true, bufferInRe2, bufferInRe2, "inOffset", passStr);
+								passStr += "\n\t}";
+							}
 						}
 						passStr += "\n";
-
-						if(oddp)
-						{
-							passStr += "\n\tif(rw && (me%2))\n\t{";
-							SweepRegsRC(SR_READ, fwd, inInterleaved, inStride, SR_COMP_IMAG, 1.0f, false, false, true, bufferInIm, bufferInIm, "inOffset", passStr);
-							passStr += "\n\t}";
-							passStr += "\n\tif((rw > 1) && (me%2))\n\t{";
-							SweepRegsRC(SR_READ, fwd, inInterleaved, inStride, SR_COMP_IMAG, 1.0f, false, true, true, bufferInRe2, bufferInRe2, "inOffset", passStr);
-							passStr += "\n\t}\n";
-						}
 
 						SweepRegsRC(SR_WRITE, fwd, outInterleaved, processBufStride, SR_COMP_IMAG, 1.0f, false, true, false, processBufRe, processBufIm, processBufOffset, passStr);
 						if(oddp)

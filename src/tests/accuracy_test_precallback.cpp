@@ -104,112 +104,6 @@ namespace precallback
 {
 
 /**********************************************************************************************
-**************************************Complex To Real***************************************
-**********************************************************************************************/
-#pragma region Complex_To_Real
-
-template< typename T, typename cl_T, typename fftw_T >
-void mixed_radix_real_to_hermitian( size_t problem_size )
-{
-	try
-	{
-		if(verbose) std::cout << "Now testing problem size " << problem_size << std::endl;
-
-		std::vector<size_t> lengths;
-		lengths.push_back( problem_size );
-		size_t batch = 1;
-
-		std::vector<size_t> input_strides;
-		std::vector<size_t> output_strides;
-
-		size_t input_distance = 0;
-		size_t output_distance = 0;
-
-		layout::buffer_layout_t layout = layout::hermitian_interleaved;
-
-		placeness::placeness_t placeness = placeness::in_place;
-
-		data_pattern pattern = sawtooth;
-		precallback_real_to_complex<T, cl_T, fftw_T>( pattern, lengths, batch, input_strides, output_strides, input_distance, output_distance, layout, placeness );
-	}
-	catch( const std::exception& err ) {
-		handle_exception(err);
-	}
-}
-
-TEST_P( mixed_radix_precallback, single_precision_real_to_hermitian_auto_generated ) {
-	size_t problem_size = GetParam();
-	RecordProperty("problem_size", (int)problem_size);
-	mixed_radix_real_to_hermitian<float, cl_float, fftwf_complex>(problem_size);
-}
-
-TEST_P( mixed_radix_precallback, double_precision_real_to_hermitian_auto_generated ) {
-	size_t problem_size = GetParam();
-	RecordProperty("problem_size", (int)problem_size);
-	mixed_radix_real_to_hermitian<double, cl_double, fftw_complex>(problem_size);
-}
-
-template< class T, class cl_T, class fftw_T >
-void pow2_large_1D_in_place_hermitian_interleaved_to_real()
-{
-	std::vector<size_t> lengths;
-	lengths.push_back( large2 );
-	size_t batch = 1;
-	std::vector<size_t> input_strides;
-	std::vector<size_t> output_strides;
-	size_t input_distance = 0;
-	size_t output_distance = 0;
-	layout::buffer_layout_t layout = layout::hermitian_interleaved;
-	placeness::placeness_t placeness = placeness::in_place;
-
-	data_pattern pattern = sawtooth;
-	precallback_complex_to_real<T, cl_T, fftw_T>( pattern, lengths, batch, input_strides, output_strides, input_distance, output_distance, layout, placeness );
-}
-
-TEST_F(accuracy_test_precallback_single, pow2_large_1D_in_place_hermitian_interleaved_to_real)
-{
-	try { pow2_large_1D_in_place_hermitian_interleaved_to_real< float, cl_float, fftwf_complex >(); }
-	catch( const std::exception& err ) { handle_exception(err);	}
-}
-
-TEST_F(accuracy_test_precallback_double, pow2_large_1D_in_place_hermitian_interleaved_to_real)
-{
-	try { pow2_large_1D_in_place_hermitian_interleaved_to_real< double, cl_double, fftw_complex >(); }
-	catch( const std::exception& err ) { handle_exception(err);	}
-}
-
-template< class T, class cl_T, class fftw_T >
-void pow2_large_1D_out_of_place_hermitian_planar_to_real()
-{
-	std::vector<size_t> lengths;
-	lengths.push_back( large2 );
-	size_t batch = 1;
-	std::vector<size_t> input_strides;
-	std::vector<size_t> output_strides;
-	size_t input_distance = 0;
-	size_t output_distance = 0;
-	layout::buffer_layout_t layout = layout::hermitian_planar;
-	placeness::placeness_t placeness = placeness::out_of_place;
-
-	data_pattern pattern = sawtooth;
-	precallback_complex_to_real<T, cl_T, fftw_T>( pattern, lengths, batch, input_strides, output_strides, input_distance, output_distance, layout, placeness );
-}
-
-TEST_F(accuracy_test_precallback_single, pow2_large_1D_out_of_place_hermitian_planar_to_real)
-{
-	try { pow2_large_1D_out_of_place_hermitian_planar_to_real< float, cl_float, fftwf_complex >(); }
-	catch( const std::exception& err ) { handle_exception(err);	}
-}
-
-TEST_F(accuracy_test_precallback_double, pow2_large_1D_out_of_place_hermitian_planar_to_real)
-{
-	try { pow2_large_1D_out_of_place_hermitian_planar_to_real< double, cl_double, fftw_complex >(); }
-	catch( const std::exception& err ) { handle_exception(err);	}
-}
-
-#pragma endregion
-
-/**********************************************************************************************
 **************************************Complex To Complex***************************************
 **********************************************************************************************/
 #pragma region Complex_To_Complex
@@ -418,9 +312,216 @@ TEST_F(accuracy_test_precallback_single, pow2_normal_1D_forward_in_place_complex
 #pragma endregion
 
 /**********************************************************************************************
+**************************************Complex To Real***************************************
+**********************************************************************************************/
+#pragma region Complex_To_Real
+
+template< typename T, typename cl_T, typename fftw_T >
+void mixed_radix_hermitian_to_real( size_t problem_size )
+{
+	try
+	{
+		if(verbose) std::cout << "Now testing problem size " << problem_size << std::endl;
+
+		std::vector<size_t> lengths;
+		lengths.push_back( problem_size );
+		size_t batch = 1;
+
+		std::vector<size_t> input_strides;
+		std::vector<size_t> output_strides;
+
+		size_t input_distance = 0;
+		size_t output_distance = 0;
+
+		layout::buffer_layout_t layout = layout::hermitian_interleaved;
+
+		placeness::placeness_t placeness = placeness::in_place;
+
+		data_pattern pattern = sawtooth;
+		precallback_complex_to_real<T, cl_T, fftw_T>( pattern, lengths, batch, input_strides, output_strides, input_distance, output_distance, layout, placeness );
+	}
+	catch( const std::exception& err ) {
+		handle_exception(err);
+	}
+}
+
+TEST_P( mixed_radix_precallback, single_precision_hermitian_to_real_auto_generated ) {
+	size_t problem_size = GetParam();
+	RecordProperty("problem_size", (int)problem_size);
+	mixed_radix_hermitian_to_real<float, cl_float, fftwf_complex>(problem_size);
+}
+
+TEST_P( mixed_radix_precallback, double_precision_hermitian_to_real_auto_generated ) {
+	size_t problem_size = GetParam();
+	RecordProperty("problem_size", (int)problem_size);
+	mixed_radix_hermitian_to_real<double, cl_double, fftw_complex>(problem_size);
+}
+
+template< class T, class cl_T, class fftw_T >
+void pow2_normal_1D_in_place_hermitian_interleaved_to_real()
+{
+	std::vector<size_t> lengths;
+	lengths.push_back( normal2 );
+	size_t batch = 1;
+	std::vector<size_t> input_strides;
+	std::vector<size_t> output_strides;
+	size_t input_distance = 0;
+	size_t output_distance = 0;
+	layout::buffer_layout_t layout = layout::hermitian_interleaved;
+	placeness::placeness_t placeness = placeness::in_place;
+
+	data_pattern pattern = sawtooth;
+	precallback_complex_to_real<T, cl_T, fftw_T>( pattern, lengths, batch, input_strides, output_strides, input_distance, output_distance, layout, placeness );
+}
+
+TEST_F(accuracy_test_precallback_single, pow2_normal_1D_in_place_hermitian_interleaved_to_real)
+{
+	try { pow2_normal_1D_in_place_hermitian_interleaved_to_real< float, cl_float, fftwf_complex >(); }
+	catch( const std::exception& err ) { handle_exception(err);	}
+}
+
+TEST_F(accuracy_test_precallback_double, pow2_normal_1D_in_place_hermitian_interleaved_to_real)
+{
+	try { pow2_normal_1D_in_place_hermitian_interleaved_to_real< double, cl_double, fftw_complex >(); }
+	catch( const std::exception& err ) { handle_exception(err);	}
+}
+
+template< class T, class cl_T, class fftw_T >
+void pow2_normal_1D_non_unit_stride_and_distance_hermitian_to_real()
+{
+	std::vector<size_t> lengths;
+	lengths.push_back( normal2 );
+	size_t batch = 2;
+	std::vector<size_t> input_strides;
+	std::vector<size_t> output_strides;
+	input_strides.push_back( 42 );
+	output_strides.push_back( 42 );
+	size_t input_distance = lengths[lengths.size()-1] * input_strides[input_strides.size()-1] + 14;
+	size_t output_distance = lengths[lengths.size()-1] * output_strides[output_strides.size()-1] + 14;
+	layout::buffer_layout_t layout = layout::hermitian_interleaved;
+	placeness::placeness_t placeness = placeness::out_of_place;
+
+	data_pattern pattern = sawtooth;
+	precallback_complex_to_real<T, cl_T, fftw_T>( pattern, lengths, batch, input_strides, output_strides, input_distance, output_distance, layout, placeness );
+}
+
+TEST_F(accuracy_test_precallback_single, pow2_normal_1D_non_unit_stride_and_distance_hermitian_to_real)
+{
+	try { pow2_normal_1D_non_unit_stride_and_distance_hermitian_to_real< float, cl_float, fftwf_complex >(); }
+	catch( const std::exception& err ) { handle_exception(err);	}
+}
+
+TEST_F(accuracy_test_precallback_double, pow2_normal_1D_non_unit_stride_and_distance_hermitian_to_real)
+{
+	try { pow2_normal_1D_non_unit_stride_and_distance_hermitian_to_real< double, cl_double, fftw_complex >(); }
+	catch( const std::exception& err ) { handle_exception(err);	}
+}
+
+template< class T, class cl_T, class fftw_T >
+void pow2_large_1D_in_place_hermitian_interleaved_to_real()
+{
+	std::vector<size_t> lengths;
+	lengths.push_back( large2 );
+	size_t batch = 1;
+	std::vector<size_t> input_strides;
+	std::vector<size_t> output_strides;
+	size_t input_distance = 0;
+	size_t output_distance = 0;
+	layout::buffer_layout_t layout = layout::hermitian_interleaved;
+	placeness::placeness_t placeness = placeness::in_place;
+
+	data_pattern pattern = sawtooth;
+	precallback_complex_to_real<T, cl_T, fftw_T>( pattern, lengths, batch, input_strides, output_strides, input_distance, output_distance, layout, placeness );
+}
+
+TEST_F(accuracy_test_precallback_single, pow2_large_1D_in_place_hermitian_interleaved_to_real)
+{
+	try { pow2_large_1D_in_place_hermitian_interleaved_to_real< float, cl_float, fftwf_complex >(); }
+	catch( const std::exception& err ) { handle_exception(err);	}
+}
+
+TEST_F(accuracy_test_precallback_double, pow2_large_1D_in_place_hermitian_interleaved_to_real)
+{
+	try { pow2_large_1D_in_place_hermitian_interleaved_to_real< double, cl_double, fftw_complex >(); }
+	catch( const std::exception& err ) { handle_exception(err);	}
+}
+
+template< class T, class cl_T, class fftw_T >
+void pow2_large_1D_out_of_place_hermitian_planar_to_real()
+{
+	std::vector<size_t> lengths;
+	lengths.push_back( large2 );
+	size_t batch = 1;
+	std::vector<size_t> input_strides;
+	std::vector<size_t> output_strides;
+	size_t input_distance = 0;
+	size_t output_distance = 0;
+	layout::buffer_layout_t layout = layout::hermitian_planar;
+	placeness::placeness_t placeness = placeness::out_of_place;
+
+	data_pattern pattern = sawtooth;
+	precallback_complex_to_real<T, cl_T, fftw_T>( pattern, lengths, batch, input_strides, output_strides, input_distance, output_distance, layout, placeness );
+}
+
+TEST_F(accuracy_test_precallback_single, pow2_large_1D_out_of_place_hermitian_planar_to_real)
+{
+	try { pow2_large_1D_out_of_place_hermitian_planar_to_real< float, cl_float, fftwf_complex >(); }
+	catch( const std::exception& err ) { handle_exception(err);	}
+}
+
+TEST_F(accuracy_test_precallback_double, pow2_large_1D_out_of_place_hermitian_planar_to_real)
+{
+	try { pow2_large_1D_out_of_place_hermitian_planar_to_real< double, cl_double, fftw_complex >(); }
+	catch( const std::exception& err ) { handle_exception(err);	}
+}
+
+#pragma endregion
+
+/**********************************************************************************************
 **************************************Real To Complex***************************************
 **********************************************************************************************/
 #pragma region Real_To_Complex
+
+template< typename T, typename cl_T, typename fftw_T >
+void mixed_radix_real_to_hermitian( size_t problem_size )
+{
+	try
+	{
+		if(verbose) std::cout << "Now testing problem size " << problem_size << std::endl;
+
+		std::vector<size_t> lengths;
+		lengths.push_back( problem_size );
+		size_t batch = 1;
+
+		std::vector<size_t> input_strides;
+		std::vector<size_t> output_strides;
+
+		size_t input_distance = 0;
+		size_t output_distance = 0;
+
+		layout::buffer_layout_t layout = layout::hermitian_interleaved;
+
+		placeness::placeness_t placeness = placeness::in_place;
+
+		data_pattern pattern = sawtooth;
+		precallback_real_to_complex<T, cl_T, fftw_T>( pattern, lengths, batch, input_strides, output_strides, input_distance, output_distance, layout, placeness );
+	}
+	catch( const std::exception& err ) {
+		handle_exception(err);
+	}
+}
+
+TEST_P( mixed_radix_precallback, single_precision_real_to_hermitian_auto_generated ) {
+	size_t problem_size = GetParam();
+	RecordProperty("problem_size", (int)problem_size);
+	mixed_radix_real_to_hermitian<float, cl_float, fftwf_complex>(problem_size);
+}
+
+TEST_P( mixed_radix_precallback, double_precision_real_to_hermitian_auto_generated ) {
+	size_t problem_size = GetParam();
+	RecordProperty("problem_size", (int)problem_size);
+	mixed_radix_real_to_hermitian<double, cl_double, fftw_complex>(problem_size);
+}
 
 template< class T, class cl_T, class fftw_T >
 void pow2_normal_1D_forward_in_place_real_to_hermitian_interleaved()
