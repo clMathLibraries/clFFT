@@ -1164,7 +1164,7 @@ int transform( size_t* lengths, const size_t *inStrides, const size_t *outStride
 		//C2C 1D Interleaved 
 		if (in_layout == CLFFT_COMPLEX_INTERLEAVED )
 		{
-			char* precallbackstr = (precision == CLFFT_SINGLE) ? STRINGIFY(MULVAL) : STRINGIFY(MULVAL_DP);
+			const char* precallbackstr = (precision == CLFFT_SINGLE) ? STRINGIFY(MULVAL) : STRINGIFY(MULVAL_DP);
 
 			int *h_userdata = (int*)malloc(sizeof(int)*fftBatchSize);
 			for( cl_uint i = 0; i < fftBatchSize; i = i + inStrides[0])
@@ -1178,7 +1178,7 @@ int transform( size_t* lengths, const size_t *inStrides, const size_t *outStride
 		}
 		else if (in_layout == CLFFT_HERMITIAN_INTERLEAVED)
 		{	
-			char* precallbackstr = (precision == CLFFT_SINGLE) ? STRINGIFY(MULVAL_C2R) : STRINGIFY(MULVAL_DP);
+			const char* precallbackstr = (precision == CLFFT_SINGLE) ? STRINGIFY(MULVAL_C2R) : STRINGIFY(MULVAL_DP);
 			
 			int *h_userdata = (int*)malloc(sizeof(int)*fftBatchSize);
 			for(size_t b = 0; b < batch_size; b++)
@@ -1198,7 +1198,7 @@ int transform( size_t* lengths, const size_t *inStrides, const size_t *outStride
 		else if (in_layout == CLFFT_COMPLEX_PLANAR)
 		{	
 			//C2C PLANAR 
-			char* precallbackstr = (precision == CLFFT_SINGLE) ? STRINGIFY(MULVAL_PLANAR) : STRINGIFY(MULVAL_PLANAR_DP);
+			const char* precallbackstr = (precision == CLFFT_SINGLE) ? STRINGIFY(MULVAL_PLANAR) : STRINGIFY(MULVAL_PLANAR_DP);
 			USER_DATA *h_userdata = (USER_DATA*)malloc(sizeof(USER_DATA) * fftBatchSize);
 			for( size_t i = 0; i < fftBatchSize; i = i + inStrides[0])
 			{
@@ -1213,7 +1213,7 @@ int transform( size_t* lengths, const size_t *inStrides, const size_t *outStride
 		else if (in_layout == CLFFT_HERMITIAN_PLANAR)
 		{	
 			//C2C PLANAR 
-			char* precallbackstr = (precision == CLFFT_SINGLE) ? STRINGIFY(MULVAL_PLANAR) : STRINGIFY(MULVAL_PLANAR_DP);
+			const char* precallbackstr = (precision == CLFFT_SINGLE) ? STRINGIFY(MULVAL_PLANAR) : STRINGIFY(MULVAL_PLANAR_DP);
 			USER_DATA *h_userdata = (USER_DATA*)malloc(sizeof(USER_DATA) * fftBatchSize);
 			for(size_t b = 0; b < batch_size; b++)
 			{

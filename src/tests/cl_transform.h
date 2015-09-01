@@ -623,7 +623,7 @@ public:
 		clfftPrecision precision;
 		clfftGetPlanPrecision( *plan_handle, &precision );
 
-		char* precallbackstr;
+		const char* precallbackstr;
 		
 		if (localMemSize > 0)
 		{

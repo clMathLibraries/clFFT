@@ -449,7 +449,7 @@ public:
 					input.batch_size(),
 					input.distance(),
 					layout::real ,
-					cl_placeness(placeness::in_place)
+					CLFFT_INPLACE
 					);
 		
 		userdata.set_all_to_random_data(_lengths[0], 10);
@@ -466,7 +466,7 @@ public:
 					input.batch_size(),
 					input.distance(),
 					layout::real ,
-					cl_placeness(placeness::in_place)
+					CLFFT_INPLACE
 					);
 		
 		userdata.set_all_to_random_data(_lengths[0], 10);

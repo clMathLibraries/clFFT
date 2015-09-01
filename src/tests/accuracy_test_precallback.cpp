@@ -92,12 +92,12 @@ public:
 			sumi *= 5;
 		}
 	}
-} supported_sizes;
+} supported_sizes_precallback;
 
 INSTANTIATE_TEST_CASE_P(
 	mixed_radices_precallback,
 	mixed_radix_precallback,
-	::testing::ValuesIn( supported_sizes.sizes )
+	::testing::ValuesIn( supported_sizes_precallback.sizes )
 );
 
 namespace precallback
