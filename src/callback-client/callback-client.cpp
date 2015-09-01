@@ -60,7 +60,13 @@ fftwf_complex* get_fftwf_output(size_t* lengths, size_t fftBatchSize, int batch_
 								clfftDim dim, clfftDirection dir);
 template < typename T1, typename T2>
 bool compare(T1 *refData, std::vector< std::complex< T2 > > data,
-             size_t length, const float epsilon);
+             size_t length, const float epsilon = 1e-6f);
+
+template < typename T >
+void runPrecallbackFFT(std::auto_ptr< clfftSetupData > setupData, cl_context context, cl_command_queue commandQueue, size_t* inlengths, clfftDim dim, clfftPrecision precision, size_t batchSize, size_t vectorLength, size_t fftLength, cl_uint profile_count);
+
+template < typename T >
+void runPreprocessKernelFFT(std::auto_ptr< clfftSetupData > setupData, cl_context context, cl_command_queue commandQueue, cl_device_id device_id, size_t* inlengths, clfftDim dim, clfftPrecision precision, size_t batchSize, size_t vectorLength, size_t fftLength, cl_uint profile_count);
 
 int main(int argc, char **argv)
 {
@@ -173,10 +179,13 @@ void C2C_transform(std::auto_ptr< clfftSetupData > setupData, size_t* inlengths,
     OPENCL_V_THROW( status, "Creating Command Queue ( ::clCreateCommandQueue() )" );
 
 	//Run clFFT with seaparate Pre-process Kernel
-	runPreprocessKernelFFT<T>(setupData, context, commandQueue, device_id[0], inlengths, dim, precision, batchSize, vectorLength, fftLength, profile_count);
+	if (precision == CLFFT_SINGLE)
+	{
+	runPreprocessKernelFFT<float>(setupData, context, commandQueue, device_id[0], inlengths, dim, precision, batchSize, vectorLength, fftLength, profile_count);
 
 	//Run clFFT using pre-callback 
-	runPrecallbackFFT<T>(setupData, context, commandQueue, inlengths, dim, precision, batchSize, vectorLength, fftLength, profile_count);
+	runPrecallbackFFT<float>(setupData, context, commandQueue, inlengths, dim, precision, batchSize, vectorLength, fftLength, profile_count);
+	}
 
 	OPENCL_V_THROW( clReleaseCommandQueue( commandQueue ), "Error: In clReleaseCommandQueue\n" );
     OPENCL_V_THROW( clReleaseContext( context ), "Error: In clReleaseContext\n" );
@@ -582,7 +591,7 @@ void runPreprocessKernelFFT(std::auto_ptr< clfftSetupData > setupData, cl_contex
 //Compare reference and opencl output 
 template < typename T1, typename T2>
 bool compare(T1 *refData, std::vector< std::complex< T2 > > data,
-             size_t length, const float epsilon = 1e-6f)
+             size_t length, const float epsilon)
 {
     float error = 0.0f;
     T1 ref;
