@@ -481,6 +481,7 @@ cl_int FFTBinaryLookup::populateCache()
     writeCacheFile(data); // ignore return code, because it does nothing if
                           // the file could not be written (i.e the current
                           // thread did not create the file
+    delete [] data[0];
 
     return CL_SUCCESS;
 }
