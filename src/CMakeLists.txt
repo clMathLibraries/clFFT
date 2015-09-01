@@ -292,8 +292,8 @@ else( )
 endif( )
 
 # We only want to build the following if the user options are set
-if( FFT_CALLBACK_CLIENT AND IS_DIRECTORY "${PROJECT_SOURCE_DIR}/client-callback" )
-	add_subdirectory( client-callback )
+if( FFT_CALLBACK_CLIENT AND IS_DIRECTORY "${PROJECT_SOURCE_DIR}/callback-client" )
+	add_subdirectory( callback-client )
 else( )
 	message( "FFT callback client will NOT be built" )
 endif( )
