@@ -128,8 +128,7 @@ void precallback_complex_to_complex( data_pattern pattern, direction::direction_
 	std::vector<size_t> input_strides, std::vector<size_t> output_strides,
 	size_t input_distance, size_t output_distance,
 	layout::buffer_layout_t in_layout, layout::buffer_layout_t out_layout,
-	placeness::placeness_t placeness, bool hasUserDatatype = false,
-	T scale = 1.0f )
+	placeness::placeness_t placeness, T scale = 1.0f, bool hasUserDatatype = false )
 {
 	clfft<T, cl_T> test_fft( static_cast<clfftDim>(lengths.size()), &lengths[0],
 		input_strides.empty() ? NULL : &input_strides[0],

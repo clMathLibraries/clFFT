@@ -2203,7 +2203,14 @@ namespace StockhamGenerator
 						if(oddp)
 						{
 							passStr += "\n\tif(rw && (me%2))\n\t{";
-							SweepRegsRC(SR_READ, fwd, inInterleaved, inStride, SR_COMP_REAL, 1.0f, false, false, true, bufferInRe, bufferInRe, "inOffset", passStr);
+							if (fft_doPreCallback)
+							{
+								SweepRegsRC(SR_READ, fwd, inInterleaved, inStride, SR_COMP_REAL, 1.0f, false, false, true, bufferInRe, bufferInIm, "inOffset", passStr);
+							}
+							else
+							{
+								SweepRegsRC(SR_READ, fwd, inInterleaved, inStride, SR_COMP_REAL, 1.0f, false, false, true, bufferInRe, bufferInRe, "inOffset", passStr);
+							}
 							passStr += "\n\t}";
 							passStr += "\n\tif((rw > 1) && (me%2))\n\t{";
 							if (fft_doPreCallback)
