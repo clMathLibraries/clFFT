@@ -601,6 +601,80 @@ void complex_to_complex_round_trip( data_pattern pattern,
 /*****************************************************/
 // dimension is inferred from lengths.size()
 // tightly packed is inferred from strides.empty()
+// no need to support non-unit strides and distances here
+// they are covered in plenty of other places
+// and just needlessly complicate things in this case
+template< class T, class cl_T, class fftw_T >
+void precallback_complex_to_complex_round_trip( data_pattern pattern,
+									std::vector<size_t> lengths, size_t batch,
+									layout::buffer_layout_t layout )
+{
+	placeness::placeness_t placeness = placeness::in_place;
+
+	clfft<T, cl_T> test_fft( static_cast<clfftDim>(lengths.size()), &lengths[0],
+		NULL, NULL,	batch, 0, 0,
+		cl_layout(layout), cl_layout(layout),
+		cl_placeness( placeness ) );
+
+	buffer<T> expected( lengths.size(), &lengths[0], NULL, batch, 0, layout, CLFFT_OUTOFPLACE );
+
+	if( pattern == sawtooth )
+	{
+		test_fft.set_input_to_sawtooth( 1.0f );
+		expected.set_all_to_sawtooth( 1.0f );
+	}
+	else if( pattern == value )
+	{
+		test_fft.set_input_to_value( 2.0f, 2.5f );
+		expected.set_all_to_value( 2.0f, 2.5f );
+	}
+	else if( pattern == impulse )
+	{
+		test_fft.set_input_to_impulse();
+		expected.set_all_to_impulse();
+	}
+	else if( pattern == erratic )
+	{
+		test_fft.set_input_to_random();
+		expected.set_all_to_random_data( 10, super_duper_global_seed );
+	}
+	else
+	{
+		throw std::runtime_error( "invalid pattern type in complex_to_complex_round_trip()" );
+	}
+
+	// if we're starting with unequal data, we're destined for failure
+	EXPECT_EQ( true, test_fft.input_buffer() == expected );
+
+	test_fft.set_input_precallback();
+
+	//precallback user data
+	buffer<T> userdata( lengths.size(), &lengths[0], NULL, batch, 0, layout::real, CLFFT_OUTOFPLACE);	
+	userdata.set_all_to_random_data(lengths[0], 10);
+		
+	expected *= userdata;
+
+	test_fft.set_forward_transform();
+	test_fft.transform();
+
+	// confirm that we actually did something
+	bool stash_suppress_output = suppress_output;
+	suppress_output = true;
+	EXPECT_EQ( false, test_fft.result() == expected );
+	suppress_output = stash_suppress_output;
+
+	test_fft.refresh_plan();
+
+	test_fft.set_backward_transform();
+	test_fft.transform();
+
+	EXPECT_EQ( true, test_fft.result() == expected );
+}
+
+/*****************************************************/
+/*****************************************************/
+// dimension is inferred from lengths.size()
+// tightly packed is inferred from strides.empty()
 template< class T, class cl_T, class fftw_T >
 void real_to_complex_round_trip( data_pattern pattern,
 								 std::vector<size_t> lengths, size_t batch )

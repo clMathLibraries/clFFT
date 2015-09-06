@@ -7316,7 +7316,7 @@ TEST_F(accuracy_test_pow2_precallback_double, small_3D_non_unit_stride_and_dista
 	catch( const std::exception& err ) { handle_exception(err);	}
 }
 
-/* TODO Round Trip
+
 
  // *****************************************************
  // *****************************************************
@@ -7329,7 +7329,7 @@ void normal_1D_round_trip_complex_to_complex()
 	layout::buffer_layout_t layout = layout::complex_interleaved;
 
 	data_pattern pattern = sawtooth;
-	complex_to_complex_round_trip<T, cl_T, fftw_T>( pattern, lengths, batch, layout );
+	precallback_complex_to_complex_round_trip<T, cl_T, fftw_T>( pattern, lengths, batch, layout );
 }
 
 TEST_F(accuracy_test_pow2_precallback_single, normal_1D_round_trip_complex_to_complex)
@@ -7356,7 +7356,19 @@ void normal_2D_round_trip_complex_to_complex()
 	layout::buffer_layout_t layout = layout::complex_planar;
 
 	data_pattern pattern = sawtooth;
-	complex_to_complex_round_trip<T, cl_T, fftw_T>( pattern, lengths, batch, layout );
+	precallback_complex_to_complex_round_trip<T, cl_T, fftw_T>( pattern, lengths, batch, layout );
+}
+
+TEST_F(accuracy_test_pow2_precallback_single, normal_2D_round_trip_complex_to_complex)
+{
+	try { normal_2D_round_trip_complex_to_complex< float, cl_float, fftwf_complex >(); }
+	catch( const std::exception& err ) { handle_exception(err);	}
+}
+
+TEST_F(accuracy_test_pow2_precallback_double, normal_2D_round_trip_complex_to_complex)
+{
+	try { normal_2D_round_trip_complex_to_complex< double, cl_double, fftw_complex >(); }
+	catch( const std::exception& err ) { handle_exception(err);	}
 }
 
 template< class T, class cl_T, class fftw_T >
@@ -7369,25 +7381,13 @@ void testcase_2D_round_trip_complex_to_complex(size_t l0, size_t l1)
 	layout::buffer_layout_t layout = layout::complex_planar;
 
 	data_pattern pattern = sawtooth;
-	complex_to_complex_round_trip<T, cl_T, fftw_T>( pattern, lengths, batch, layout );
+	precallback_complex_to_complex_round_trip<T, cl_T, fftw_T>( pattern, lengths, batch, layout );
 }
 
 // added this regression test to catch failures seen in transposes
 TEST_F(accuracy_test_pow2_precallback_single, testcase1_2D_round_trip_complex_to_complex)
 {
 	try { testcase_2D_round_trip_complex_to_complex< float, cl_float, fftwf_complex >(1024, 16); }
-	catch( const std::exception& err ) { handle_exception(err);	}
-}
-
-TEST_F(accuracy_test_pow2_precallback_single, normal_2D_round_trip_complex_to_complex)
-{
-	try { normal_2D_round_trip_complex_to_complex< float, cl_float, fftwf_complex >(); }
-	catch( const std::exception& err ) { handle_exception(err);	}
-}
-
-TEST_F(accuracy_test_pow2_precallback_double, normal_2D_round_trip_complex_to_complex)
-{
-	try { normal_2D_round_trip_complex_to_complex< double, cl_double, fftw_complex >(); }
 	catch( const std::exception& err ) { handle_exception(err);	}
 }
 
@@ -7404,7 +7404,7 @@ void small_3D_round_trip_complex_to_complex()
 	layout::buffer_layout_t layout = layout::complex_planar;
 
 	data_pattern pattern = sawtooth;
-	complex_to_complex_round_trip<T, cl_T, fftw_T>( pattern, lengths, batch, layout );
+	precallback_complex_to_complex_round_trip<T, cl_T, fftw_T>( pattern, lengths, batch, layout );
 }
 
 TEST_F(accuracy_test_pow2_precallback_single, small_3D_round_trip_complex_to_complex)
@@ -7419,6 +7419,7 @@ TEST_F(accuracy_test_pow2_precallback_double, small_3D_round_trip_complex_to_com
 	catch( const std::exception& err ) { handle_exception(err);	}
 }
 
+
  // *****************************************************
  // *****************************************************
 template< class T, class cl_T, class fftw_T >
@@ -7429,7 +7430,7 @@ void normal_1D_round_trip_real_to_complex()
 	size_t batch = 1;
 
 	data_pattern pattern = impulse;
-	real_to_complex_round_trip<T, cl_T, fftw_T>( pattern, lengths, batch );
+	precallback_real_to_complex_round_trip<T, cl_T, fftw_T>( pattern, lengths, batch );
 }
 
 TEST_F(accuracy_test_pow2_precallback_single, normal_1D_round_trip_real_to_complex)
@@ -7454,7 +7455,7 @@ void large_1D_round_trip_real_to_complex()
 	size_t batch = 1;
 
 	data_pattern pattern = impulse;
-	real_to_complex_round_trip<T, cl_T, fftw_T>( pattern, lengths, batch );
+	precallback_real_to_complex_round_trip<T, cl_T, fftw_T>( pattern, lengths, batch );
 }
 
 TEST_F(accuracy_test_pow2_precallback_single, large_1D_round_trip_real_to_complex)
@@ -7480,7 +7481,7 @@ void normal_2D_round_trip_real_to_complex()
 	size_t batch = 1;
 
 	data_pattern pattern = impulse;
-	real_to_complex_round_trip<T, cl_T, fftw_T>( pattern, lengths, batch );
+	precallback_real_to_complex_round_trip<T, cl_T, fftw_T>( pattern, lengths, batch );
 }
 
 TEST_F(accuracy_test_pow2_precallback_single, normal_2D_round_trip_real_to_complex)
@@ -7507,7 +7508,7 @@ void small_3D_round_trip_real_to_complex()
 	size_t batch = 1;
 
 	data_pattern pattern = impulse;
-	real_to_complex_round_trip<T, cl_T, fftw_T>( pattern, lengths, batch );
+	precallback_real_to_complex_round_trip<T, cl_T, fftw_T>( pattern, lengths, batch );
 }
 
 TEST_F(accuracy_test_pow2_precallback_single, small_3D_round_trip_real_to_complex)
@@ -7521,5 +7522,5 @@ TEST_F(accuracy_test_pow2_precallback_double, small_3D_round_trip_real_to_comple
 	try { small_3D_round_trip_real_to_complex< double, cl_double, fftw_complex >(); }
 	catch( const std::exception& err ) { handle_exception(err);	}
 }
-*/
+
 } //namespace

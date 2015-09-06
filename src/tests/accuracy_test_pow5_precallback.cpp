@@ -7169,7 +7169,7 @@ TEST_F(accuracy_test_pow5_precallback_double, small_3D_non_unit_stride_and_dista
 	catch( const std::exception& err ) { handle_exception(err);	}
 }
 
-/*
+
  // *****************************************************
  // *****************************************************
 template< class T, class cl_T, class fftw_T >
@@ -7353,5 +7353,5 @@ TEST_F(accuracy_test_pow5_precallback_double, small_3D_round_trip_precallback_re
 	try { small_3D_round_trip_precallback_real_to_complex< double, cl_double, fftw_complex >(); }
 	catch( const std::exception& err ) { handle_exception(err);	}
 }
-*/
+
 } //namespace
