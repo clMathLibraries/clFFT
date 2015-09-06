@@ -14,3 +14,6 @@
 
 # ignore build directory if name is 'build'
 build/
+*.bak
+src/client-callback/client.cpp
+*.pack
