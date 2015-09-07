@@ -17,3 +17,4 @@ build/
 *.bak
 src/client-callback/client.cpp
 *.pack
+src/client-callback/callback_tests.bat
