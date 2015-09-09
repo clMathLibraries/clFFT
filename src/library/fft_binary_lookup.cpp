@@ -163,7 +163,8 @@ FFTBinaryLookup::Variant::Variant(VariantKind kind, char * data, size_t size)
 
 FFTBinaryLookup::Variant::~Variant()
 {
-    // delete this->m_data;
+	// if(this->m_data)
+	// 	delete [] this->m_data;
 }
 
 void FFTBinaryLookup::variantInt(int num)
@@ -407,6 +408,7 @@ static cl_int getSingleBinaryFromProgram(cl_program program,
 
     if (err != CL_SUCCESS)
     {
+		delete[] binary[0];
 #if CAPS_DEBUG
         std::cerr << "Error querying for program binaries" << std::endl;
 #endif
