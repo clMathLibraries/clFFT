@@ -34,37 +34,31 @@
 #define USERDATA_LENGTH 512
 #define BATCH_LENGTH 1024 // Must be >= USERDATA_LENGTH
 
-#define ZERO_PAD_C2C __attribute__((always_inline)) \n float2 zeroPad (__global void *input, \n \
-								uint inoffset, \n \
-							__global void *userdata) \n \
-				 { \n \
-					 float2 scalar = 0.0f; \n \
-					 uint udoffset; \n \
-					 if ((inoffset % BATCH_LENGTH) < USERDATA_LENGTH) \n \
-					 { \n \
-					    udoffset = ((inoffset/BATCH_LENGTH) * USERDATA_LENGTH) + (inoffset % BATCH_LENGTH); \n \
-						scalar = *((__global float2*)userdata + udoffset); \n \
-					 } \n \
-					 return scalar; \n \
-				} \n
+#define ConvertToFloat float convert24To32bit(__global void* in, uint inoffset, __global void* userdata)\n \
+				{ \n \
+				__global char* inData =  (__global char*)in; \n \
+				float val = inData[3*inoffset+2] << 24 | inData[3*inoffset+1] << 16 | inData[3*inoffset] << 8 ; \n \
+				return val / (float)(INT_MAX - 256);  \n \
+				}
 
-#define ZERO_PAD_C2C_KERNEL __kernel void zeroPad (__global void *input, \n \
+#define ConvertToFloat_KERNEL __kernel void convert24To32bit (__global void *input, \n \
 								__global void *userdata) \n \
 				 { \n \
 					uint inoffset = get_global_id(0); \n \
-					 float2 scalar = 0.0f; \n \
-					 uint udoffset; \n \
-					 if ((inoffset % BATCH_LENGTH) < USERDATA_LENGTH) \n \
-					 { \n \
-					   udoffset = ((inoffset/BATCH_LENGTH) * USERDATA_LENGTH) + (inoffset % BATCH_LENGTH); \n \
-					   scalar = *((__global float2*)userdata + udoffset); \n \
-					 } \n \
-					 *((__global float2*)input + inoffset) = scalar; \n \
+					__global char* inData =  (__global char*)in; \n \
+					float val = inData[3*inoffset+2] << 24 | inData[3*inoffset+1] << 16 | inData[3*inoffset] << 8 ; \n \
+					*((__global float*)input + inoffset) = val / (float)(INT_MAX - 256);  \n \
 				} \n
 
+
 template < typename T >
-void C2C_transform(std::auto_ptr< clfftSetupData > setupData, size_t* inlengths, size_t batchSize, 
-				   clfftDim dim, clfftPrecision precision, cl_uint profile_count);
+void R2C_transform(std::auto_ptr< clfftSetupData > setupData, size_t* inlengths, size_t batchSize, 
+				   clfftDim dim, clfftPrecision precision,  cl_uint profile_count);
+
+template < typename T >
+void runR2CPrecallbackFFT(std::auto_ptr< clfftSetupData > setupData, cl_context context, cl_command_queue commandQueue,
+						size_t* inlengths, clfftDim dim, clfftPrecision precision,
+						size_t batchSize, size_t vectorLength, size_t fftLength, cl_uint profile_count);
 
 fftwf_complex* get_C2C_fftwf_output(size_t* lengths, size_t fftBatchSize, int batch_size, clfftLayout in_layout,
 								clfftDim dim, clfftDirection dir);
@@ -72,12 +66,6 @@ fftwf_complex* get_C2C_fftwf_output(size_t* lengths, size_t fftBatchSize, int ba
 template < typename T1, typename T2>
 bool compare(T1 *refData, std::vector< std::complex< T2 > > data,
              size_t length, const float epsilon = 1e-6f);
-
-template < typename T >
-void runC2CPrecallbackFFT(std::auto_ptr< clfftSetupData > setupData, cl_context context, cl_command_queue commandQueue, size_t* inlengths, clfftDim dim, clfftPrecision precision, size_t batchSize, size_t vectorLength, size_t fftLength, cl_uint profile_count);
-
-template < typename T >
-void runC2CPreprocessKernelFFT(std::auto_ptr< clfftSetupData > setupData, cl_context context, cl_command_queue commandQueue, cl_device_id device_id, size_t* inlengths, clfftDim dim, clfftPrecision precision, size_t batchSize, size_t vectorLength, size_t fftLength, cl_uint profile_count);
 
 #ifdef WIN32
 

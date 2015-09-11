@@ -92,7 +92,7 @@ enum BlockComputeType
 #define CLFFT_MAX_INTERNAL_DIM 16
 
 /*! @brief Data structure to store the callback function string and other metadata passed by client 
-*  @details Client sets the callback function and other required parameters through clFFTSetPlanCallback() 
+*  @details Client sets the callback function and other required parameters through clfftSetPlanCallback() 
 *  in order to register the callback function. The library populates these values into this data structure
 */ 
 typedef struct clfftCallbackParam_
@@ -448,7 +448,7 @@ public:
 	bool hasPreCallback;
 
 	clfftCallbackParam preCallback;
-	void *precallUserData;
+	cl_mem precallUserData;
 
     clfftPlanHandle plHandle;
 

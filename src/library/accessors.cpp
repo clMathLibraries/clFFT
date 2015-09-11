@@ -767,22 +767,30 @@ clfftStatus clfftLocalMemSize( const clfftPlanHandle plHandle, cl_ulong* local_m
 	return CLFFT_SUCCESS;
 }
 
-clfftStatus clFFTSetPlanCallback(clfftPlanHandle plHandle, const char* funcName, 
+clfftStatus clfftSetPlanCallback(clfftPlanHandle plHandle, const char* funcName, 
 								 const char* funcString, const char* userStructString, 
 								 int localMemSize, clFFTCallbackType callbackType, 
-								 void *userdata)
+								 cl_mem *userdata, int numUserdataBuffers)
 {
 	FFTRepo& fftRepo	= FFTRepo::getInstance( );
 	FFTPlan* fftPlan	= NULL;
 	lockRAII* planLock	= NULL;
 
 	OPENCL_V( fftRepo.getPlan( plHandle, fftPlan, planLock ), _T( "fftRepo.getPlan failed" ) );
-	scopedLock sLock( *planLock, _T( "clFFTSetPlanCallback" ) );
+	scopedLock sLock( *planLock, _T( "clfftSetPlanCallback" ) );
 
-	if (callbackType == PRECALLBACK)
+	switch (callbackType)
 	{
-		if (funcName != NULL && funcString != NULL)
+	case PRECALLBACK:
 		{
+			ARG_CHECK(funcName != NULL);
+			ARG_CHECK(funcString != NULL);
+			ARG_CHECK(numUserdataBuffers >= 0);
+
+			//	We do not currently support multiple user data buffers
+			if( numUserdataBuffers > 1 )
+				return CLFFT_NOTIMPLEMENTED;
+
 			fftPlan->hasPreCallback = true;
 
 			fftPlan->preCallback.funcname = funcName;
@@ -790,8 +798,19 @@ clfftStatus clFFTSetPlanCallback(clfftPlanHandle plHandle, const char* funcName,
 			fftPlan->preCallback.userdatastruct = userStructString;
 			fftPlan->preCallback.localMemSize = (localMemSize > 0) ? localMemSize : 0;
 
-			fftPlan->precallUserData = userdata;
-		}		
+			cl_mem userdataBuf = NULL;
+			
+			if (userdata)
+				userdataBuf = userdata[0];
+
+			fftPlan->precallUserData = userdataBuf;
+		}
+
+		break;
+	case POSTCALLBACK:
+		return CLFFT_NOTIMPLEMENTED;
+	default:
+		ARG_CHECK (false);
 	}
 
 	return	CLFFT_SUCCESS;

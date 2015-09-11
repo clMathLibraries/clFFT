@@ -561,8 +561,10 @@ extern "C" {
 	 *  @param[localMemSize] Optional - Local memory size if needed by callback. Pass 0 if local memory not needed by callback
 	 *  @param[callbackType] Type of callback - Pre-Callback or Post-Callback
 	 *  @param[userdata] cl_mem object passed as paarameter to callback function
+	 *  @param[numUserdataBuffers] Number of userdata buffers
 	 */
-	CLFFTAPI clfftStatus clFFTSetPlanCallback(clfftPlanHandle plHandle, const char* funcName, const char* funcString, const char* userStructString, int localMemSize, clFFTCallbackType callbackType, void *userdata);
+	CLFFTAPI clfftStatus clfftSetPlanCallback(clfftPlanHandle plHandle, const char* funcName, const char* funcString, const char* userStructString, 
+										int localMemSize, clFFTCallbackType callbackType, cl_mem *userdata, int numUserdataBuffers);
 
 
 	/*! @brief Enqueue an FFT transform operation, and return immediately (non-blocking)

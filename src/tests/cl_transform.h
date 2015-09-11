@@ -665,7 +665,7 @@ public:
 		OPENCL_V_THROW( status, "Creating Buffer ( ::clCreateBuffer() )" );
 
 		//Register the callback
-		OPENCL_V_THROW (clFFTSetPlanCallback(*plan_handle, "mulval", precallbackstr, NULL, localMemSize, PRECALLBACK, userdataBuff), "clFFTSetPlanCallback failed");
+		OPENCL_V_THROW (clfftSetPlanCallback(*plan_handle, "mulval", precallbackstr, NULL, localMemSize, PRECALLBACK, &userdataBuff, 1), "clFFTSetPlanCallback failed");
 	}
 
 		/*****************************************************/
@@ -704,7 +704,7 @@ public:
 		OPENCL_V_THROW( status, "Creating Buffer ( ::clCreateBuffer() )" );
 
 		//Register the callback
-		OPENCL_V_THROW (clFFTSetPlanCallback(*plan_handle, "mulval", precallbackstr, STRINGIFY(STRUCT_USERDATA), 0, PRECALLBACK, userdataBuff), "clFFTSetPlanCallback failed");
+		OPENCL_V_THROW (clfftSetPlanCallback(*plan_handle, "mulval", precallbackstr, STRINGIFY(STRUCT_USERDATA), 0, PRECALLBACK, &userdataBuff, 1), "clFFTSetPlanCallback failed");
 	}
 
 	/*****************************************************/

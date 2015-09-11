@@ -57,9 +57,9 @@ int main(int argc, char **argv)
 			dim	= CLFFT_3D;
 		}
 
-		 // Complex-Complex cases, SP
+		 // Real-Complex cases, SP
 		
-		C2C_transform<float>(setupData, lengths, batchSize, dim, precision, profile_count);
+		R2C_transform<float>(setupData, lengths, batchSize, dim, precision, profile_count);
 		
 	}
 	catch( std::exception& e )
@@ -71,7 +71,7 @@ int main(int argc, char **argv)
 }
 
 template < typename T >
-void C2C_transform(std::auto_ptr< clfftSetupData > setupData, size_t* inlengths, size_t batchSize, 
+void R2C_transform(std::auto_ptr< clfftSetupData > setupData, size_t* inlengths, size_t batchSize, 
 				   clfftDim dim, clfftPrecision precision,  cl_uint profile_count)
 {
 	//	OpenCL state 
@@ -83,7 +83,10 @@ void C2C_transform(std::auto_ptr< clfftSetupData > setupData, size_t* inlengths,
 	cl_uint command_queue_flags = 0;
 	command_queue_flags |= CL_QUEUE_PROFILING_ENABLE;
 	
-	size_t vectorLength = inlengths[0] * inlengths[1] * inlengths[2];
+	// Test for in-place Hermitian Interleaved output 
+	// Hence output size is N/2 + 1 complex. So allocate N + 2 real input
+	size_t Nt = inlengths[0] + 2;
+	size_t vectorLength = Nt * inlengths[1] * inlengths[2];
 	size_t fftLength = vectorLength * batchSize;
 
 	//OpenCL initializations
@@ -97,10 +100,12 @@ void C2C_transform(std::auto_ptr< clfftSetupData > setupData, size_t* inlengths,
 	if (precision == CLFFT_SINGLE)
 	{
 		//Run clFFT with seaparate Pre-process Kernel
-		runC2CPreprocessKernelFFT<float>(setupData, context, commandQueue, device_id[0], inlengths, dim, precision, batchSize, vectorLength, fftLength, profile_count);
+		/*runR2CPreprocessKernelFFT<float>(setupData, context, commandQueue, device_id[0], inlengths, dim, precision, 
+										batchSize, vectorLength, fftLength, profile_count);*/
 
 		//Run clFFT using pre-callback 
-		runC2CPrecallbackFFT<float>(setupData, context, commandQueue, inlengths, dim, precision, batchSize, vectorLength, fftLength, profile_count);
+		runR2CPrecallbackFFT<float>(setupData, context, commandQueue, inlengths, dim, precision, 
+									batchSize, vectorLength, fftLength, profile_count);
 	}
 
 	OPENCL_V_THROW( clReleaseCommandQueue( commandQueue ), "Error: In clReleaseCommandQueue\n" );
@@ -108,55 +113,50 @@ void C2C_transform(std::auto_ptr< clfftSetupData > setupData, size_t* inlengths,
 }
 
 template < typename T >
-void runC2CPrecallbackFFT(std::auto_ptr< clfftSetupData > setupData, cl_context context, cl_command_queue commandQueue,
+void runR2CPrecallbackFFT(std::auto_ptr< clfftSetupData > setupData, cl_context context, cl_command_queue commandQueue,
 						size_t* inlengths, clfftDim dim, clfftPrecision precision,
 						size_t batchSize, size_t vectorLength, size_t fftLength, cl_uint profile_count)
 {
 	cl_int status = 0;
-
-	size_t userdataLengths[ 3 ] = {USERDATA_LENGTH,1,1};
-	size_t vectorLength_userdata = userdataLengths[0] * userdataLengths[1] * userdataLengths[2];
-	size_t userdataLength = vectorLength_userdata * batchSize;
-
+	
 	//input/output allocation sizes
-	size_t size_of_buffers = fftLength * sizeof( std::complex< T > );
-	size_t size_of_buffers_userdata = userdataLength * sizeof( std::complex< T > );
+	size_t in_size_of_buffers = fftLength * sizeof(char) * 3 ;
+	size_t out_size_of_buffers = fftLength * sizeof( T  );
 
-	//in-place transform. Same buffer for input and output
-	cl_mem fftbuffer = ::clCreateBuffer( context, CL_MEM_READ_WRITE, size_of_buffers, NULL, &status);
-    OPENCL_V_THROW( status, "Creating Buffer ( ::clCreateBuffer(buffer) )" );
+	char* in24bitData = (char*)malloc(in_size_of_buffers);
 
 	//Initialize Data
-	std::vector< std::complex< T > > userdata( userdataLength );
-
-	// impulse test case
-	std::complex< T > impulsedata(1,0);
-	for (size_t idx = 0; idx < userdataLength; ++idx)
+	for (size_t idx = 0; idx < fftLength; ++idx)
 	{
-		userdata[idx] = impulsedata;
+		in24bitData[3 * idx + 2] = (char)(rand() % 256);
+		in24bitData[3 * idx + 1] = (char)(rand() % 256);
+		in24bitData[3 * idx] = (char)(rand() % 256);
 	}
 
-	//user data buffer
-	cl_mem userDatabuffer = ::clCreateBuffer( context, CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR, size_of_buffers_userdata, &userdata[0], &status);
-    OPENCL_V_THROW( status, "Creating Buffer ( ::clCreateBuffer(userDatabuffer) )" );
+	//input data buffer
+	cl_mem infftbuffer = ::clCreateBuffer( context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, in_size_of_buffers, (void*)in24bitData, &status);
+    OPENCL_V_THROW( status, "Creating Buffer ( ::clCreateBuffer(infftbuffer) )" );
+
+	//out-place transform. 	
+	cl_mem outfftbuffer = ::clCreateBuffer( context, CL_MEM_READ_WRITE, out_size_of_buffers, NULL, &status);
+    OPENCL_V_THROW( status, "Creating Buffer ( ::clCreateBuffer(oufftbuffer) )" );
 
 	//clFFT initializations
 	
 	//	FFT state
-	clfftResultLocation	place = CLFFT_INPLACE;
-	clfftLayout	inLayout  = CLFFT_COMPLEX_INTERLEAVED;
-	clfftLayout	outLayout = CLFFT_COMPLEX_INTERLEAVED;
-	clfftDirection dir = CLFFT_FORWARD;
+	clfftResultLocation	place = CLFFT_OUTOFPLACE;
+	clfftLayout	inLayout  = CLFFT_REAL;
+	clfftLayout	outLayout = CLFFT_HERMITIAN_INTERLEAVED;
 
 	clfftPlanHandle plan_handle;
 	OPENCL_V_THROW( clfftSetup( setupData.get( ) ), "clfftSetup failed" );
 	OPENCL_V_THROW( clfftCreateDefaultPlan( &plan_handle, context, dim, inlengths ), "clfftCreateDefaultPlan failed" );
 
 	//Precallback setup
-	char* precallbackstr = STRINGIFY(ZERO_PAD_C2C);
+	char* precallbackstr = STRINGIFY(ConvertToFloat);
 
 	//Register the callback
-	OPENCL_V_THROW (clFFTSetPlanCallback(plan_handle, "zeroPad", precallbackstr, NULL, 0, PRECALLBACK, userDatabuffer), "clFFTSetPlanCallback failed");
+	OPENCL_V_THROW (clfftSetPlanCallback(plan_handle, "convert24To32bit", precallbackstr, NULL, 0, PRECALLBACK, NULL, 0), "clFFTSetPlanCallback failed");
 
 	//	Default plan creates a plan that expects an inPlace transform with interleaved complex numbers
 	OPENCL_V_THROW( clfftSetResultLocation( plan_handle, place ), "clfftSetResultLocation failed" );
@@ -181,206 +181,13 @@ void runC2CPrecallbackFFT(std::auto_ptr< clfftSetupData > setupData, cl_context 
 		OPENCL_V_THROW( medstatus, "Creating intmediate Buffer failed" );
 	}
 
-	cl_mem * buffersOut = NULL; //NULL for in-place
-
-	// for functional test
-	OPENCL_V_THROW( clfftEnqueueTransform( plan_handle, dir, 1, &commandQueue, 0, NULL, NULL,
-			&fftbuffer, buffersOut, clMedBuffer ),
-			"clfftEnqueueTransform failed" );
-		
-	OPENCL_V_THROW( clFinish( commandQueue ), "clFinish failed" );
-
-	//	Loop as many times as the user specifies to average out the timings
-	if (profile_count > 1)
-	{
-		Timer tr;
-		tr.Start();
-		
-		for( cl_uint i = 0; i < profile_count; ++i )
-		{
-			OPENCL_V_THROW( clfftEnqueueTransform( plan_handle, dir, 1, &commandQueue, 0, NULL, NULL,
-				&fftbuffer, buffersOut, clMedBuffer ),
-				"clfftEnqueueTransform failed" );
-		
-			OPENCL_V_THROW( clFinish( commandQueue ), "clFinish failed" );
-		}
-		double wtimesample = tr.Sample();
-		double wtime = wtimesample/((double)profile_count);
-
-		tout << "\nExecution wall time (with clFFT Pre-callback): " << 1000.0*wtime << " ms" << std::endl;
-	}
-
-	if(clMedBuffer) clReleaseMemObject(clMedBuffer);
-	
-	if (profile_count == 1)
-	{
-		std::vector< std::complex< T > > output( fftLength );
-
-		OPENCL_V_THROW( clEnqueueReadBuffer( commandQueue, fftbuffer, CL_TRUE, 0, size_of_buffers, &output[ 0 ],
-			0, NULL, NULL ), "Reading the result buffer failed" );
-
-		//Reference fftw output
-		fftwf_complex *refout;
-
-		refout = get_C2C_fftwf_output(inlengths, fftLength, batchSize, inLayout, dim, dir);
-
-		/*for( cl_uint i = 0; i < fftLength; i++)
-		{
-			std::cout << "i " << i << " refreal " << refout[i][0] << " refimag " << refout[i][1] << " clreal " << output[i].real() << " climag " << output[i].imag() << std::endl;
-		}*/
-		if (!compare<fftwf_complex, T>(refout, output, fftLength))
-		{
-			std::cout << "\n\n\t\tInternal Client Test (with clFFT Pre-callback) *****FAIL*****" << std::endl;
-		}
-		else
-		{
-			std::cout << "\n\n\t\tInternal Client Test (with clFFT Pre-callback) *****PASS*****" << std::endl;
-		}
-
-		fftwf_free(refout);
-	}
-
-	OPENCL_V_THROW( clfftDestroyPlan( &plan_handle ), "clfftDestroyPlan failed" );
-	OPENCL_V_THROW( clfftTeardown( ), "clfftTeardown failed" );
-
-	//cleanup
-	OPENCL_V_THROW( clReleaseMemObject( fftbuffer ), "Error: In clReleaseMemObject\n" );
-	OPENCL_V_THROW( clReleaseMemObject( userDatabuffer ), "Error: In clReleaseMemObject\n" );
-}
-
-template < typename T >
-void runC2CPreprocessKernelFFT(std::auto_ptr< clfftSetupData > setupData, cl_context context, 
-							cl_command_queue commandQueue, cl_device_id device_id,
-							size_t* inlengths, clfftDim dim, clfftPrecision precision,
-							size_t batchSize, size_t vectorLength, size_t fftLength, cl_uint profile_count)
-{
-	cl_int status = 0;
-
-	size_t userdataLengths[ 3 ] = {USERDATA_LENGTH,1,1}; 
-	size_t vectorLength_userdata = userdataLengths[0] * userdataLengths[1] * userdataLengths[2];
-	size_t userdataLength = vectorLength_userdata * batchSize;
-
-	//input/output allocation sizes
-	size_t size_of_buffers = fftLength * sizeof( std::complex< T > );
-	size_t size_of_buffers_userdata = userdataLength * sizeof( std::complex< T > );
-
-	//in-place transform. Same buffer for input and output
-	cl_mem fftbuffer = ::clCreateBuffer( context, CL_MEM_READ_WRITE, size_of_buffers, NULL, &status);
-    OPENCL_V_THROW( status, "Creating Buffer ( ::clCreateBuffer(buffer) )" );
-
-	//Initialize Data
-	std::vector< std::complex< T > > userdata( userdataLength );
-
-	// impulse test case
-	std::complex< T > impulsedata(1,0);
-	for (size_t idx = 0; idx < userdataLength; ++idx)
-	{
-		userdata[idx] = impulsedata;
-	}
-
-	//user data buffer
-	cl_mem userdatabuffer = ::clCreateBuffer( context, CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR, size_of_buffers_userdata, &userdata[0], &status);
-    OPENCL_V_THROW( status, "Creating Buffer ( ::clCreateBuffer(userdatabuffer) )" );
-
-	//clFFT initializations
-
-	//	FFT state
-	clfftResultLocation	place = CLFFT_INPLACE;
-	clfftLayout	inLayout  = CLFFT_COMPLEX_INTERLEAVED;
-	clfftLayout	outLayout = CLFFT_COMPLEX_INTERLEAVED;
-	clfftDirection dir = CLFFT_FORWARD;
-
-	clfftPlanHandle plan_handle;
-	OPENCL_V_THROW( clfftSetup( setupData.get( ) ), "clfftSetup failed" );
-	OPENCL_V_THROW( clfftCreateDefaultPlan( &plan_handle, context, dim, inlengths ), "clfftCreateDefaultPlan failed" );
-
-	//	Default plan creates a plan that expects an inPlace transform with interleaved complex numbers
-	OPENCL_V_THROW( clfftSetResultLocation( plan_handle, place ), "clfftSetResultLocation failed" );
-	OPENCL_V_THROW( clfftSetLayout( plan_handle, inLayout, outLayout ), "clfftSetLayout failed" );
-	OPENCL_V_THROW( clfftSetPlanBatchSize( plan_handle, batchSize ), "clfftSetPlanBatchSize failed" );
-	OPENCL_V_THROW( clfftSetPlanPrecision( plan_handle, precision ), "clfftSetPlanPrecision failed" );
-
-		//Bake Plan
-	OPENCL_V_THROW( clfftBakePlan( plan_handle, 1, &commandQueue, NULL, NULL ), "clfftBakePlan failed" );
-
-	//get the buffersize
-	size_t buffersize=0;
-	OPENCL_V_THROW( clfftGetTmpBufSize(plan_handle, &buffersize ), "clfftGetTmpBufSize failed" );
-
-	//allocate the intermediate buffer
-	cl_mem clMedBuffer=NULL;
-
-	if (buffersize)
-	{
-		cl_int medstatus;
-		clMedBuffer = clCreateBuffer ( context, CL_MEM_READ_WRITE, buffersize, 0, &medstatus);
-		OPENCL_V_THROW( medstatus, "Creating intmediate Buffer failed" );
-	}
-
-	cl_mem * buffersOut = NULL; //NULL for in-place
-
-	//Pre-process kernel string
-	const char* source = STRINGIFY(ZERO_PAD_C2C_KERNEL);
-	
-	cl_program program = clCreateProgramWithSource( context, 1, &source, NULL, &status );
-	OPENCL_V_THROW( status, "clCreateProgramWithSource failed." );
-
-	status = clBuildProgram( program, 1, &device_id, NULL, NULL, NULL);
-	OPENCL_V_THROW( status, "clBuildProgram failed" );
-
-#if defined( _DEBUG )
-	if( status != CL_SUCCESS )
-	{
-		if( status == CL_BUILD_PROGRAM_FAILURE )
-		{
-			size_t buildLogSize = 0;
-			OPENCL_V_THROW( clGetProgramBuildInfo( program, device_id, CL_PROGRAM_BUILD_LOG, 0, NULL, &buildLogSize ),
-							"clGetProgramBuildInfo failed"  );
-
-			std::vector< char > buildLog( buildLogSize );
-			::memset( &buildLog[ 0 ], 0x0, buildLogSize );
-
-			OPENCL_V_THROW( clGetProgramBuildInfo( program, device_id, CL_PROGRAM_BUILD_LOG, buildLogSize, &buildLog[ 0 ], NULL ),
-						"clGetProgramBuildInfo failed"  );
-
-			std::cerr << "\n\t\t\tBUILD LOG\n";
-			std::cerr << "************************************************\n";
-			std::cerr << &buildLog[ 0 ] << std::endl;
-			std::cerr << "************************************************\n";
-		}
-
-		OPENCL_V_THROW( status, "clBuildProgram failed" );
-	}
-#endif
-
-	cl_kernel kernel = clCreateKernel( program, "zeroPad", &status );
-	OPENCL_V_THROW( status, "clCreateKernel failed" );
-
 	//for functional test
-	cl_uint uarg = 0;
-
-	//Buffer to be zero-padded
-	OPENCL_V_THROW( clSetKernelArg( kernel, uarg++, sizeof( cl_mem ), (void*)&fftbuffer ), "clSetKernelArg failed" );
-
-	//originial data
-	OPENCL_V_THROW( clSetKernelArg( kernel, uarg++, sizeof( cl_mem ), (void*)&userdatabuffer ), "clSetKernelArg failed" );
-
-	//Launch pre-process kernel
-	size_t gSize = fftLength;
-	size_t lSize = 64;
-	status = clEnqueueNDRangeKernel( commandQueue, kernel, 1,
-											NULL, &gSize, &lSize, 0, NULL, NULL );
-	OPENCL_V_THROW( status, "clEnqueueNDRangeKernel failed" );
-	
-	OPENCL_V_THROW( clFinish( commandQueue ), "clFinish failed" );
-
-	//Now invoke the clfft execute
-	OPENCL_V_THROW( clfftEnqueueTransform( plan_handle, dir, 1, &commandQueue, 0, NULL, NULL,
-		&fftbuffer, buffersOut, clMedBuffer ),
+	OPENCL_V_THROW( clfftEnqueueTransform( plan_handle, CLFFT_FORWARD, 1, &commandQueue, 0, NULL, NULL,
+		&infftbuffer, &outfftbuffer, clMedBuffer ),
 		"clfftEnqueueTransform failed" );
 		
 	OPENCL_V_THROW( clFinish( commandQueue ), "clFinish failed" );
-	
+
 	if (profile_count > 1)
 	{
 		Timer tr;
@@ -389,75 +196,59 @@ void runC2CPreprocessKernelFFT(std::auto_ptr< clfftSetupData > setupData, cl_con
 		//	Loop as many times as the user specifies to average out the timings
 		for( cl_uint i = 0; i < profile_count; ++i )
 		{
-			uarg = 0;
-
-			//Buffer to be zero-padded
-			OPENCL_V_THROW( clSetKernelArg( kernel, uarg++, sizeof( cl_mem ), (void*)&fftbuffer ), "clSetKernelArg failed" );
-
-			//originial data
-			OPENCL_V_THROW( clSetKernelArg( kernel, uarg++, sizeof( cl_mem ), (void*)&userdatabuffer ), "clSetKernelArg failed" );
-
-			//Launch pre-process kernel
-			status = clEnqueueNDRangeKernel( commandQueue, kernel, 1,
-													NULL, &gSize, &lSize, 0, NULL, NULL );
-			OPENCL_V_THROW( status, "clEnqueueNDRangeKernel failed" );
-	
-			OPENCL_V_THROW( clFinish( commandQueue ), "clFinish failed" );
-
-			//Now invoke the clfft execute
-			OPENCL_V_THROW( clfftEnqueueTransform( plan_handle, dir, 1, &commandQueue, 0, NULL, NULL,
-				&fftbuffer, buffersOut, clMedBuffer ),
+			OPENCL_V_THROW( clfftEnqueueTransform( plan_handle, CLFFT_FORWARD, 1, &commandQueue, 0, NULL, NULL,
+				&infftbuffer, &outfftbuffer, clMedBuffer ),
 				"clfftEnqueueTransform failed" );
 		
 			OPENCL_V_THROW( clFinish( commandQueue ), "clFinish failed" );
 		}
-		double wtimesample =  tr.Sample();
-	
+		double wtimesample = tr.Sample();
 		double wtime = wtimesample/((double)profile_count);
 	
-		tout << "\nExecution wall time (Separate Pre-process Kernel): " << 1000.0*wtime << " ms" << std::endl;
+		tout << "\nExecution wall time (with clFFT Pre-callback): " << 1000.0*wtime << " ms" << std::endl;
 	}
 
-	//cleanup preprocess kernel opencl objects
-	OPENCL_V_THROW( clReleaseProgram( program ), "Error: In clReleaseProgram\n" );
-	OPENCL_V_THROW( clReleaseKernel( kernel ), "Error: In clReleaseKernel\n" );
-
 	if(clMedBuffer) clReleaseMemObject(clMedBuffer);
-
+	
 	if (profile_count == 1)
 	{
-		std::vector< std::complex< T > > output( fftLength );
+		std::vector< std::complex< T > > output( fftLength/2 );
 
-		OPENCL_V_THROW( clEnqueueReadBuffer( commandQueue, fftbuffer, CL_TRUE, 0, size_of_buffers, &output[ 0 ],
+		OPENCL_V_THROW( clEnqueueReadBuffer( commandQueue, outfftbuffer, CL_TRUE, 0, out_size_of_buffers, &output[ 0 ],
 			0, NULL, NULL ), "Reading the result buffer failed" );
 
-		//Reference fftw output
-		fftwf_complex *refout;
-
-		refout = get_C2C_fftwf_output(inlengths, fftLength, batchSize, inLayout, dim, dir);
-
-		/*for( cl_uint i = 0; i < fftLength; i++)
+		for( cl_uint i = 0; i < fftLength/2; i++)
 		{
-			std::cout << "i " << i << " refreal " << refout[i][0] << " refimag " << refout[i][1] << " clreal " << output[i].real() << " climag " << output[i].imag() << std::endl;
-		}*/
-		if (!compare<fftwf_complex, T>(refout, output, fftLength))
-		{
-			std::cout << "\n\n\t\tInternal Client Test (Separate Pre-process Kernel) *****FAIL*****" << std::endl;
-		}
-		else
-		{
-			std::cout << "\n\n\t\tInternal Client Test (Separate Pre-process Kernel) *****PASS*****" << std::endl;
+			std::cout << "i " << i << " clreal " << output[i].real() << " climag " << output[i].imag() << std::endl;
 		}
 
-		fftwf_free(refout);
+		////Reference fftw output
+		//fftwf_complex *refout;
+
+		//refout = get_R2C_fftwf_output(inlengths, fftLength, batchSize, inLayout, dim);
+
+		///*for( cl_uint i = 0; i < fftLength; i++)
+		//{
+		//	std::cout << "i " << i << " refreal " << refout[i][0] << " refimag " << refout[i][1] << " clreal " << output[i].real() << " climag " << output[i].imag() << std::endl;
+		//}*/
+		//if (!compare<fftwf_complex, T>(refout, output, fftLength))
+		//{
+		//	std::cout << "\n\n\t\tInternal Client Test (with clFFT Pre-callback) *****FAIL*****" << std::endl;
+		//}
+		//else
+		//{
+		//	std::cout << "\n\n\t\tInternal Client Test (with clFFT Pre-callback) *****PASS*****" << std::endl;
+		//}
+
+		//fftwf_free(refout);
 	}
 
 	OPENCL_V_THROW( clfftDestroyPlan( &plan_handle ), "clfftDestroyPlan failed" );
 	OPENCL_V_THROW( clfftTeardown( ), "clfftTeardown failed" );
 
 	//cleanup
-	OPENCL_V_THROW( clReleaseMemObject( fftbuffer ), "Error: In clReleaseMemObject\n" );
-	OPENCL_V_THROW( clReleaseMemObject( userdatabuffer ), "Error: In clReleaseMemObject\n" );
+	OPENCL_V_THROW( clReleaseMemObject( infftbuffer ), "Error: In clReleaseMemObject\n" );
+	OPENCL_V_THROW( clReleaseMemObject( outfftbuffer ), "Error: In clReleaseMemObject\n" );
 }
 
 //Compare reference and opencl output 

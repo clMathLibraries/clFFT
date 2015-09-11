@@ -635,7 +635,7 @@ cl_mem userdata = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PT
 //* Step 3 : Register the callback
 //**************************************************************************
 
-status = clFFTSetPlanCallback(plan_handle, "mulval", precallbackstr, NULL, 0, PRECALLBACK, userdata);
+status = clfftSetPlanCallback(plan_handle, "mulval", precallbackstr, NULL, 0, PRECALLBACK, &userdata, 1);
 
 
 //**************************************************************************
