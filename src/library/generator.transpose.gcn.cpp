@@ -398,13 +398,6 @@ static clfftStatus genTransposeKernel( const FFTGeneratedTransposeGCNAction::Sig
 	//If pre-callback is set for the plan
 	if (params.fft_hasPreCallback)
 	{
-		//If user defined struct defined for callback function add it to opencl source string
-		if (params.fft_preCallback.userdatastruct != NULL)
-		{
-			clKernWrite( transKernel, 0 ) <<  params.fft_preCallback.userdatastruct;
-			clKernWrite( transKernel, 0 ) << std::endl;
-		}
-
 		//Insert callback function code at the beginning 
 		clKernWrite( transKernel, 0 ) << params.fft_preCallback.funcstring << std::endl;
 		clKernWrite( transKernel, 0 ) << std::endl;

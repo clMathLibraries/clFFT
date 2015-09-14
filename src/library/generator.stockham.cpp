@@ -3038,13 +3038,6 @@ namespace StockhamGenerator
 			std::string callbackstr;
 			if (params.fft_hasPreCallback)
 			{
-				//If user defined struct defined for callback function add it to opencl source string
-				if (params.fft_preCallback.userdatastruct != NULL)
-				{
-					callbackstr += params.fft_preCallback.userdatastruct;
-					callbackstr += "\n";
-				}
-
 				//Insert callback function code at the beginning 
 				callbackstr += params.fft_preCallback.funcstring;
 				callbackstr += "\n\n";

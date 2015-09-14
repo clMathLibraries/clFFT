@@ -100,7 +100,6 @@ typedef struct clfftCallbackParam_
 	int localMemSize;			/*!< optional local memory size if needed by callback */
 	const char* funcname;		/*!< callback function name */
 	const char* funcstring;		/*!< callback function in string form */
-	const char* userdatastruct;	/*!< optional custom data struct in string form */
 }clfftCallbackParam;
 
 struct FFTKernelGenKeyParams {

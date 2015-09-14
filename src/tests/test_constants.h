@@ -30,13 +30,18 @@
 				return ret; \n \
 				}
 
-#define MULVAL_UDT float2 mulval(__global void* in, uint offset, __global void* userdata)\n \
-				{ \n \
-				__global USER_DATA *data = ((__global USER_DATA *)userdata + offset); \n \
-				float scalar = data->scalar1 * data->scalar2; \n \
-				float2 ret = *((__global float2*)in + offset) * scalar; \n \
-				return ret; \n \
-				}
+#define MULVAL_UDT typedef struct USER_DATA  \
+					   {  \
+						float scalar1;  \
+						float scalar2;  \
+						} USER_DATA; \n \
+					float2 mulval(__global void* in, uint offset, __global void* userdata)\n \
+					{ \n \
+					__global USER_DATA *data = ((__global USER_DATA *)userdata + offset); \n \
+					float scalar = data->scalar1 * data->scalar2; \n \
+					float2 ret = *((__global float2*)in + offset) * scalar; \n \
+					return ret; \n \
+					}
 
 #define MULVAL_DP double2 mulval(__global void* in, uint offset, __global void* userdata)\n \
 				{ \n \
@@ -91,12 +96,11 @@
 				return ret; \n \
 				}
 
-#define STRUCT_USERDATA typedef struct USER_DATA  \
-					   {  \
-						float scalar1;  \
-						float scalar2;  \
-						} USER_DATA; 
-STRUCT_USERDATA
+typedef struct USER_DATA  
+				{  
+				float scalar1;  
+				float scalar2; 
+				} USER_DATA;
 
 #define CALLBCKSTR(...) #__VA_ARGS__
 #define STRINGIFY(...) 	CALLBCKSTR(__VA_ARGS__)

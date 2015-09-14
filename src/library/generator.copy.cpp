@@ -164,13 +164,6 @@ namespace CopyGenerator
 			//If pre-callback is set for the plan
 			if (params.fft_hasPreCallback && h2c)
 			{
-				//If user defined struct defined for callback function add it to opencl source string
-				if (params.fft_preCallback.userdatastruct != NULL)
-				{
-					str += params.fft_preCallback.userdatastruct;
-					str += "\n";
-				}
-
 				//Insert callback function code at the beginning 
 				str += params.fft_preCallback.funcstring;
 				str += "\n\n";

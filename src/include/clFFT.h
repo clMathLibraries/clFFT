@@ -557,13 +557,12 @@ extern "C" {
 	 *  @param[in] plHandle Handle to a plan previously created
 	 *  @param[funcName] Callback function name
 	 *  @param[funcString] Callback function in string form
-	 *  @param[userStructString] Optional - Custom data struct in string form used by Callback function. Pass NULL callback has no custom data type
 	 *  @param[localMemSize] Optional - Local memory size if needed by callback. Pass 0 if local memory not needed by callback
 	 *  @param[callbackType] Type of callback - Pre-Callback or Post-Callback
 	 *  @param[userdata] cl_mem object passed as paarameter to callback function
 	 *  @param[numUserdataBuffers] Number of userdata buffers
 	 */
-	CLFFTAPI clfftStatus clfftSetPlanCallback(clfftPlanHandle plHandle, const char* funcName, const char* funcString, const char* userStructString, 
+	CLFFTAPI clfftStatus clfftSetPlanCallback(clfftPlanHandle plHandle, const char* funcName, const char* funcString,  
 										int localMemSize, clFFTCallbackType callbackType, cl_mem *userdata, int numUserdataBuffers);
 
 

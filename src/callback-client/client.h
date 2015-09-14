@@ -41,13 +41,12 @@
 				return val / (float)(INT_MAX - 256);  \n \
 				}
 
-#define ConvertToFloat_KERNEL __kernel void convert24To32bit (__global void *input, \n \
-								__global void *userdata) \n \
+#define ConvertToFloat_KERNEL __kernel void convert24To32bit (__global void *input, __global void *output) \n \
 				 { \n \
 					uint inoffset = get_global_id(0); \n \
-					__global char* inData =  (__global char*)in; \n \
+					__global char* inData =  (__global char*)input; \n \
 					float val = inData[3*inoffset+2] << 24 | inData[3*inoffset+1] << 16 | inData[3*inoffset] << 8 ; \n \
-					*((__global float*)input + inoffset) = val / (float)(INT_MAX - 256);  \n \
+					*((__global float*)output + inoffset) = val / (float)(INT_MAX - 256);  \n \
 				} \n
 
 
@@ -60,8 +59,14 @@ void runR2CPrecallbackFFT(std::auto_ptr< clfftSetupData > setupData, cl_context 
 						size_t* inlengths, clfftDim dim, clfftPrecision precision,
 						size_t batchSize, size_t vectorLength, size_t fftLength, cl_uint profile_count);
 
-fftwf_complex* get_C2C_fftwf_output(size_t* lengths, size_t fftBatchSize, int batch_size, clfftLayout in_layout,
-								clfftDim dim, clfftDirection dir);
+template < typename T >
+void runR2CPreprocessKernelFFT(std::auto_ptr< clfftSetupData > setupData, cl_context context, 
+							cl_command_queue commandQueue, cl_device_id device_id,
+							size_t* inlengths, clfftDim dim, clfftPrecision precision,
+							size_t batchSize, size_t vectorLength, size_t fftLength, cl_uint profile_count);
+
+fftwf_complex* get_R2C_fftwf_output(size_t* lengths, size_t fftbatchLength, int batch_size,
+									clfftLayout in_layout, clfftDim dim);
 
 template < typename T1, typename T2>
 bool compare(T1 *refData, std::vector< std::complex< T2 > > data,

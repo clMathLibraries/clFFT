@@ -561,7 +561,12 @@ FFT features of this library.
 
 @section Callbacks  clFFT Callbacks
 
-Callback feature of clFFT provides ability to do custom processing when reading input data or when writing output data. There are 2 types of callback, Pre-callback and Post-callback. Pre-callback invokes user callback function to do custom preprocessing of input data before FFT is executed. Post-callback invokes user callback function to do custom post-processing of output data after FFT is executed. The intent is to avoid additional kernels and kernel launches to carry out the pre/post processing. Instead, the pre/post processing logic is included in an inline opencl function (one each for pre and post) and passed as a string to library which would then be incorporated into the generated FFT kernel.
+Callback feature of clFFT provides ability to do custom processing when reading input data or when writing output data.
+There are 2 types of callback, Pre-callback and Post-callback. Pre-callback invokes user callback function to do 
+custom preprocessing of input data before FFT is executed. Post-callback invokes user callback function to do custom 
+post-processing of output data after FFT is executed. The intent is to avoid additional kernels and kernel launches to 
+carry out the pre/post processing. Instead, the pre/post processing logic is included in an inline opencl function 
+(one each for pre and post) and passed as a string to library which would then be incorporated into the generated FFT kernel.
 
 The current release of clFFT includes Pre-callback feature. Post-callback will be supported in a future release.
 
@@ -573,15 +578,18 @@ The workflow for callback is as below
 	<li> User registers the callback function with library by passing the OpenCL inline function as a string
 	<li> User initializes other standard FFT parameters
 	<li> User invokes Bake Plan step
-	<li> Library inserts the callback code into main FFT kernel during bake plan and compiles it. If the registered callback function does not adhere to required function prototype, the compilation fails and is reported to the user
+	<li> Library inserts the callback code into main FFT kernel during bake plan and compiles it. If the registered callback 
+	function does not adhere to required function prototype, the compilation fails and is reported to the user
 	<li> User invokes Execute FFT
 </ol>
 
-The caller is responsible to provide a string-ified callback function that matches the function prototype based on the type of callback(pre/post), type of transform(real/complex) and whether LDS is used. The bake plan step does the function prototype checking.
+The caller is responsible to provide a string-ified callback function that matches the function prototype based on the type of 
+callback(pre/post), type of transform(real/complex) and whether LDS is used. The bake plan step does the function prototype checking.
 
 @subsection CallbackFunctionPrototype Callback Function Prototypes
 
-clFFT expects the callback function to be of a specific prototype depending on the type of callback(pre/post), type of transform(real/complex) and whether LDS is used. These are as following.
+clFFT expects the callback function to be of a specific prototype depending on the type of callback(pre/post), type of transform(real/complex)
+and whether LDS is used. These are as following.
 
 @subsubsection PrecallbackProtyotype Pre-callback Prototypes
 
@@ -602,10 +610,12 @@ Parameters
 	<li> \c inputIm : Start pointer of the “Imaginary” part input buffer for Planar C2C transforms
 	<li> \c inoffset : Offset of the input buffer from the start
 	<li> \c userdata : Buffer containing optional caller specified data
-	<li> \c localmem : Pointer to local memory. This memory is allocated by library based on the size specified by user and subject to local memory availability
+	<li> \c localmem : Pointer to local memory. This memory is allocated by library based on the size specified by 
+	user and subject to local memory availability
 </ul>
 
-For Planar C2C, the return type of callback is a vector (float2/double2) whose elements contain the result for Real and Imaginary as computed in the callback
+For Planar C2C, the return type of callback is a vector (float2/double2) whose elements contain the result for Real 
+and Imaginary as computed in the callback
 
 @subsubsection SamplePrecallbackCode Sample Pre-Callback Code
 
@@ -635,7 +645,7 @@ cl_mem userdata = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PT
 //* Step 3 : Register the callback
 //**************************************************************************
 
-status = clfftSetPlanCallback(plan_handle, "mulval", precallbackstr, NULL, 0, PRECALLBACK, &userdata, 1);
+status = clfftSetPlanCallback(plan_handle, "mulval", precallbackstr, 0, PRECALLBACK, &userdata, 1);
 
 
 //**************************************************************************
