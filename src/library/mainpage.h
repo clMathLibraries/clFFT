@@ -561,29 +561,63 @@ FFT features of this library.
 
 @section Callbacks  clFFT Callbacks
 
-Callback feature of clFFT provides ability to do custom processing when reading input data or when writing output data.
-There are 2 types of callback, Pre-callback and Post-callback. Pre-callback invokes user callback function to do 
+Callback feature of clFFT provides ability to invoke user provided OpenCL inline functions to do custom processing when 
+reading input data or writing output data. This helps in avoiding additional kernel launches to carry out the pre/post processing.
+
+There are 2 types of callback; Pre-callback and Post-callback. Pre-callback invokes user callback function to do 
 custom preprocessing of input data before FFT is executed. Post-callback invokes user callback function to do custom 
-post-processing of output data after FFT is executed. The intent is to avoid additional kernels and kernel launches to 
-carry out the pre/post processing. Instead, the pre/post processing logic is included in an inline opencl function 
+post-processing of output data after FFT is executed. The pre/post processing logic is included in an inline opencl function 
 (one each for pre and post) and passed as a string to library which would then be incorporated into the generated FFT kernel.
 
 The current release of clFFT includes Pre-callback feature. Post-callback will be supported in a future release.
+
+@subsection CallbackAPI Callback API
+
+clFFT defines an enumerator to speicfy the type of callback
+
+@code
+typedef enum clFFTCallbackType_
+{
+	PRECALLBACK,	
+	POSTCALLBACK	
+}clFFTCallbackType;
+@endcode
+
+In order to register the callback function, the API, \c clFFTSetPlanCallback is exposed by the library
+
+@code
+clfftStatus clFFTSetPlanCallback(clfftPlanHandle plHandle, 
+									const char* funcName, 
+									const char* funcString, 
+									int localMemSize, 
+									clFFTCallbackType callbackType, 
+									void *userdata,
+									int numUserdataBuffers)
+@endcode
+
+ Parameter          | Description 
+--------------------| -------------
+planHandle			| clFFT plan handle
+funcName			| Name of the callback function
+funcString			| Callback function as character array. Optionally, the character array can include any structure declaration used by callback function
+localMemSize		| Size of local memory requested by callback, if any, in bytes. Pass 0 if not used
+callbackType		| Enum of clFFTCallbackType to specify type of callback – Pre/Post
+numUserdataBuffers	| Number of userdata buffers
 
 @subsection CallbackWorkflow Callback Workflow
 
 The workflow for callback is as below
 
 <ol>
-	<li> User registers the callback function with library by passing the OpenCL inline function as a string
-	<li> User initializes other standard FFT parameters
-	<li> User invokes Bake Plan step
+	<li> Create a plan and initialize standard clFFT parameters
+	<li> Use \c clfftSetPlanCallback API to register the callback function with library 
+	<li> Invoke Bake Plan step
 	<li> Library inserts the callback code into main FFT kernel during bake plan and compiles it. If the registered callback 
 	function does not adhere to required function prototype, the compilation fails and is reported to the user
-	<li> User invokes Execute FFT
+	<li> Enqueue clFFT transform
 </ol>
 
-The caller is responsible to provide a string-ified callback function that matches the function prototype based on the type of 
+The caller is responsible to provide a callback function that matches the function prototype based on the type of 
 callback(pre/post), type of transform(real/complex) and whether LDS is used. The bake plan step does the function prototype checking.
 
 @subsection CallbackFunctionPrototype Callback Function Prototypes
@@ -593,8 +627,8 @@ and whether LDS is used. These are as following.
 
 @subsubsection PrecallbackProtyotype Pre-callback Prototypes
 
- FFT Type                                | Prototype 
----------------------------------------- | -------------
+ FFT Type                               | Function Prototype 
+----------------------------------------| -------------
 C2C/C2R – Interleaved Single Precision  | \c Without \c LDS <br />float2  <precallback_func>  (  __global void *input, uint inoffset, __global void *userdata) <br /> \c With \c LDS <br />float2  <precallback_func>  (  __global void *input, uint inoffset, __global void *userdata, __local void *localmem) 
 C2C/C2R – Interleaved Double Precision  | \c Without \c LDS <br />double2  <precallback_func>  (  __global void *input, uint inoffset, __global void *userdata) <br /> \c With \c LDS <br />double2  <precallback_func>  (  __global void *input, uint inoffset, __global void *userdata, __local void *localmem)
 C2C – Planar Single Precision			| \c Without \c LDS <br />float2  <precallback_func>  (  __global void *inputRe, __global void *inputIm, uint inoffset, __global void *userdata)<br /> \c With \c LDS <br />float2  <precallback_func>  (  __global void *inputRe, __global void *inputIm, int inoffset, __global void *userdata, __local void *localmem)
@@ -617,7 +651,7 @@ Parameters
 For Planar C2C, the return type of callback is a vector (float2/double2) whose elements contain the result for Real 
 and Imaginary as computed in the callback
 
-@subsubsection SamplePrecallbackCode Sample Pre-Callback Code
+@subsection SamplePrecallbackCode Sample Pre-Callback Code
 
 @code
 //**************************************************************************
@@ -657,12 +691,12 @@ status = clfftEnqueueTransform( plan_handle, dir, 1, &queue, 0, NULL, &outEvent,
 			&input_buffers[ 0 ], buffersOut, clMedBuffer );
 @endcode
 
-@subsection CallbackConsiderations Callback Considerations
+@subsection PreCallbackConsiderations Pre-callback Considerations
 
 <ol>
 	<li> The caller is responsible to provide a callback function in string form that matches the function prototype based on the type of callback(pre/post), type of transform(real/complex) and whether LDS is used
-	<li> Library supports only element-wise update corresponding to the offset passed to the callback function
-	<li> Callback function can request for local memory for its own use. If the requested amount of local memory is available on the device, clFFT will pass a pointer to it when it invokes the callback function
+	<li> Library supports only element-wise read corresponding to the offset passed to the callback function
+	<li> Pre-callback function can request for local memory for its own use. If the requested amount of local memory is available on the device, clFFT will pass a pointer to it when it invokes the callback function
 	<li> clFFT may invoke FFT kernels several times depending on the input parameters.  But the pre-callback function provided by caller, will be invoked only once for each point in the input
 	<li> If clFFT is implementing a given FFT in multiple phases, it will only call the pre-callback function from the first phase kernel
 </ol>
