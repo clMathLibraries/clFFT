@@ -104,6 +104,7 @@ inline std::stringstream& clKernWrite( std::stringstream& rhs, const size_t tabI
 }
 
 
+
 static void OffsetCalc(std::stringstream& transKernel, const FFTKernelGenKeyParams& params, bool input )
 {
 	const size_t *stride = input ? params.fft_inStride : params.fft_outStride;
@@ -111,42 +112,13 @@ static void OffsetCalc(std::stringstream& transKernel, const FFTKernelGenKeyPara
 
 
 	clKernWrite( transKernel, 3 ) << "size_t " << offset << " = 0;" << std::endl;
-	clKernWrite( transKernel, 3 ) << "currDimIndex = groupIndex.y;" << std::endl;
+	clKernWrite( transKernel, 3 ) << "g_index = get_group_id(0);" << std::endl;
 
 
 	for(size_t i = params.fft_DataDim - 2; i > 0 ; i--)
 	{
-		clKernWrite( transKernel, 3 ) << offset << " += (currDimIndex/numGroupsY_" << i << ")*" << stride[i+1] << ";" << std::endl;
-		clKernWrite( transKernel, 3 ) << "currDimIndex = currDimIndex % numGroupsY_" << i << ";" << std::endl;
-	}
-
-	clKernWrite( transKernel, 3 ) << "rowSizeinUnits = " << stride[1] << ";" << std::endl;
-
-	if(params.transOutHorizontal)
-	{
-		if(input)
-		{	
-			clKernWrite( transKernel, 3 ) << offset << " += rowSizeinUnits * wgTileExtent.y * wgUnroll * groupIndex.x;" << std::endl;
-			clKernWrite( transKernel, 3 ) << offset << " += currDimIndex * wgTileExtent.x;" << std::endl;  
-		}
-		else
-		{
-			clKernWrite( transKernel, 3 ) << offset << " += rowSizeinUnits * wgTileExtent.x * currDimIndex;" << std::endl;
-			clKernWrite( transKernel, 3 ) << offset << " += groupIndex.x * wgTileExtent.y * wgUnroll;" << std::endl;
-		}
-	}
-	else
-	{
-		if(input)
-		{	
-			clKernWrite( transKernel, 3 ) << offset << " += rowSizeinUnits * wgTileExtent.y * wgUnroll * currDimIndex;" << std::endl;
-			clKernWrite( transKernel, 3 ) << offset << " += groupIndex.x * wgTileExtent.x;" << std::endl;
-		}
-		else
-		{
-			clKernWrite( transKernel, 3 ) << offset << " += rowSizeinUnits * wgTileExtent.x * groupIndex.x;" << std::endl;
-			clKernWrite( transKernel, 3 ) << offset << " += currDimIndex * wgTileExtent.y * wgUnroll;" << std::endl;  
-		}
+		clKernWrite( transKernel, 3 ) << offset << " += (g_index/numGroupsY_" << i << ")*" << stride[i+1] << ";" << std::endl;
+		clKernWrite( transKernel, 3 ) << "g_index = g_index % numGroupsY_" << i << ";" << std::endl;
 	}
 
 	clKernWrite( transKernel, 3 ) << std::endl;
@@ -324,12 +296,6 @@ static clfftStatus genTransposeKernel( const FFTGeneratedTransposeSquareAction::
 	
 	bool mult_of_16 = (params.fft_N[0] % (reShapeFactor * 16) == 0) ? true : false;
 	
-	size_t grid_dim_0;
-
-	if (mult_of_16)
-		grid_dim_0 = params.fft_N[0] / 16 / reShapeFactor;
-	else
-		grid_dim_0 = params.fft_N[0] / (16 * reShapeFactor) + 1;
 
 
 	for (size_t bothDir = 0; bothDir < 2; bothDir++)
@@ -352,27 +318,34 @@ static clfftStatus genTransposeKernel( const FFTGeneratedTransposeSquareAction::
 
 
 		if (mult_of_16)
-			clKernWrite(transKernel, 3) << "const int grid_dim = " << (params.fft_N[0] / 16 / reShapeFactor)*(params.fft_N[0] / 16 / reShapeFactor + 1) / 2 << ";" << std::endl;
+			clKernWrite(transKernel, 3) << "const int numGroupsY_1 = " << (params.fft_N[0] / 16 / reShapeFactor)*(params.fft_N[0] / 16 / reShapeFactor + 1) / 2 << ";" << std::endl;
 		else
-			clKernWrite(transKernel, 3) << "const int grid_dim = " << (params.fft_N[0] / (16 * reShapeFactor) + 1)*(params.fft_N[0] / (16 * reShapeFactor) + 1 + 1) / 2 << ";" << std::endl;
-
-		clKernWrite(transKernel, 3) << "const int z = get_group_id(0) / grid_dim; " << std::endl;
+			clKernWrite(transKernel, 3) << "const int numGroupsY_1 = " << (params.fft_N[0] / (16 * reShapeFactor) + 1)*(params.fft_N[0] / (16 * reShapeFactor) + 1 + 1) / 2 << ";" << std::endl;
 
 
+		for(int i = 2; i < params.fft_DataDim - 1; i++)
+		{
+			clKernWrite( transKernel, 3 ) << "const size_t numGroupsY_" << i << " = numGroupsY_" << i-1 << " * " << params.fft_N[i] << ";" << std::endl;
+		}
 
+		clKernWrite( transKernel, 3 ) << "size_t g_index;" << std::endl ;
+		clKernWrite(transKernel, 3) << std::endl;
+
+		OffsetCalc(transKernel, params, true);
+		OffsetCalc(transKernel, params, false);
 
 
 		// Handle planar and interleaved right here
 		switch (params.fft_inputLayout)
 		{
 			case CLFFT_COMPLEX_INTERLEAVED:
-				clKernWrite(transKernel, 3) << "inputA = &inputA[z*" << params.fft_N[0] * params.fft_N[0] << "];" << std::endl;  // Set A ptr to the start of each slice " << std::endl;
+				clKernWrite(transKernel, 3) << "inputA += iOffset;" << std::endl;  // Set A ptr to the start of each slice
 
 				break;
 			case CLFFT_COMPLEX_PLANAR:
 
-				clKernWrite(transKernel, 3) << "inputA_R = &inputA_R[z*" << params.fft_N[0] * params.fft_N[0] << "];" << std::endl;  // Set A ptr to the start of each slice " << std::endl;
-				clKernWrite(transKernel, 3) << "inputA_I = &inputA_I[z*" << params.fft_N[0] * params.fft_N[0] << "];" << std::endl;  // Set A ptr to the start of each slice " << std::endl;
+				clKernWrite(transKernel, 3) << "inputA_R += iOffset;" << std::endl;  // Set A ptr to the start of each slice 
+				clKernWrite(transKernel, 3) << "inputA_I += iOffset;" << std::endl;  // Set A ptr to the start of each slice 
 
 				
 				break;
@@ -387,13 +360,13 @@ static clfftStatus genTransposeKernel( const FFTGeneratedTransposeSquareAction::
 		switch (params.fft_outputLayout)
 		{
 			case CLFFT_COMPLEX_INTERLEAVED:
-				clKernWrite(transKernel, 3) << "outputA = &outputA[z*" << params.fft_N[0] * params.fft_N[0] << "];" << std::endl;  // Set A ptr to the start of each slice " << std::endl;
+				clKernWrite(transKernel, 3) << "outputA += oOffset;" << std::endl;  // Set A ptr to the start of each slice
 
 				break;
 			case CLFFT_COMPLEX_PLANAR:
 
-				clKernWrite(transKernel, 3) << "outputA_R = &outputA_R[z*" << params.fft_N[0] * params.fft_N[0] << "];" << std::endl;  // Set A ptr to the start of each slice " << std::endl;
-				clKernWrite(transKernel, 3) << "outputA_I = &outputA_I[z*" << params.fft_N[0] * params.fft_N[0] << "];" << std::endl;  // Set A ptr to the start of each slice " << std::endl;
+				clKernWrite(transKernel, 3) << "outputA_R += oOffset;" << std::endl;  // Set A ptr to the start of each slice 
+				clKernWrite(transKernel, 3) << "outputA_I += oOffset;" << std::endl;  // Set A ptr to the start of each slice 
 				break;
 			case CLFFT_HERMITIAN_INTERLEAVED:
 			case CLFFT_HERMITIAN_PLANAR:
@@ -405,9 +378,8 @@ static clfftStatus genTransposeKernel( const FFTGeneratedTransposeSquareAction::
 		}
 
 		
-		clKernWrite(transKernel, 3) << "" << std::endl;
+		clKernWrite(transKernel, 3) << std::endl;
 
-		clKernWrite(transKernel, 3) << "const int g_index = get_group_id(0) - z*grid_dim; " << std::endl;
 		
 		// Now compute the corresponding y,x coordinates
 		// for a triangular indexing
@@ -677,10 +649,9 @@ clfftStatus FFTGeneratedTransposeSquareAction::initParams ()
     return CLFFT_SUCCESS;
 }
 
-// Constants that specify the bounding sizes of the block that each workgroup will transpose
-const size_t lwSize = 256;
-const size_t reShapeFactor = 2;   // wgTileSize = { lwSize.x * reShapeFactor, lwSize.y / reShapeFactor }
 
+static const size_t lwSize = 256;
+static const size_t reShapeFactor = 2;  
 
 
 //	OpenCL does not take unicode strings as input, so this routine returns only ASCII strings
@@ -721,27 +692,6 @@ clfftStatus FFTGeneratedTransposeSquareAction::generateKernel ( FFTRepo& fftRepo
 clfftStatus FFTGeneratedTransposeSquareAction::getWorkSizes( std::vector< size_t >& globalWS, std::vector< size_t >& localWS )
 {
 
-#if 0
-    // We need to make sure that the global work size is evenly divisible by the local work size
-    // Our transpose works in tiles, so divide tiles in each dimension to get count of blocks, rounding up for remainder items
-	size_t numBlocksX = this->signature.transOutHorizontal ?
-							DivRoundingUp(this->signature.fft_N[ 1 ], blockSize.y ) :
-							DivRoundingUp(this->signature.fft_N[ 0 ], blockSize.x );
-    size_t numBlocksY = this->signature.transOutHorizontal ?
-							DivRoundingUp( this->signature.fft_N[ 0 ], blockSize.x ) :
-							DivRoundingUp( this->signature.fft_N[ 1 ], blockSize.y );
-    size_t numWIX = numBlocksX * lwSize.x;
-
-    // Batches of matrices are lined up along the Y axis, 1 after the other
-	size_t numWIY = numBlocksY * lwSize.y * this->plan->batchsize;
-	// fft_DataDim has one more dimension than the actual fft data, which is devoted to batch.
-	// dim from 2 to fft_DataDim - 2 are lined up along the Y axis
-	for(int i = 2; i < this->signature.fft_DataDim - 1; i++)
-	{
-		numWIY *= this->signature.fft_N[i];
-	}
-#endif
-
 	size_t wg_slice;
 	if (this->signature.fft_N[0] % (16 * reShapeFactor) == 0)
 		wg_slice = this->signature.fft_N[0] / reShapeFactor / 16;
@@ -749,6 +699,11 @@ clfftStatus FFTGeneratedTransposeSquareAction::getWorkSizes( std::vector< size_t
 		wg_slice = ((this->signature.fft_N[0] / (16 * reShapeFactor) + 1) * 16 * reShapeFactor) / 16 / reShapeFactor;
 
 	size_t global_item_size = wg_slice*(wg_slice + 1) / 2 * 16 * 16 * this->plan->batchsize;
+
+	for(int i = 2; i < this->signature.fft_DataDim - 1; i++)
+	{
+		global_item_size *= this->signature.fft_N[i];
+	}
 
     globalWS.clear( );
 	globalWS.push_back(global_item_size);

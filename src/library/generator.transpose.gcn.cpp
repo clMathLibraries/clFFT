@@ -951,8 +951,8 @@ clfftStatus FFTGeneratedTransposeGCNAction::initParams ()
 }
 
 // Constants that specify the bounding sizes of the block that each workgroup will transpose
-const tile lwSize = { 16, 16 };
-const size_t reShapeFactor = 4;   // wgTileSize = { lwSize.x * reShapeFactor, lwSize.y / reShapeFactor }
+static const tile lwSize = { 16, 16 };
+static const size_t reShapeFactor = 4;   // wgTileSize = { lwSize.x * reShapeFactor, lwSize.y / reShapeFactor }
 
 
 static clfftStatus CalculateBlockSize(const clfftPrecision precision, size_t &loopCount, tile &blockSize)
