@@ -18,3 +18,10 @@ build/
 src/client-callback/client.cpp
 *.pack
 src/client-callback/callback_tests.bat
+src/client-callback/callback-client.cpp
+src/client-callback/CMakeLists.txt
+src/client-callback/README.md
+src/client-callback/client.h
+src/client-callback/openCL.misc.h
+src/client-callback/openCL.misc.cpp
+src/client-callback/stdafx.cpp

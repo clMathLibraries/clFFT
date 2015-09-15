@@ -28,26 +28,29 @@
 
 #include <fftw3.h>
 
+typedef unsigned char uint24_t[3]; 
+
 #define CALLBCKSTR(...) #__VA_ARGS__
 #define STRINGIFY(...) 	CALLBCKSTR(__VA_ARGS__)
 
-#define USERDATA_LENGTH 512
-#define BATCH_LENGTH 1024 // Must be >= USERDATA_LENGTH
+#define BATCH_LENGTH 1024 
 
-#define ConvertToFloat float convert24To32bit(__global void* in, uint inoffset, __global void* userdata)\n \
-				{ \n \
-				__global char* inData =  (__global char*)in; \n \
-				float val = inData[3*inoffset+2] << 24 | inData[3*inoffset+1] << 16 | inData[3*inoffset] << 8 ; \n \
-				return val / (float)(INT_MAX - 256);  \n \
-				}
+#define ConvertToFloat typedef unsigned char uint24_t[3]; \n \
+						float convert24To32bit(__global void* in, uint inoffset, __global void* userdata) \n \
+						{ \n \
+						__global uint24_t* inData =  (__global uint24_t*)in; \n \
+						float val = inData[inoffset][0] << 16 | inData[inoffset][1] << 8 | inData[inoffset][2] ; \n \
+						return val;  \n \
+						}
 
-#define ConvertToFloat_KERNEL __kernel void convert24To32bit (__global void *input, __global void *output) \n \
-				 { \n \
-					uint inoffset = get_global_id(0); \n \
-					__global char* inData =  (__global char*)input; \n \
-					float val = inData[3*inoffset+2] << 24 | inData[3*inoffset+1] << 16 | inData[3*inoffset] << 8 ; \n \
-					*((__global float*)output + inoffset) = val / (float)(INT_MAX - 256);  \n \
-				} \n
+#define ConvertToFloat_KERNEL typedef unsigned char uint24_t[3]; \n \
+							__kernel void convert24To32bit (__global void *input, __global void *output) \n \
+							 { \n \
+								uint inoffset = get_global_id(0); \n \
+								__global uint24_t* inData =  (__global uint24_t*)input; \n \
+								float val = inData[inoffset][0] << 16 | inData[inoffset][1] << 8 | inData[inoffset][2] ; \n \
+								*((__global float*)output + inoffset) = val;  \n \
+							} \n
 
 
 template < typename T >

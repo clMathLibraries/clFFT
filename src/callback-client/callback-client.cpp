@@ -120,22 +120,24 @@ void runR2CPrecallbackFFT(std::auto_ptr< clfftSetupData > setupData, cl_context 
 	cl_int status = 0;
 	
 	//input/output allocation sizes
-	size_t in_size_of_buffers = fftLength * sizeof(char) * 3 ;
+	size_t in_size_of_buffers = fftLength * sizeof(uint24_t);
 	size_t out_size_of_buffers = fftLength * sizeof( T  );
 
-	char* in24bitData = (char*)malloc(in_size_of_buffers);
+	uint24_t *input24bitData = (uint24_t*)malloc(in_size_of_buffers);
 
 	//Initialize Data
 	srand(1);
 	for (size_t idx = 0; idx < fftLength; ++idx)
 	{
-		in24bitData[3 * idx + 2] = (char)(rand() % 256);
-		in24bitData[3 * idx + 1] = (char)(rand() % 256);
-		in24bitData[3 * idx] = (char)(rand() % 256);
-	}
+		int randomVal = (int)rand();
 
+		input24bitData[idx][0] = (randomVal >> 16) & 0xFF;
+        input24bitData[idx][1] = (randomVal >> 8) & 0xFF;
+        input24bitData[idx][2] = randomVal & 0xFF; 
+	}
+	
 	//input data buffer
-	cl_mem infftbuffer = ::clCreateBuffer( context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, in_size_of_buffers, (void*)in24bitData, &status);
+	cl_mem infftbuffer = ::clCreateBuffer( context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, in_size_of_buffers, (void*)input24bitData, &status);
     OPENCL_V_THROW( status, "Creating Buffer ( ::clCreateBuffer(infftbuffer) )" );
 
 	//out-place transform. 	
@@ -164,6 +166,7 @@ void runR2CPrecallbackFFT(std::auto_ptr< clfftSetupData > setupData, cl_context 
 	OPENCL_V_THROW( clfftSetLayout( plan_handle, inLayout, outLayout ), "clfftSetLayout failed" );
 	OPENCL_V_THROW( clfftSetPlanBatchSize( plan_handle, batchSize ), "clfftSetPlanBatchSize failed" );
 	OPENCL_V_THROW( clfftSetPlanPrecision( plan_handle, precision ), "clfftSetPlanPrecision failed" );
+	OPENCL_V_THROW( clfftSetPlanDistance( plan_handle, BATCH_LENGTH + 2, (BATCH_LENGTH/2 + 1)), "clfftSetPlanDistance failed" );
 
 	//Bake Plan
 	OPENCL_V_THROW( clfftBakePlan( plan_handle, 1, &commandQueue, NULL, NULL ), "clfftBakePlan failed" );
@@ -218,21 +221,16 @@ void runR2CPrecallbackFFT(std::auto_ptr< clfftSetupData > setupData, cl_context 
 		OPENCL_V_THROW( clEnqueueReadBuffer( commandQueue, outfftbuffer, CL_TRUE, 0, out_size_of_buffers, &output[ 0 ],
 			0, NULL, NULL ), "Reading the result buffer failed" );
 
-		for( cl_uint i = 0; i < fftLength/2; i++)
-		{
-			std::cout << "i " << i << " clreal " << output[i].real() << " climag " << output[i].imag() << std::endl;
-		}
-
 		//Reference fftw output
-		/*fftwf_complex *refout;
+		fftwf_complex *refout;
 
 		refout = get_R2C_fftwf_output(inlengths, fftLength, batchSize, inLayout, dim);
 
-		for( cl_uint i = 0; i < fftLength; i++)
+		/*for( cl_uint i = 0; i < fftLength/2; i++)
 		{
 			std::cout << "i " << i << " refreal " << refout[i][0] << " refimag " << refout[i][1] << " clreal " << output[i].real() << " climag " << output[i].imag() << std::endl;
-		}
-		if (!compare<fftwf_complex, T>(refout, output, fftLength))
+		}*/
+		if (!compare<fftwf_complex, T>(refout, output, fftLength/2))
 		{
 			std::cout << "\n\n\t\tInternal Client Test (with clFFT Pre-callback) *****FAIL*****" << std::endl;
 		}
@@ -241,7 +239,7 @@ void runR2CPrecallbackFFT(std::auto_ptr< clfftSetupData > setupData, cl_context 
 			std::cout << "\n\n\t\tInternal Client Test (with clFFT Pre-callback) *****PASS*****" << std::endl;
 		}
 
-		fftwf_free(refout);*/
+		fftwf_free(refout);
 	}
 
 	OPENCL_V_THROW( clfftDestroyPlan( &plan_handle ), "clfftDestroyPlan failed" );
@@ -261,22 +259,24 @@ void runR2CPreprocessKernelFFT(std::auto_ptr< clfftSetupData > setupData, cl_con
 	cl_int status = 0;
 
 	//input/output allocation sizes
-	size_t in_size_of_buffers = fftLength * sizeof(char) * 3 ;
+	size_t in_size_of_buffers = fftLength * sizeof(uint24_t);
 	size_t out_size_of_buffers = fftLength * sizeof( T  );
 
-	char* in24bitData = (char*)malloc(in_size_of_buffers);
+	uint24_t *input24bitData = (uint24_t*)malloc(in_size_of_buffers);
 
 	//Initialize Data
 	srand(1);
 	for (size_t idx = 0; idx < fftLength; ++idx)
 	{
-		in24bitData[3 * idx + 2] = (char)(rand() % 256);
-		in24bitData[3 * idx + 1] = (char)(rand() % 256);
-		in24bitData[3 * idx] = (char)(rand() % 256);
+		int randomVal = (int)rand();
+
+		input24bitData[idx][0] = (randomVal >> 16) & 0xFF;
+        input24bitData[idx][1] = (randomVal >> 8) & 0xFF;
+        input24bitData[idx][2] = randomVal & 0xFF; 
 	}
 
 	//input data buffer
-	cl_mem in24bitfftbuffer = ::clCreateBuffer( context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, in_size_of_buffers, (void*)in24bitData, &status);
+	cl_mem in24bitfftbuffer = ::clCreateBuffer( context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, in_size_of_buffers, (void*)input24bitData, &status);
     OPENCL_V_THROW( status, "Creating Buffer ( ::clCreateBuffer(in24bitfftbuffer) )" );
 
 	cl_mem in32bitfftbuffer = ::clCreateBuffer( context, CL_MEM_READ_WRITE, out_size_of_buffers, NULL, &status);
@@ -302,6 +302,7 @@ void runR2CPreprocessKernelFFT(std::auto_ptr< clfftSetupData > setupData, cl_con
 	OPENCL_V_THROW( clfftSetLayout( plan_handle, inLayout, outLayout ), "clfftSetLayout failed" );
 	OPENCL_V_THROW( clfftSetPlanBatchSize( plan_handle, batchSize ), "clfftSetPlanBatchSize failed" );
 	OPENCL_V_THROW( clfftSetPlanPrecision( plan_handle, precision ), "clfftSetPlanPrecision failed" );
+	OPENCL_V_THROW( clfftSetPlanDistance( plan_handle, BATCH_LENGTH + 2, (BATCH_LENGTH/2 + 1)), "clfftSetPlanDistance failed" );
 
 		//Bake Plan
 	OPENCL_V_THROW( clfftBakePlan( plan_handle, 1, &commandQueue, NULL, NULL ), "clfftBakePlan failed" );
@@ -430,30 +431,25 @@ void runR2CPreprocessKernelFFT(std::auto_ptr< clfftSetupData > setupData, cl_con
 		OPENCL_V_THROW( clEnqueueReadBuffer( commandQueue, outfftbuffer, CL_TRUE, 0, out_size_of_buffers, &output[ 0 ],
 			0, NULL, NULL ), "Reading the result buffer failed" );
 
-		for( cl_uint i = 0; i < fftLength/2; i++)
+		//Reference fftw output
+		fftwf_complex *refout;
+
+		refout = get_R2C_fftwf_output(inlengths, fftLength, batchSize, inLayout, dim);
+
+		/*for( cl_uint i = 0; i < fftLength/2; i++)
 		{
-			std::cout << "i " << i << " clreal " << output[i].real() << " climag " << output[i].imag() << std::endl;
+			std::cout << "i " << i << " refreal " << refout[i][0] << " refimag " << refout[i][1] << " clreal " << output[i].real() << " climag " << output[i].imag() << std::endl;
+		}*/
+		if (!compare<fftwf_complex, T>(refout, output, fftLength/2))
+		{
+			std::cout << "\n\n\t\tInternal Client Test (Separate Pre-process Kernel) *****FAIL*****" << std::endl;
+		}
+		else
+		{
+			std::cout << "\n\n\t\tInternal Client Test (Separate Pre-process Kernel) *****PASS*****" << std::endl;
 		}
 
-		////Reference fftw output
-		//fftwf_complex *refout;
-
-		//refout = get_C2C_fftwf_output(inlengths, fftLength, batchSize, inLayout, dim, dir);
-
-		///*for( cl_uint i = 0; i < fftLength; i++)
-		//{
-		//	std::cout << "i " << i << " refreal " << refout[i][0] << " refimag " << refout[i][1] << " clreal " << output[i].real() << " climag " << output[i].imag() << std::endl;
-		//}*/
-		//if (!compare<fftwf_complex, T>(refout, output, fftLength))
-		//{
-		//	std::cout << "\n\n\t\tInternal Client Test (Separate Pre-process Kernel) *****FAIL*****" << std::endl;
-		//}
-		//else
-		//{
-		//	std::cout << "\n\n\t\tInternal Client Test (Separate Pre-process Kernel) *****PASS*****" << std::endl;
-		//}
-
-		//fftwf_free(refout);
+		fftwf_free(refout);
 	}
 
 	OPENCL_V_THROW( clfftDestroyPlan( &plan_handle ), "clfftDestroyPlan failed" );
@@ -545,29 +541,31 @@ fftwf_complex* get_R2C_fftwf_output(size_t* lengths, size_t fftbatchLength, int 
 									refin, &inembed[3 - dim], 1, infftVectorLength,
 									refout, &outembed[3 - dim], 1, outfftVectorLength, FFTW_ESTIMATE);
 	
-	char* in24bitData = (char*)malloc(sizeof(char) * 3 * fftbatchLength);
+	uint24_t* in24bitData = (uint24_t*)malloc(sizeof(uint24_t) * fftbatchLength);
 
 	//Initialize Data
 	srand(1);
 	for (size_t idx = 0; idx < fftbatchLength; ++idx)
 	{
-		in24bitData[3 * idx + 2] = (char)(rand() % 256);
-		in24bitData[3 * idx + 1] = (char)(rand() % 256);
-		in24bitData[3 * idx] = (char)(rand() % 256);
+		int randomVal = (int)rand();
+
+		in24bitData[idx][0] = (randomVal >> 16) & 0xFF;
+        in24bitData[idx][1] = (randomVal >> 8) & 0xFF;
+        in24bitData[idx][2] = randomVal & 0xFF; 
 	}
 
 	float val; 
 	
 	for( size_t i = 0; i < fftbatchLength; i++)
 	{
-		val = in24bitData[3*i + 2] << 24 | in24bitData[3*i + 1] << 16 | in24bitData[3*i] << 8 ;
+		val = in24bitData[i][0] << 16 | in24bitData[i][1] << 8 | in24bitData[i][2] ;
 		
 		refin[i] = val;
 	}
 
 	fftwf_execute(refPlan);
 
-	fftw_free(refin);
+	free(refin);
 
 	fftwf_destroy_plan(refPlan);
 
