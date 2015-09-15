@@ -239,7 +239,7 @@ std::string getKernelName(const clfftGenerators gen, const clfftPlanHandle plHan
     {
     case Stockham:			generatorName = "Stockham"; break;
 	case Transpose_GCN:		generatorName = "Transpose"; break;
-	case Transpose_INPLACE:	generatorName = "Transpose"; break;
+	case Transpose_SQUARE:	generatorName = "Transpose"; break;
     case Transpose_VLIW:	generatorName = "Transpose"; break;
 	case Copy:				generatorName = "Copy"; break;
     }
@@ -649,7 +649,7 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 					trans1Plan->outStride[1]  = clLengths[1] + padding;
 					trans1Plan->iDist         = fftPlan->iDist;
 					trans1Plan->oDist         = clLengths[0] * trans1Plan->outStride[1];
-					trans1Plan->gen           = Transpose_INPLACE;
+					trans1Plan->gen           = Transpose_GCN;
 					trans1Plan->transflag     = true;
 
 					OPENCL_V(clfftBakePlan(fftPlan->planTX, numQueues, commQueueFFT, NULL, NULL ),
@@ -715,8 +715,8 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 					trans2Plan->outStride[1]  = clLengths[0] + padding;
 					trans2Plan->iDist         = fftPlan->oDist;
 					trans2Plan->oDist         = clLengths[1] * trans2Plan->outStride[1];
-                    trans2Plan->gen           = Transpose_INPLACE;
-					trans2Plan->large1D			= fftPlan->length[0];
+                    trans2Plan->gen           = Transpose_GCN;
+					trans2Plan->large1D		  = fftPlan->length[0];
 					trans2Plan->transflag     = true;
 
 					OPENCL_V(clfftBakePlan(fftPlan->planTY, numQueues, commQueueFFT, NULL, NULL ),
@@ -779,7 +779,7 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 					trans3Plan->outStride[1]  = clLengths[1];
 					trans3Plan->iDist         = clLengths[1] * trans3Plan->inStride[1];
 					trans3Plan->oDist         = fftPlan->oDist;
-                    trans3Plan->gen           = Transpose_INPLACE;
+                    trans3Plan->gen           = Transpose_GCN;
 					trans3Plan->transflag     = true;
 					trans3Plan->transOutHorizontal = true;
 
@@ -1747,8 +1747,8 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
                 clfftStatus err;
 				if(fftPlan->gen == Transpose_GCN)
 					fftPlan->action = new FFTGeneratedTransposeGCNAction(plHandle, fftPlan, *commQueueFFT, err);
-				else if(fftPlan->gen == Transpose_INPLACE)
-					fftPlan->action = new FFTGeneratedTransposeInplaceAction(plHandle, fftPlan, *commQueueFFT, err);
+				else if(fftPlan->gen == Transpose_SQUARE)
+					fftPlan->action = new FFTGeneratedTransposeSquareAction(plHandle, fftPlan, *commQueueFFT, err);
 				else
 					fftPlan->action = new FFTGeneratedTransposeVLIWAction(plHandle, fftPlan, *commQueueFFT, err);
                 OPENCL_V( err, "FFTGeneratedTransposeVLIWAction failed");
@@ -3963,7 +3963,7 @@ clfftStatus FFTPlan::GetMax1DLength (size_t *longest ) const
 	//No restriction for Transpose_VLIW kernel
 	case Transpose_VLIW:		*longest = 4096; return CLFFT_SUCCESS;
     case Transpose_GCN:			*longest = 4096; return CLFFT_SUCCESS;
-    case Transpose_INPLACE:     *longest = 4096; return CLFFT_SUCCESS;
+    case Transpose_SQUARE:     *longest = 4096; return CLFFT_SUCCESS;
     case Copy:					*longest = 4096; return CLFFT_SUCCESS;
 	default:			assert(false); return CLFFT_NOTIMPLEMENTED;
 	}

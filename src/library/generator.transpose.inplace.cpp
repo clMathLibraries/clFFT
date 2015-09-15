@@ -30,13 +30,13 @@
 
 #include "action.h"
 
-FFTGeneratedTransposeInplaceAction::FFTGeneratedTransposeInplaceAction(clfftPlanHandle plHandle, FFTPlan * plan, cl_command_queue queue, clfftStatus & err)
-    : FFTTransposeInplaceAction(plHandle, plan, queue, err)
+FFTGeneratedTransposeSquareAction::FFTGeneratedTransposeSquareAction(clfftPlanHandle plHandle, FFTPlan * plan, cl_command_queue queue, clfftStatus & err)
+    : FFTTransposeSquareAction(plHandle, plan, queue, err)
 {
     if (err != CLFFT_SUCCESS)
     {
-        // FFTTransposeInplaceAction() failed, exit
-        fprintf(stderr, "FFTTransposeInplaceAction() failed!\n");
+        // FFTTransposeSquareAction() failed, exit
+        fprintf(stderr, "FFTTransposeSquareAction() failed!\n");
         return;
     }
 
@@ -45,7 +45,7 @@ FFTGeneratedTransposeInplaceAction::FFTGeneratedTransposeInplaceAction(clfftPlan
 
     if (err != CLFFT_SUCCESS)
     {
-        fprintf(stderr, "FFTGeneratedTransposeInplaceAction::initParams() failed!\n");
+        fprintf(stderr, "FFTGeneratedTransposeSquareAction::initParams() failed!\n");
         return;
     }
 
@@ -55,7 +55,7 @@ FFTGeneratedTransposeInplaceAction::FFTGeneratedTransposeInplaceAction(clfftPlan
 
     if (err != CLFFT_SUCCESS)
     {
-        fprintf(stderr, "FFTGeneratedTransposeInplaceAction::generateKernel failed\n");
+        fprintf(stderr, "FFTGeneratedTransposeSquareAction::generateKernel failed\n");
         return;
     }
 
@@ -63,7 +63,7 @@ FFTGeneratedTransposeInplaceAction::FFTGeneratedTransposeInplaceAction(clfftPlan
 
     if (err != CLFFT_SUCCESS)
     {
-        fprintf(stderr, "FFTGeneratedTransposeInplaceAction::compileKernels failed\n");
+        fprintf(stderr, "FFTGeneratedTransposeSquareAction::compileKernels failed\n");
         return;
     }
 
@@ -71,7 +71,7 @@ FFTGeneratedTransposeInplaceAction::FFTGeneratedTransposeInplaceAction(clfftPlan
 }
 
 
-bool FFTGeneratedTransposeInplaceAction::buildForwardKernel()
+bool FFTGeneratedTransposeSquareAction::buildForwardKernel()
 {
     clfftLayout inputLayout = this->getSignatureData()->fft_inputLayout;
     clfftLayout outputLayout = this->getSignatureData()->fft_outputLayout;
@@ -83,7 +83,7 @@ bool FFTGeneratedTransposeInplaceAction::buildForwardKernel()
     return (!real_transform) || r2c_transform;
 }
 
-bool FFTGeneratedTransposeInplaceAction::buildBackwardKernel()
+bool FFTGeneratedTransposeSquareAction::buildBackwardKernel()
 {
     clfftLayout inputLayout = this->getSignatureData()->fft_inputLayout;
     clfftLayout outputLayout = this->getSignatureData()->fft_outputLayout;
@@ -195,7 +195,7 @@ const std::string pmImagOut( "pmImagOut" );
 const std::string pmComplexIn( "pmComplexIn" );
 const std::string pmComplexOut( "pmComplexOut" );
 
-static clfftStatus genTransposePrototype( const FFTGeneratedTransposeInplaceAction::Signature & params, const size_t& lwSize, const std::string& dtPlanar, const std::string& dtComplex, 
+static clfftStatus genTransposePrototype( const FFTGeneratedTransposeSquareAction::Signature & params, const size_t& lwSize, const std::string& dtPlanar, const std::string& dtComplex, 
                                          const std::string &funcName, std::stringstream& transKernel, std::string& dtInput, std::string& dtOutput )
 {
 
@@ -263,7 +263,7 @@ static clfftStatus genTransposePrototype( const FFTGeneratedTransposeInplaceActi
     return CLFFT_SUCCESS;
 }
 
-static clfftStatus genTransposeKernel( const FFTGeneratedTransposeInplaceAction::Signature & params, std::string& strKernel, const size_t& lwSize, const size_t reShapeFactor)
+static clfftStatus genTransposeKernel( const FFTGeneratedTransposeSquareAction::Signature & params, std::string& strKernel, const size_t& lwSize, const size_t reShapeFactor)
 {
     strKernel.reserve( 4096 );
     std::stringstream transKernel( std::stringstream::out );
@@ -338,9 +338,9 @@ static clfftStatus genTransposeKernel( const FFTGeneratedTransposeInplaceAction:
 
 		std::string funcName;
 		if (params.fft_3StepTwiddle) // TODO
-			funcName = fwd ? "transpose_Inplace_tw_fwd" : "transpose_Inplace_tw_back";
+			funcName = fwd ? "transpose_square_tw_fwd" : "transpose_square_tw_back";
 		else
-			funcName = "transpose_Inplace";
+			funcName = "transpose_square";
 
 
 		// Generate kernel API
@@ -611,7 +611,7 @@ static clfftStatus genTransposeKernel( const FFTGeneratedTransposeInplaceAction:
 }
 
 
-clfftStatus FFTGeneratedTransposeInplaceAction::initParams ()
+clfftStatus FFTGeneratedTransposeSquareAction::initParams ()
 {
 
     this->signature.fft_precision    = this->plan->precision;
@@ -685,7 +685,7 @@ const size_t reShapeFactor = 2;   // wgTileSize = { lwSize.x * reShapeFactor, lw
 
 //	OpenCL does not take unicode strings as input, so this routine returns only ASCII strings
 //	Feed this generator the FFTPlan, and it returns the generated program as a string
-clfftStatus FFTGeneratedTransposeInplaceAction::generateKernel ( FFTRepo& fftRepo, const cl_command_queue commQueueFFT )
+clfftStatus FFTGeneratedTransposeSquareAction::generateKernel ( FFTRepo& fftRepo, const cl_command_queue commQueueFFT )
 {
 	
 
@@ -702,23 +702,23 @@ clfftStatus FFTGeneratedTransposeInplaceAction::generateKernel ( FFTRepo& fftRep
     OPENCL_V( status, _T( "clGetCommandQueueInfo failed" ) );
 
 
-    OPENCL_V( fftRepo.setProgramCode( Transpose_INPLACE, this->getSignatureData(), programCode, Device, QueueContext ), _T( "fftRepo.setclString() failed!" ) );
+    OPENCL_V( fftRepo.setProgramCode( Transpose_SQUARE, this->getSignatureData(), programCode, Device, QueueContext ), _T( "fftRepo.setclString() failed!" ) );
 
     // Note:  See genFunctionPrototype( )
     if( this->signature.fft_3StepTwiddle )
     {
-        OPENCL_V( fftRepo.setProgramEntryPoints( Transpose_INPLACE, this->getSignatureData(), "transpose_Inplace_tw_fwd", "transpose_Inplace_tw_back", Device, QueueContext ), _T( "fftRepo.setProgramEntryPoint() failed!" ) );
+        OPENCL_V( fftRepo.setProgramEntryPoints( Transpose_SQUARE, this->getSignatureData(), "transpose_square_tw_fwd", "transpose_square_tw_back", Device, QueueContext ), _T( "fftRepo.setProgramEntryPoint() failed!" ) );
     }
     else
     {
-        OPENCL_V( fftRepo.setProgramEntryPoints( Transpose_INPLACE, this->getSignatureData(), "transpose_Inplace", "transpose_Inplace", Device, QueueContext ), _T( "fftRepo.setProgramEntryPoint() failed!" ) );
+        OPENCL_V( fftRepo.setProgramEntryPoints( Transpose_SQUARE, this->getSignatureData(), "transpose_square", "transpose_square", Device, QueueContext ), _T( "fftRepo.setProgramEntryPoint() failed!" ) );
     }
 
     return CLFFT_SUCCESS;
 }
 
 
-clfftStatus FFTGeneratedTransposeInplaceAction::getWorkSizes( std::vector< size_t >& globalWS, std::vector< size_t >& localWS )
+clfftStatus FFTGeneratedTransposeSquareAction::getWorkSizes( std::vector< size_t >& globalWS, std::vector< size_t >& localWS )
 {
 
 #if 0

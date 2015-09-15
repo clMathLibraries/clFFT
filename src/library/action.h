@@ -86,18 +86,18 @@ public:
 };
 
 //
-// FFTTransposeInplaceAction
+// FFTTransposeSquareAction
 //
-// Base class for every TransposeInplace action for the FFT.
+// Base class for every TransposeSquare action for the FFT.
 // Currently do nothing special. The kernel generation and compilation occurs
-// by the subclass FFTGeneratedTransposeInplaceAction
+// by the subclass FFTGeneratedTransposeSquareAction
 // 
-class FFTTransposeInplaceAction : public FFTAction
+class FFTTransposeSquareAction : public FFTAction
 {
 public:
-    FFTTransposeInplaceAction(clfftPlanHandle plHandle, FFTPlan * plan, cl_command_queue queue, clfftStatus & err);
+    FFTTransposeSquareAction(clfftPlanHandle plHandle, FFTPlan * plan, cl_command_queue queue, clfftStatus & err);
 
-    clfftGenerators getGenerator() { return Transpose_INPLACE; }
+    clfftGenerators getGenerator() { return Transpose_SQUARE; }
 };
 
 
@@ -271,9 +271,9 @@ public:
 };
 
 
-// FFTGeneratedTransposeInplaceAction
+// FFTGeneratedTransposeSquareAction
 //
-// Implements a TransposeInplace action for the FFT
+// Implements a TransposeSquare action for the FFT
 // Its signature is represented by FFTKernelGenKeyParams structure
 // 
 // This class implements:
@@ -287,10 +287,10 @@ public:
 // but in practice the transpose action only use a few information of that
 // structure, so a proper structure should be used instead.
 //
-class FFTGeneratedTransposeInplaceAction : public FFTTransposeInplaceAction
+class FFTGeneratedTransposeSquareAction : public FFTTransposeSquareAction
 {
 public:
-    FFTGeneratedTransposeInplaceAction(clfftPlanHandle plHandle, FFTPlan * plan, cl_command_queue queue, clfftStatus & err);
+    FFTGeneratedTransposeSquareAction(clfftPlanHandle plHandle, FFTPlan * plan, cl_command_queue queue, clfftStatus & err);
 
     typedef FFTKernelSignature<FFTKernelGenKeyParams, FFT_DEFAULT_TRANSPOSE_ACTION> Signature;
 
