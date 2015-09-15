@@ -52,9 +52,3 @@ if( APPLE )
     set_target_properties( clFFT-client PROPERTIES INSTALL_RPATH "@loader_path/../lib${SUFFIX_LIB}")
 endif()
 
-# CPack configuration; include the executable into the package
-install( TARGETS clFFT-client
-        RUNTIME DESTINATION bin${SUFFIX_BIN}
-        LIBRARY DESTINATION lib${SUFFIX_LIB}
-        ARCHIVE DESTINATION lib${SUFFIX_LIB}/import
-        )

@@ -3193,7 +3193,7 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 				if (fftPlan->tmpBufSize == 0)
 				{
 					fftPlan->tmpBufSize = Nt * length1 * length2 * fftPlan->batchsize * fftPlan->ElementSize();
-					for (size_t index=2; index < fftPlan->length.size(); index++)
+					for (size_t index=3; index < fftPlan->length.size(); index++)
 						fftPlan->tmpBufSize *= fftPlan->length[index];
 				}
 

@@ -20,8 +20,9 @@ set(GRAPHING_SCRIPTS 	measurePerformance.py
 						errorHandler.py 
 						performanceUtility.py
 						)
-if( WIN32 )
-	install( FILES ${GRAPHING_SCRIPTS} DESTINATION bin${SUFFIX_BIN} )
-else ( )
-	install( FILES ${GRAPHING_SCRIPTS} DESTINATION share/clFFT )
-endif( )
+# if( WIN32 )
+# 	install( FILES ${GRAPHING_SCRIPTS} DESTINATION bin${SUFFIX_BIN} )
+# else ( )
+# 	install( FILES ${GRAPHING_SCRIPTS} DESTINATION share/clFFT )
+# endif( )
+

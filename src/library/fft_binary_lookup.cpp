@@ -49,7 +49,7 @@ extern "C"
 
 #include <string.h>
 
-char * sep()
+static char * sep()
 {
 #ifdef __WIN32
     return (char*)"\\";
@@ -163,7 +163,8 @@ FFTBinaryLookup::Variant::Variant(VariantKind kind, char * data, size_t size)
 
 FFTBinaryLookup::Variant::~Variant()
 {
-    // delete this->m_data;
+	// if(this->m_data)
+	// 	delete [] this->m_data;
 }
 
 void FFTBinaryLookup::variantInt(int num)
@@ -193,7 +194,7 @@ enum BinaryRepresentation
     UNKNOWN
 };
 
-enum BinaryRepresentation getStorageMode(char * data)
+static enum BinaryRepresentation getStorageMode(char * data)
 {
     if (data[0] == 'C' && 
         data[1] == 'L' && 
@@ -407,6 +408,7 @@ static cl_int getSingleBinaryFromProgram(cl_program program,
 
     if (err != CL_SUCCESS)
     {
+		delete[] binary[0];
 #if CAPS_DEBUG
         std::cerr << "Error querying for program binaries" << std::endl;
 #endif
@@ -481,6 +483,7 @@ cl_int FFTBinaryLookup::populateCache()
     writeCacheFile(data); // ignore return code, because it does nothing if
                           // the file could not be written (i.e the current
                           // thread did not create the file
+    delete [] data[0];
 
     return CL_SUCCESS;
 }
