@@ -25,7 +25,7 @@
 #include <math.h>
 #include <iomanip>
 
-#include "generator.transpose.inplace.h"
+#include "generator.transpose.square.h"
 #include "generator.stockham.h"
 
 #include "action.h"
