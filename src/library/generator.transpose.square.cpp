@@ -202,7 +202,7 @@ static clfftStatus genTransposePrototype( const FFTGeneratedTransposeSquareActio
         return CLFFT_TRANSPOSED_NOTIMPLEMENTED;
     }
 
-
+	if(params.fft_placeness == CLFFT_OUTOFPLACE)
 	switch (params.fft_outputLayout)
 	{
 		case CLFFT_COMPLEX_INTERLEAVED:
@@ -332,7 +332,9 @@ static clfftStatus genTransposeKernel( const FFTGeneratedTransposeSquareAction::
 		clKernWrite(transKernel, 3) << std::endl;
 
 		OffsetCalc(transKernel, params, true);
-		OffsetCalc(transKernel, params, false);
+
+		if(params.fft_placeness == CLFFT_OUTOFPLACE)
+			OffsetCalc(transKernel, params, false);
 
 
 		// Handle planar and interleaved right here
@@ -357,24 +359,52 @@ static clfftStatus genTransposeKernel( const FFTGeneratedTransposeSquareAction::
 			default:
 				return CLFFT_TRANSPOSED_NOTIMPLEMENTED;
 		}
-		switch (params.fft_outputLayout)
+
+		if(params.fft_placeness == CLFFT_OUTOFPLACE)
 		{
-			case CLFFT_COMPLEX_INTERLEAVED:
-				clKernWrite(transKernel, 3) << "outputA += oOffset;" << std::endl;  // Set A ptr to the start of each slice
+			switch (params.fft_outputLayout)
+			{
+				case CLFFT_COMPLEX_INTERLEAVED:
+					clKernWrite(transKernel, 3) << "outputA += oOffset;" << std::endl;  // Set A ptr to the start of each slice
 
-				break;
-			case CLFFT_COMPLEX_PLANAR:
+					break;
+				case CLFFT_COMPLEX_PLANAR:
 
-				clKernWrite(transKernel, 3) << "outputA_R += oOffset;" << std::endl;  // Set A ptr to the start of each slice 
-				clKernWrite(transKernel, 3) << "outputA_I += oOffset;" << std::endl;  // Set A ptr to the start of each slice 
-				break;
-			case CLFFT_HERMITIAN_INTERLEAVED:
-			case CLFFT_HERMITIAN_PLANAR:
-				return CLFFT_TRANSPOSED_NOTIMPLEMENTED;
-			case CLFFT_REAL:
-				break;
-			default:
-				return CLFFT_TRANSPOSED_NOTIMPLEMENTED;
+					clKernWrite(transKernel, 3) << "outputA_R += oOffset;" << std::endl;  // Set A ptr to the start of each slice 
+					clKernWrite(transKernel, 3) << "outputA_I += oOffset;" << std::endl;  // Set A ptr to the start of each slice 
+					break;
+				case CLFFT_HERMITIAN_INTERLEAVED:
+				case CLFFT_HERMITIAN_PLANAR:
+					return CLFFT_TRANSPOSED_NOTIMPLEMENTED;
+				case CLFFT_REAL:
+					break;
+				default:
+					return CLFFT_TRANSPOSED_NOTIMPLEMENTED;
+			}
+		}
+		else
+		{
+			switch (params.fft_inputLayout)
+			{
+				case CLFFT_COMPLEX_INTERLEAVED:
+					clKernWrite(transKernel, 3) << "global " << dtInput << " *outputA = inputA;" << std::endl; 
+
+					break;
+				case CLFFT_COMPLEX_PLANAR:
+
+					clKernWrite(transKernel, 3) << "global " << dtInput << " *outputA_R = inputA_R;" << std::endl;
+					clKernWrite(transKernel, 3) << "global " << dtInput << " *outputA_I = inputA_I;" << std::endl;
+
+				
+					break;
+				case CLFFT_HERMITIAN_INTERLEAVED:
+				case CLFFT_HERMITIAN_PLANAR:
+					return CLFFT_TRANSPOSED_NOTIMPLEMENTED;
+				case CLFFT_REAL:
+					break;
+				default:
+					return CLFFT_TRANSPOSED_NOTIMPLEMENTED;
+			}
 		}
 
 		

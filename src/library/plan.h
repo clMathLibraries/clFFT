@@ -423,6 +423,11 @@ public:
 	// User created plan
 	bool userPlan;
 
+
+	// Allocate no extra memory
+	bool allOpsInplace;
+
+
 	// A flag to say that blocked FFTs are going to be performed
 	// It can only be one of these: column to row, row to column or column to column
 	// row to row is just the normal case where blocking is not needed
@@ -468,6 +473,7 @@ public:
 	,	realSpecial(false)
 	,	realSpecial_Nr(0)
 	,	userPlan(false)
+	,	allOpsInplace(false)
 	,	blockCompute(false)
 	,	blockComputeType(BCT_C2C)
 	,   planTX( 0 )
