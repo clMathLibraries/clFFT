@@ -40,7 +40,7 @@ FFTGeneratedStockhamAction::FFTGeneratedStockhamAction(clfftPlanHandle plHandle,
         fprintf(stderr, "FFTGeneratedStockhamAction::initParams() failed!\n");
         return;
     }
-
+	
     FFTRepo &fftRepo = FFTRepo::getInstance();
 
     err = this->generateKernel(fftRepo, queue);
@@ -51,7 +51,7 @@ FFTGeneratedStockhamAction::FFTGeneratedStockhamAction(clfftPlanHandle plHandle,
         return;
     }
 
-    err = compileKernels( queue, plHandle, plan);
+	err = compileKernels( queue, plHandle, plan);
 
     if (err != CLFFT_SUCCESS)
     {
@@ -612,6 +612,10 @@ namespace StockhamGenerator
 		bool halfLds;						// only half the LDS of a complex length need to be used
 		Pass<PR> *nextPass;
 
+		//callback members
+		bool fft_doPreCallback;
+		clfftCallbackParam fft_preCallback;
+
 		inline void RegBase(size_t regC, std::string &str) const
 		{
 			str += "B";
@@ -723,7 +727,7 @@ namespace StockhamGenerator
 		void SweepRegs(	size_t flag, bool fwd, bool interleaved, size_t stride, size_t component,
 						double scale, bool frontTwiddle,
 						const std::string &bufferRe, const std::string &bufferIm, const std::string &offset,
-						size_t regC, size_t numB, size_t numPrev, std::string &passStr) const
+						size_t regC, size_t numB, size_t numPrev, std::string &passStr, bool isPrecallVector = false, bool oddt = false) const
 		{
 			assert( (flag == SR_READ )			||
 					(flag == SR_TWMUL)			||
@@ -821,6 +825,10 @@ namespace StockhamGenerator
 				return;
 			}
 
+			int hid = 0;
+			bool swapElement = false;
+			int tIter = numB * radix;
+
 			// block to rearrange reads of adjacent memory locations together
 			if(linearRegs && (flag == SR_READ))
 			{
@@ -830,8 +838,11 @@ namespace StockhamGenerator
 					{
 						for(size_t c=cStart; c<cEnd; c++) // component loop: 0 - real, 1 - imaginary
 						{
+							swapElement = (fft_doPreCallback && c2r && component == SR_COMP_REAL); //reset at start of loop
+
 							std::string tail;
 							std::string regIndex;
+							std::string regIndexC;
 							regIndex = "(*R";
 							std::string buffer;
 
@@ -847,7 +858,17 @@ namespace StockhamGenerator
 							{
 								if(c == 0)
 								{
-									RegBaseAndCountAndPos("", i*radix + r, regIndex); regIndex += ").x";
+									RegBaseAndCountAndPos("", i*radix + r, regIndex); 
+									
+									hid = (i * radix + r) / (tIter / 2);
+									swapElement = swapElement && hid != 0;
+									swapElement = (oddt && ((i * radix + r) >= (tIter - 1))) ? false : swapElement;  //for c2r odd size don't swap for last register
+									if (swapElement)
+									{
+										regIndexC = regIndex; regIndexC += ").y";
+									}
+									
+									regIndex += ").x";
 									buffer = bufferRe;
 									tail = interleaved ? ".x;" : ";";
 								}
@@ -859,17 +880,73 @@ namespace StockhamGenerator
 								}
 							}
 
+							//get offset 
+							std::string bufOffset;
+							bufOffset += offset; bufOffset += " + ( "; bufOffset += SztToStr(numPrev); bufOffset += " + ";
+							bufOffset += "me*"; bufOffset += SztToStr(numButterfly); bufOffset += " + ";
+							bufOffset += SztToStr(i); bufOffset += " + ";
+							bufOffset += SztToStr(r*length/radix); bufOffset += " )*";
+							bufOffset += SztToStr(stride);
+
+							//If precallback is set invoke callback function
+							//Invoke callback only once in Planar data layout (i.e.c==0)
+							if (fft_doPreCallback && c == 0 && component == SR_COMP_BOTH)
+							{
+								passStr += "\n\t";
+								passStr += "retPrecallback = "; passStr += fft_preCallback.funcname; passStr += "("; 
+								if(interleaved)
+								{
+									passStr += buffer; passStr += ", ";
+								}
+								else
+								{
+									passStr += bufferRe; passStr += ", "; passStr += bufferIm; passStr += ", ";
+								}
+								passStr += bufOffset; passStr += ", userdata";
+								if (fft_preCallback.localMemSize > 0)
+								{
+									passStr += ", localmem";
+								}
+								passStr += ");";
+							}
+
+							if (swapElement)
+							{
+								passStr += "\n\t";
+								passStr += regIndexC; passStr += " = "; passStr += regIndex; passStr += ";";
+							}
 
 							passStr += "\n\t";
 							passStr += regIndex;
-							passStr += " = "; passStr += buffer;
-							passStr += "["; passStr += offset; passStr += " + ( "; passStr += SztToStr(numPrev); passStr += " + ";
-							passStr += "me*"; passStr += SztToStr(numButterfly); passStr += " + ";
-							passStr += SztToStr(i); passStr += " + ";
-							passStr += SztToStr(r*length/radix); passStr += " )*";
-							passStr += SztToStr(stride); passStr += "]"; passStr += tail;
+							passStr += " = ";
 
-								// Since we read real & imag at once, we break the loop
+							//Use the return value from precallback if set
+							if (fft_doPreCallback && (component == SR_COMP_BOTH || r2c))
+							{
+								if (component == SR_COMP_BOTH)
+								{
+									passStr += "retPrecallback"; 
+									passStr += interleaved ? tail : (c == 0) ? ".x;" : ".y;";
+								}
+								else if (r2c)
+								{
+									passStr += fft_preCallback.funcname; passStr += "("; passStr += buffer; passStr += ", ";
+									passStr += bufOffset; passStr += ", userdata";
+
+									if (fft_preCallback.localMemSize > 0)
+									{
+										passStr += ", localmem";
+									}
+									passStr += ");";
+								}
+							}
+							else
+							{
+								passStr += buffer;
+								passStr += "["; passStr += bufOffset; passStr += "]"; passStr += tail;
+							}
+
+							// Since we read real & imag at once, we break the loop
 							if(interleaved && (component == SR_COMP_BOTH) )
 								break;
 						}
@@ -963,8 +1040,8 @@ namespace StockhamGenerator
 
 				return;
 			}
-
-
+			
+			
 			for(size_t i=0; i<numB; i++)
 			{
 				std::string regBaseCount = regBase;
@@ -981,6 +1058,7 @@ namespace StockhamGenerator
 						{
 							std::string tail;
 							std::string regIndex;
+							std::string regIndexC;
 							regIndex = linearRegs ? "(*R" : regBaseCount;
 							std::string buffer;
 
@@ -996,7 +1074,17 @@ namespace StockhamGenerator
 							{
 								if(c == 0)
 								{
-									if(linearRegs) { RegBaseAndCountAndPos("", i*radix + r, regIndex); regIndex += ").x"; }
+									if(linearRegs) 
+									{ 
+										RegBaseAndCountAndPos("", i*radix + r, regIndex); 
+									
+										hid = (i * radix + r) / (numB * radix / 2);
+										if (fft_doPreCallback && c2r && component == SR_COMP_REAL && hid != 0)
+										{
+											regIndexC = regIndex; regIndexC += ").y";
+										}
+										regIndex += ").x"; 
+									}
 									else		   { RegBaseAndCountAndPos("R", r, regIndex); }
 									buffer = bufferRe;
 									tail = interleaved ? ".x;" : ";";
@@ -1019,14 +1107,83 @@ namespace StockhamGenerator
 									regIndexSub += SztToStr(v);
 								}
 
+								//get offset 
+								std::string bufOffset;
+								bufOffset += offset; bufOffset += " + ( "; bufOffset += SztToStr(numPrev); bufOffset += " + ";
+								bufOffset += "me*"; bufOffset += SztToStr(numButterfly); bufOffset += " + ";
+								bufOffset += SztToStr(i*regC + v); bufOffset += " + ";
+								bufOffset += SztToStr(r*length/radix); bufOffset += " )*";
+								bufOffset += SztToStr(stride);
+
+								//If precallback is set invoke callback function
+								//Invoke callback only once in Planar data layout (i.e.c==0)
+								if (fft_doPreCallback && c == 0 && component == SR_COMP_BOTH)
+								{
+									passStr += "\n\t";
+									passStr += "retPrecallback"; 
+									
+									if (isPrecallVector)
+									{
+										passStr += "["; passStr += SztToStr(v); passStr += "]"; 
+									}
+
+									passStr += " = "; passStr += fft_preCallback.funcname; passStr += "("; 
+									if(interleaved)
+									{
+										passStr += buffer; passStr += ", ";
+									}
+									else
+									{
+										passStr += bufferRe; passStr += ", "; passStr += bufferIm; passStr += ", ";
+									}
+									passStr += bufOffset; passStr += ", userdata";
+									if (fft_preCallback.localMemSize > 0)
+									{
+										passStr += ", localmem";
+									}
+									passStr += ");";
+								}
+
+								if (fft_doPreCallback && c2r && component == SR_COMP_REAL && hid != 0)
+								{
+									passStr += "\n\t";
+									passStr += regIndexC; passStr += " = "; passStr += regIndexSub; passStr += ";";
+								}
+
 								passStr += "\n\t";
 								passStr += regIndexSub;
-								passStr += " = "; passStr += buffer;
-								passStr += "["; passStr += offset; passStr += " + ( "; passStr += SztToStr(numPrev); passStr += " + ";
-								passStr += "me*"; passStr += SztToStr(numButterfly); passStr += " + ";
-								passStr += SztToStr(i*regC + v); passStr += " + ";
-								passStr += SztToStr(r*length/radix); passStr += " )*";
-								passStr += SztToStr(stride); passStr += "]"; passStr += tail;
+								passStr += " = "; 
+
+								//Use the return value from precallback if set
+								if (fft_doPreCallback && (component == SR_COMP_BOTH || r2c))
+								{
+									if (component == SR_COMP_BOTH)
+									{
+										passStr += "retPrecallback"; 
+									
+										if (isPrecallVector)
+										{
+											passStr += "["; passStr += SztToStr(v); passStr += "]"; 
+										} 
+										passStr += interleaved ? tail : (c == 0) ? ".x;" : ".y;";
+									}
+									else if (r2c)
+									{
+										passStr += fft_preCallback.funcname; passStr += "("; passStr += buffer; passStr += ", ";
+										passStr += bufOffset; passStr += ", userdata";
+
+										if (fft_preCallback.localMemSize > 0)
+										{
+											passStr += ", localmem";
+										}
+										passStr += ");";
+									}
+								}
+								else
+								{
+									passStr += buffer;
+									passStr += "["; passStr += bufOffset; passStr += "]"; passStr += tail;
+								}
 							}
 
 							// Since we read real & imag at once, we break the loop
@@ -1313,21 +1470,36 @@ namespace StockhamGenerator
 						std::string regIndex = "(*R";
 						std::string buffer;
 
-						if(c == 0)
+						RegBaseAndCountAndPos("", r, regIndex); 
+						if (fft_doPreCallback && c2r)
 						{
-							RegBaseAndCountAndPos("", r, regIndex); regIndex += ").x";
-							buffer = bufferRe;
-							tail  = interleaved ? ".x;" : ";";
-							tail2 = interleaved ? ".y;" : ";";
+							 regIndex += ")";
+							 if (interleaved)
+							 {
+								buffer = (c == 0) ? bufferRe : bufferIm;
+							 }
+							 else
+							 {
+								 buffer += bufferRe; buffer += ", "; buffer += bufferIm;
+							 }
 						}
 						else
 						{
-							RegBaseAndCountAndPos("", r, regIndex); regIndex += ").y";
-							buffer = bufferIm;
-							tail  = interleaved ? ".y;" : ";";
-							tail2 = interleaved ? ".x;" : ";";
+							if(c == 0)
+							{
+								regIndex += ").x";
+								buffer = bufferRe;
+								tail  = interleaved ? ".x;" : ";";
+								tail2 = interleaved ? ".y;" : ";";
+							}
+							else
+							{
+								regIndex += ").y";
+								buffer = bufferIm;
+								tail  = interleaved ? ".y;" : ";";
+								tail2 = interleaved ? ".x;" : ";";
+							}
 						}
-
 
 						size_t bid = numCR/2;
 						bid = bid ? bid : 1;
@@ -1373,8 +1545,17 @@ namespace StockhamGenerator
 						{
 							if(act)
 							{
-								passStr += buffer;
-								passStr += "["; passStr += offset; passStr += " + ( ";
+								if (fft_doPreCallback)
+								{
+									passStr += fft_preCallback.funcname; passStr += "(";
+									passStr += buffer; passStr += ", ";  
+								}
+								else
+								{
+									passStr += buffer;
+									passStr += "["; 
+								}
+								passStr += offset; passStr += " + ( ";
 							}
 
 							if(fwd)
@@ -1390,10 +1571,20 @@ namespace StockhamGenerator
 
 							if(act)
 							{
-								passStr += " )*"; passStr += SztToStr(stride); passStr += "]";
+								passStr += " )*"; passStr += SztToStr(stride); 
+								
+								if (fft_doPreCallback)
+								{
+									passStr += ", userdata";
+									passStr += (fft_preCallback.localMemSize > 0) ? ", localmem);" : ");";
+								}
+								else
+								{
+									passStr += "]";
 
-								if(fwd) { passStr += tail; }
-								else	{ if(!batch2) passStr += tail; else passStr += tail2; }
+									if(fwd) { passStr += tail; }
+									else	{ if(!batch2) passStr += tail; else passStr += tail2; }
+								}
 							}
 						}
 					}
@@ -1563,14 +1754,15 @@ namespace StockhamGenerator
 								passStr += "( ";
 								if(c == 0)
 								{
-									regIndex += ".x"; regIndexPair += ".x";
+									regIndex += ".x"; 
+									regIndexPair += fft_doPreCallback ? ".y" : ".x";
 
 									if(!batch2)	{ passStr += regIndex; passStr += " - "; passStr += regIndexPair; }
 									else		{ passStr += regIndex; passStr += " + "; passStr += regIndexPair; }
 								}
 								else
 								{
-									regIndex += ".y"; regIndexPair += ".y";
+									regIndex += ".y"; regIndexPair += (fft_doPreCallback && oddt) ? ".x" : ".y";
 
 									if(!batch2)	{					passStr += regIndex; passStr += " + "; passStr += regIndexPair; }
 									else		{ passStr += " - "; passStr += regIndex; passStr += " + "; passStr += regIndexPair; }
@@ -1649,7 +1841,7 @@ namespace StockhamGenerator
 			r2c(r2cVal), c2r(c2rVal), rcFull(rcFullVal), rcSimple(rcSimpleVal), realSpecial(realSpecialVal),
 			enableGrouping(true),
 			numB1(0), numB2(0), numB4(0),
-			nextPass(NULL)
+			nextPass(NULL), fft_doPreCallback(false)
 		{
 			assert(radix <= length);
 			assert(length%radix == 0);
@@ -1692,6 +1884,12 @@ namespace StockhamGenerator
 
 		void SetNextPass(Pass<PR> *np) { nextPass = np; }
 		void SetGrouping(bool grp) { enableGrouping = grp; }
+
+		void SetPrecallback(bool hasPrecallback, clfftCallbackParam precallbackParam) 
+		{ 
+			fft_doPreCallback = hasPrecallback;
+			fft_preCallback = precallbackParam;
+		}
 
 		void GeneratePass(	bool fwd, std::string &passStr, bool fft_3StepTwiddle,
 							bool inInterleaved, bool outInterleaved,
@@ -1853,6 +2051,23 @@ namespace StockhamGenerator
 			{
 				passStr += ", "; passStr += IterRegArgs();
 			}
+
+			//Include callback parameters if callback is set
+			if (fft_doPreCallback )
+			{
+				if ((r2c && !rcSimple) || c2r)
+				{
+					passStr += ", uint inOffset2";
+				}
+
+				passStr += ", __global void* userdata";
+
+				if (fft_preCallback.localMemSize > 0)
+				{
+					passStr += ", __local void* localmem";
+				}
+			}
+
 			passStr += ")\n{\n";
 
 			// Register Declarations
@@ -1908,7 +2123,14 @@ namespace StockhamGenerator
 					else
 					{
 						passStr += "\n\tif(rw > 1)\n\t{";
-						SweepRegs(SR_READ, fwd, inInterleaved, inStride, SR_COMP_IMAG, 1.0f, false, bufferInRe2, bufferInIm2, "inOffset", 1, numB1, 0, passStr);
+						if (fft_doPreCallback)
+						{
+							SweepRegs(SR_READ, fwd, inInterleaved, inStride, SR_COMP_IMAG, 1.0f, false, bufferInRe2, bufferInIm2, "inOffset2", 1, numB1, 0, passStr);
+						}
+						else
+						{
+							SweepRegs(SR_READ, fwd, inInterleaved, inStride, SR_COMP_IMAG, 1.0f, false, bufferInRe2, bufferInIm2, "inOffset", 1, numB1, 0, passStr);
+						}
 						passStr += "\n\t}\n";
 
 						passStr += "\telse\n\t{";
@@ -1936,17 +2158,44 @@ namespace StockhamGenerator
 
 					passStr += "\n\tif(rw && !me)\n\t{\n\t";
 					passStr += processBufRe; passStr += "["; passStr += processBufOffset; passStr += "] = ";
-					passStr += bufferInRe; passStr+= "[inOffset]";
-					if(inInterleaved) passStr += ".x;\n\t}"; else passStr += ";\n\t}";
+					
+					if (fft_doPreCallback)
+					{
+						passStr += fft_preCallback.funcname; passStr += "("; passStr += bufferInRe; 
+						if (!inInterleaved) { passStr += ", "; passStr += bufferInIm; }
+						passStr += ", inOffset, userdata";
+						passStr += fft_preCallback.localMemSize > 0 ? ", localmem)" : ")";
+					}
+					else
+					{
+						passStr += bufferInRe; passStr+= "[inOffset]";
+					}
+
+					if(inInterleaved || fft_doPreCallback) passStr += ".x;\n\t}"; else passStr += ";\n\t}";
 
 					if(length > 1)
 					{
 						passStr += "\n\n\tif(rw)\n\t{";
-						SweepRegsRC(SR_READ, fwd, inInterleaved, inStride, SR_COMP_REAL, 1.0f, false, false, false, bufferInRe, bufferInRe, "inOffset", passStr);
+						if (fft_doPreCallback && !inInterleaved)
+						{
+							SweepRegsRC(SR_READ, fwd, inInterleaved, inStride, SR_COMP_REAL, 1.0f, false, false, false, bufferInRe, bufferInIm, "inOffset", passStr);
+						}
+						else
+						{
+							SweepRegsRC(SR_READ, fwd, inInterleaved, inStride, SR_COMP_REAL, 1.0f, false, false, false, bufferInRe, bufferInRe, "inOffset", passStr);
+						}
 						passStr += "\n\t}\n";
 
 						passStr += "\n\tif(rw > 1)\n\t{";
-						SweepRegsRC(SR_READ, fwd, inInterleaved, inStride, SR_COMP_REAL, 1.0f, false, true, false, bufferInIm2, bufferInIm2, "inOffset", passStr);
+						if (fft_doPreCallback)
+						{
+							SweepRegsRC(SR_READ, fwd, inInterleaved, inStride, SR_COMP_REAL, 1.0f, false, true, false, bufferInRe2, bufferInIm2, "inOffset2", passStr);
+						}
+						else
+						{
+							SweepRegsRC(SR_READ, fwd, inInterleaved, inStride, SR_COMP_REAL, 1.0f, false, true, false, bufferInIm2, bufferInIm2, "inOffset", passStr);
+						}
+
 						passStr += "\n\t}\n\telse\n\t{";
 						SweepRegsRC(SR_READ, fwd, inInterleaved, inStride, SR_COMP_REAL, 1.0f, true, true, false, bufferInIm2, bufferInIm2, "inOffset", passStr);
 						passStr += "\n\t}\n";
@@ -1954,10 +2203,24 @@ namespace StockhamGenerator
 						if(oddp)
 						{
 							passStr += "\n\tif(rw && (me%2))\n\t{";
-							SweepRegsRC(SR_READ, fwd, inInterleaved, inStride, SR_COMP_REAL, 1.0f, false, false, true, bufferInRe, bufferInRe, "inOffset", passStr);
+							if (fft_doPreCallback)
+							{
+								SweepRegsRC(SR_READ, fwd, inInterleaved, inStride, SR_COMP_REAL, 1.0f, false, false, true, bufferInRe, bufferInIm, "inOffset", passStr);
+							}
+							else
+							{
+								SweepRegsRC(SR_READ, fwd, inInterleaved, inStride, SR_COMP_REAL, 1.0f, false, false, true, bufferInRe, bufferInRe, "inOffset", passStr);
+							}
 							passStr += "\n\t}";
 							passStr += "\n\tif((rw > 1) && (me%2))\n\t{";
-							SweepRegsRC(SR_READ, fwd, inInterleaved, inStride, SR_COMP_REAL, 1.0f, false, true, true, bufferInIm2, bufferInIm2, "inOffset", passStr);
+							if (fft_doPreCallback)
+							{
+								SweepRegsRC(SR_READ, fwd, inInterleaved, inStride, SR_COMP_REAL, 1.0f, false, true, true, bufferInRe2, bufferInIm2, "inOffset2", passStr);
+							}
+							else
+							{
+								SweepRegsRC(SR_READ, fwd, inInterleaved, inStride, SR_COMP_REAL, 1.0f, false, true, true, bufferInIm2, bufferInIm2, "inOffset", passStr);
+							}
 							passStr += "\n\t}\n";
 						}
 
@@ -1979,38 +2242,54 @@ namespace StockhamGenerator
 					}
 
 					passStr += "\n\n\tbarrier(CLK_LOCAL_MEM_FENCE);\n";
-					SweepRegs(SR_READ, fwd, outInterleaved, processBufStride, SR_COMP_REAL, 1.0f, false, processBufRe, processBufIm, processBufOffset, 1, numB1, 0, passStr);
+					SweepRegs(SR_READ, fwd, outInterleaved, processBufStride, SR_COMP_REAL, 1.0f, false, processBufRe, processBufIm, processBufOffset, 1, numB1, 0, passStr, false, oddp);
 					passStr += "\n\n\tbarrier(CLK_LOCAL_MEM_FENCE);\n";
 
 
 					passStr += "\n\tif((rw > 1) && !me)\n\t{\n\t";
 					passStr += processBufIm; passStr += "["; passStr += processBufOffset; passStr += "] = ";
-					passStr += bufferInRe2; passStr+= "[inOffset]";
-					if(inInterleaved) passStr += ".x;\n\t}"; else passStr += ";\n\t}";
+					
+					if (fft_doPreCallback)
+					{
+						passStr += fft_preCallback.funcname; passStr += "("; passStr += bufferInRe2; 
+						if (!inInterleaved) { passStr += ", "; passStr += bufferInIm2; }
+						passStr += ", inOffset2, userdata";
+						passStr += fft_preCallback.localMemSize > 0 ? ", localmem)" : ")";
+					}
+					else
+					{
+						passStr += bufferInRe2; passStr+= "[inOffset]";
+					}
+					if(inInterleaved || fft_doPreCallback) passStr += ".x;\n\t}"; else passStr += ";\n\t}";
 					passStr += "\n\tif((rw == 1) && !me)\n\t{\n\t"; passStr += processBufIm; passStr += "["; passStr += processBufOffset; passStr += "] = 0;\n\t}";
 
 
 					if(length > 1)
 					{
-						passStr += "\n\n\tif(rw)\n\t{";
-						SweepRegsRC(SR_READ, fwd, inInterleaved, inStride, SR_COMP_IMAG, 1.0f, false, false, false, bufferInIm, bufferInIm, "inOffset", passStr);
-						passStr += "\n\t}\n";
-
-						passStr += "\n\tif(rw > 1)\n\t{";
-						SweepRegsRC(SR_READ, fwd, inInterleaved, inStride, SR_COMP_IMAG, 1.0f, false, true, false, bufferInRe2, bufferInRe2, "inOffset", passStr);
-						passStr += "\n\t}\n\telse\n\t{";
-						SweepRegsRC(SR_READ, fwd, inInterleaved, inStride, SR_COMP_IMAG, 1.0f, true, true, false, bufferInRe2, bufferInRe2, "inOffset", passStr);
-						passStr += "\n\t}\n";
-
-						if(oddp)
+						if (!fft_doPreCallback)
 						{
-							passStr += "\n\tif(rw && (me%2))\n\t{";
-							SweepRegsRC(SR_READ, fwd, inInterleaved, inStride, SR_COMP_IMAG, 1.0f, false, false, true, bufferInIm, bufferInIm, "inOffset", passStr);
-							passStr += "\n\t}";
-							passStr += "\n\tif((rw > 1) && (me%2))\n\t{";
-							SweepRegsRC(SR_READ, fwd, inInterleaved, inStride, SR_COMP_IMAG, 1.0f, false, true, true, bufferInRe2, bufferInRe2, "inOffset", passStr);
+							passStr += "\n\n\tif(rw)\n\t{";
+							SweepRegsRC(SR_READ, fwd, inInterleaved, inStride, SR_COMP_IMAG, 1.0f, false, false, false, bufferInIm, bufferInIm, "inOffset", passStr);
 							passStr += "\n\t}\n";
+
+							passStr += "\n\tif(rw > 1)\n\t{";
+							SweepRegsRC(SR_READ, fwd, inInterleaved, inStride, SR_COMP_IMAG, 1.0f, false, true, false, bufferInRe2, bufferInRe2, "inOffset", passStr);
+							passStr += "\n\t}\n\telse\n\t{";
+							SweepRegsRC(SR_READ, fwd, inInterleaved, inStride, SR_COMP_IMAG, 1.0f, true, true, false, bufferInRe2, bufferInRe2, "inOffset", passStr);
+							passStr += "\n\t}";
+						
+						
+							if(oddp)
+							{
+								passStr += "\n\tif(rw && (me%2))\n\t{";
+								SweepRegsRC(SR_READ, fwd, inInterleaved, inStride, SR_COMP_IMAG, 1.0f, false, false, true, bufferInIm, bufferInIm, "inOffset", passStr);
+								passStr += "\n\t}";
+								passStr += "\n\tif((rw > 1) && (me%2))\n\t{";
+								SweepRegsRC(SR_READ, fwd, inInterleaved, inStride, SR_COMP_IMAG, 1.0f, false, true, true, bufferInRe2, bufferInRe2, "inOffset", passStr);
+								passStr += "\n\t}";
+							}
 						}
+						passStr += "\n";
 
 						SweepRegsRC(SR_WRITE, fwd, outInterleaved, processBufStride, SR_COMP_IMAG, 1.0f, false, true, false, processBufRe, processBufIm, processBufOffset, passStr);
 						if(oddp)
@@ -2037,10 +2316,26 @@ namespace StockhamGenerator
 			{
 				if( (!halfLds) || (halfLds && (position == 0)) )
 				{
+					bool isPrecallVector = false;
+					//If precallback is set
+					if (fft_doPreCallback)
+					{
+						passStr += "\n\t"; passStr += regB2Type; passStr += " retPrecallback"; 
+						
+						if (numB4 > 0 || numB2 > 0)
+						{
+							passStr += "["; 
+							passStr += (numB4 > 0) ? "4" : (numB2 > 0) ? "2" : "1"; 
+							passStr += "]";
+
+							isPrecallVector = true;
+						}
+						passStr += ";";
+					}
 					passStr += "\n\tif(rw)\n\t{";
-					SweepRegs(SR_READ, fwd, inInterleaved, inStride, SR_COMP_BOTH, 1.0f, false, bufferInRe, bufferInIm, "inOffset", 1, numB1, 0, passStr);
-					SweepRegs(SR_READ, fwd, inInterleaved, inStride, SR_COMP_BOTH, 1.0f, false, bufferInRe, bufferInIm, "inOffset", 2, numB2, numB1, passStr);
-					SweepRegs(SR_READ, fwd, inInterleaved, inStride, SR_COMP_BOTH, 1.0f, false, bufferInRe, bufferInIm, "inOffset", 4, numB4, 2*numB2 + numB1, passStr);
+					SweepRegs(SR_READ, fwd, inInterleaved, inStride, SR_COMP_BOTH, 1.0f, false, bufferInRe, bufferInIm, "inOffset", 1, numB1, 0, passStr, isPrecallVector);
+					SweepRegs(SR_READ, fwd, inInterleaved, inStride, SR_COMP_BOTH, 1.0f, false, bufferInRe, bufferInIm, "inOffset", 2, numB2, numB1, passStr, isPrecallVector);
+					SweepRegs(SR_READ, fwd, inInterleaved, inStride, SR_COMP_BOTH, 1.0f, false, bufferInRe, bufferInIm, "inOffset", 4, numB4, 2*numB2 + numB1, passStr, isPrecallVector);
 					passStr += "\n\t}\n";
 				}
 			}
@@ -2490,6 +2785,13 @@ namespace StockhamGenerator
 
 					radices.push_back(rad);
 					passes.push_back(Pass<PR>(i, length, rad, cnPerWI, L, LS, R, linearRegs, halfLds, r2c, c2r, rcFull, rcSimple, realSpecial));
+					
+					//Pass precallback information to Pass object if its the first pass. 
+					//This will be used in single kernel transforms
+					if (params.fft_hasPreCallback && i == 0 && !params.blockCompute)
+					{
+						passes[0].SetPrecallback(params.fft_hasPreCallback, params.fft_preCallback);
+					}
 
 					LS *= rad;
 				}
@@ -2528,6 +2830,13 @@ namespace StockhamGenerator
 
 					radices.push_back(rad);
 					passes.push_back(Pass<PR>(pid, length, rad, cnPerWI, L, LS, R, linearRegs, halfLds, r2c, c2r, rcFull, rcSimple, realSpecial));
+
+					//Pass precallback information to Pass object if its the first pass. 
+					//This will be used in single kernel transforms
+					if (pid == 0 && params.fft_hasPreCallback)
+					{
+						passes[0].SetPrecallback(params.fft_hasPreCallback, params.fft_preCallback);
+					}
 
 					pid++;
 					LS *= rad;
@@ -2725,6 +3034,17 @@ namespace StockhamGenerator
 			uradices.sort();
 			uradices.unique();
 
+			//If pre-callback is set for the plan
+			std::string callbackstr;
+			if (params.fft_hasPreCallback)
+			{
+				//Insert callback function code at the beginning 
+				callbackstr += params.fft_preCallback.funcstring;
+				callbackstr += "\n\n";
+
+				str += callbackstr;
+			}
+
 			typename std::vector< Pass<PR> >::const_iterator p;
 			if(length > 1)
 			{
@@ -2840,6 +3160,20 @@ namespace StockhamGenerator
 
         delete [] nameVendor;
 
+		//If plan has pre-callback
+		callbackstr.clear();
+		if (params.fft_hasPreCallback)
+		{
+			if (params.fft_preCallback.localMemSize > 0)
+			{
+				callbackstr += ", __global void* userdata, __local void* localmem";
+			}
+			else
+			{
+				callbackstr += ", __global void* userdata";
+			}
+		}
+
 				// Function attributes
 				if(params.fft_placeness == CLFFT_INPLACE)
 				{
@@ -2847,12 +3181,20 @@ namespace StockhamGenerator
 					{
 						if(outInterleaved)
 						{
-							str += "__global "; str += r2Type; str += " * restrict gb)\n";
+							str += "__global "; str += r2Type; str += " * restrict gb";
 						}
 						else
 						{
-							str += "__global "; str += rType; str += " * restrict gb)\n";
+							str += "__global "; str += rType; str += " * restrict gb";
 						}
+
+						//If plan has pre-callback
+						if (params.fft_hasPreCallback)
+						{
+							str += callbackstr;
+						}
+
+						str += ")\n";
 					}
 					else
 					{
@@ -2862,12 +3204,28 @@ namespace StockhamGenerator
 
 						if(inInterleaved)
 						{
-							str += "__global "; str += r2Type; str += " * restrict gb)\n";
+							str += "__global "; str += r2Type; str += " * restrict gb";
+
+							//If plan has pre-callback
+							if (params.fft_hasPreCallback)
+							{
+								str += callbackstr;
+							}
+							
+							str += ")\n";
 						}
 						else
 						{
 							str += "__global "; str += rType; str += " * restrict gbRe, ";
-							str += "__global "; str += rType; str += " * restrict gbIm)\n";
+							str += "__global "; str += rType; str += " * restrict gbIm";
+
+							//If plan has pre-callback
+							if (params.fft_hasPreCallback)
+							{
+								str += callbackstr;
+							}
+
+							str += ")\n";
 						}
 					}
 				}
@@ -2891,17 +3249,25 @@ namespace StockhamGenerator
 
 						if(outInterleaved)
 						{
-							str += "__global "; str += r2Type; str += " * restrict gbOut)\n";
+							str += "__global "; str += r2Type; str += " * restrict gbOut";
 						}
 						else if(outReal)
 						{
-							str += "__global "; str += rType; str += " * restrict gbOut)\n";
+							str += "__global "; str += rType; str += " * restrict gbOut";
 						}
 						else
 						{
 							str += "__global const "; str += rType; str += " * restrict gbOutRe, ";
-							str += "__global const "; str += rType; str += " * restrict gbOutIm)\n";
+							str += "__global const "; str += rType; str += " * restrict gbOutIm";
 						}
+
+						//If plan has pre-callback
+						if (params.fft_hasPreCallback)
+						{
+							str += callbackstr;
+						}
+
+						str += ")\n";
 					}
 					else
 					{
@@ -2917,13 +3283,21 @@ namespace StockhamGenerator
 
 						if(outInterleaved)
 						{
-							str += "__global "; str += r2Type; str += " * restrict gbOut)\n";
+							str += "__global "; str += r2Type; str += " * restrict gbOut";
 						}
 						else
 						{
 							str += "__global "; str += rType; str += " * restrict gbOutRe, ";
-							str += "__global "; str += rType; str += " * restrict gbOutIm)\n";
+							str += "__global "; str += rType; str += " * restrict gbOutIm";
 						}
+
+						//If plan has pre-callback
+						if (params.fft_hasPreCallback)
+						{
+							str += callbackstr;
+						}
+
+						str += ")\n";
 					}
 				}
 
@@ -2968,23 +3342,28 @@ namespace StockhamGenerator
 						str += "uint oOffset2;\n\n\t";
 					}
 
-					if(inInterleaved)
-					{
-						if(!rcSimple)	{	str += "__global "; str += r2Type; str += " *lwbIn2;\n\t"; }
-											str += "__global "; str += r2Type; str += " *lwbIn;\n\t";
-					}
-					else if(inReal)
-					{
-						if(!rcSimple)	{	str += "__global "; str += rType; str += " *lwbIn2;\n\t"; }
-											str += "__global "; str += rType; str += " *lwbIn;\n\t";
+					if (!params.fft_hasPreCallback)	
+					{ 
+						if(inInterleaved)
+						{
+							if(!rcSimple)	{	str += "__global "; str += r2Type; str += " *lwbIn2;\n\t"; }
+												str += "__global "; str += r2Type; str += " *lwbIn;\n\t";  
+						}
+						else if(inReal)
+						{
+							if(!rcSimple)	{	str += "__global "; str += rType; str += " *lwbIn2;\n\t"; }
+												str += "__global "; str += rType; str += " *lwbIn;\n\t";
 
-					}
-					else
-					{
-						if(!rcSimple)	{	str += "__global "; str += rType; str += " *lwbInRe2;\n\t"; }
-						if(!rcSimple)	{	str += "__global "; str += rType; str += " *lwbInIm2;\n\t"; }
-											str += "__global "; str += rType; str += " *lwbInRe;\n\t";
-											str += "__global "; str += rType; str += " *lwbInIm;\n\t";
+						}
+						else
+						{
+							if(!rcSimple)	{	str += "__global "; str += rType; str += " *lwbInRe2;\n\t"; }
+							if(!rcSimple)	{	str += "__global "; str += rType; str += " *lwbInIm2;\n\t"; }
+							  
+												str += "__global "; str += rType; str += " *lwbInRe;\n\t"; 
+												str += "__global "; str += rType; str += " *lwbInIm;\n\t"; 
+							
+						}
 					}
 
 					if(outInterleaved)
@@ -3014,14 +3393,18 @@ namespace StockhamGenerator
 					{
 						str += "uint ioOffset;\n\t";
 
-						if(inInterleaved)
+						//Skip if precallback is set and its blockcompute
+						if (!(blockCompute && params.fft_hasPreCallback))
 						{
-							str += "__global "; str += r2Type; str += " *lwb;\n\n";
-						}
-						else
-						{
-							str += "__global "; str += rType; str += " *lwbRe;\n\t";
-							str += "__global "; str += rType; str += " *lwbIm;\n\n";
+							if(inInterleaved)
+							{
+								str += "__global "; str += r2Type; str += " *lwb;\n\n";
+							}
+							else
+							{
+								str += "__global "; str += rType; str += " *lwbRe;\n\t";
+								str += "__global "; str += rType; str += " *lwbIm;\n\n";
+							}
 						}
 					}
 					else
@@ -3029,14 +3412,18 @@ namespace StockhamGenerator
 						str += "uint iOffset;\n\t";
 						str += "uint oOffset;\n\t";
 
-						if(inInterleaved)
+						//Skip if precallback is set and its blockcompute
+						if (!(blockCompute && params.fft_hasPreCallback))
 						{
-							str += "__global "; str += r2Type; str += " *lwbIn;\n\t";
-						}
-						else
-						{
-							str += "__global "; str += rType; str += " *lwbInRe;\n\t";
-							str += "__global "; str += rType; str += " *lwbInIm;\n\t";
+							if(inInterleaved)
+							{
+								str += "__global "; str += r2Type; str += " *lwbIn;\n\t";
+							}
+							else
+							{
+								str += "__global "; str += rType; str += " *lwbInRe;\n\t";
+								str += "__global "; str += rType; str += " *lwbInIm;\n\t";
+							}
 						}
 
 						if(outInterleaved)
@@ -3127,16 +3514,19 @@ namespace StockhamGenerator
 					str += "\n\t";
 					if(params.fft_placeness == CLFFT_INPLACE)
 					{
-						if(inInterleaved)
+						if(!params.fft_hasPreCallback)
 						{
-							if(!rcSimple) {	str += "lwbIn2 = (__global "; str += r2Type; str += " *)gb + iOffset2;\n\t"; }
-											str += "lwbIn  = (__global "; str += r2Type; str += " *)gb + iOffset;\n\t";
-						}
-						else
-						{
-							if(!rcSimple) {	str += "lwbIn2 = (__global "; str += rType; str += " *)gb + iOffset2;\n\t"; }
-											str += "lwbIn  = (__global "; str += rType; str += " *)gb + iOffset;\n\t";
+							if(inInterleaved)
+							{
+								if(!rcSimple) {	str += "lwbIn2 = (__global "; str += r2Type; str += " *)gb + iOffset2;\n\t"; }
+												str += "lwbIn  = (__global "; str += r2Type; str += " *)gb + iOffset;\n\t"; 
+							}
+							else
+							{
+								if(!rcSimple) {	str += "lwbIn2 = (__global "; str += rType; str += " *)gb + iOffset2;\n\t"; }
+												str += "lwbIn  = (__global "; str += rType; str += " *)gb + iOffset;\n\t";
 
+							}
 						}
 
 						if(!rcSimple) {	str += "lwbOut2 = gb + oOffset2;\n\t"; }
@@ -3145,18 +3535,20 @@ namespace StockhamGenerator
 					}
 					else
 					{
-						if(inInterleaved || inReal)
+						if (!params.fft_hasPreCallback)
 						{
-							if(!rcSimple) {	str += "lwbIn2 = gbIn + iOffset2;\n\t"; }
-											str += "lwbIn = gbIn + iOffset;\n\t";
-						}
-						else
-						{
-							if(!rcSimple) {	str += "lwbInRe2 = gbInRe + iOffset2;\n\t"; }
-							if(!rcSimple) {	str += "lwbInIm2 = gbInIm + iOffset2;\n\t"; }
-											str += "lwbInRe = gbInRe + iOffset;\n\t";
-											str += "lwbInIm = gbInIm + iOffset;\n\t";
-
+							if(inInterleaved || inReal)
+							{
+								if(!rcSimple) {	str += "lwbIn2 = gbIn + iOffset2;\n\t"; }
+								str += "lwbIn = gbIn + iOffset;\n\t"; 
+							}
+							else
+							{
+								if(!rcSimple) {	str += "lwbInRe2 = gbInRe + iOffset2;\n\t"; }
+								if(!rcSimple) {	str += "lwbInIm2 = gbInIm + iOffset2;\n\t"; }
+												str += "lwbInRe = gbInRe + iOffset;\n\t";
+												str += "lwbInIm = gbInIm + iOffset;\n\t";
+							}
 						}
 
 						if(outInterleaved || outReal)
@@ -3183,14 +3575,19 @@ namespace StockhamGenerator
 							str += OffsetCalc("ioOffset", true);
 
 						str += "\t";
-						if(inInterleaved)
+
+						//Skip if precallback is set and its blockcompute
+						if (!(blockCompute && params.fft_hasPreCallback))
 						{
-							str += "lwb = gb + ioOffset;\n\n";
-						}
-						else
-						{
-							str += "lwbRe = gbRe + ioOffset;\n\t";
-							str += "lwbIm = gbIm + ioOffset;\n\n";
+							if(inInterleaved)
+							{
+								str += "lwb = gb + ioOffset;\n\n";
+							}
+							else
+							{
+								str += "lwbRe = gbRe + ioOffset;\n\t";
+								str += "lwbIm = gbIm + ioOffset;\n\n";
+							}
 						}
 					}
 					else
@@ -3207,14 +3604,19 @@ namespace StockhamGenerator
 						}
 
 						str += "\t";
-						if(inInterleaved)
+
+						//Skip if precallback is set and its blockcompute
+						if (!(blockCompute && params.fft_hasPreCallback))
 						{
-							str += "lwbIn = gbIn + iOffset;\n\t";
-						}
-						else
-						{
-							str += "lwbInRe = gbInRe + iOffset;\n\t";
-							str += "lwbInIm = gbInIm + iOffset;\n\t";
+							if(inInterleaved)
+							{
+								str += "lwbIn = gbIn + iOffset;\n\t";
+							}
+							else
+							{
+								str += "lwbInRe = gbInRe + iOffset;\n\t";
+								str += "lwbInIm = gbInIm + iOffset;\n\t";
+							}
 						}
 
 						if(outInterleaved)
@@ -3229,15 +3631,32 @@ namespace StockhamGenerator
 					}
 				}
 
-
+				std::string inOffset;
+				if (params.fft_placeness == CLFFT_INPLACE && !r2c2r)
+				{
+					inOffset += "ioOffset";
+				}
+				else
+				{
+					inOffset += "iOffset";
+				}
+				
 				// Read data into LDS for blocked access
 				if(blockCompute)
 				{
 
 					size_t loopCount = (length * blockWidth)/blockWGS;
 					
+					if ((blockComputeType == BCT_C2C) && params.fft_hasPreCallback)
+					{
+						str += "\n\t"; str += r2Type; str += " retCallback;";
+					}
+
 					str += "\n\tfor(uint t=0; t<"; str += SztToStr(loopCount);
 					str += "; t++)\n\t{\n";
+
+					//get offset 
+					std::string bufOffset;
 
 					for(size_t c=0; c<2; c++)
 					{
@@ -3249,9 +3668,37 @@ namespace StockhamGenerator
 
 						if( (blockComputeType == BCT_C2C) || (blockComputeType == BCT_C2R) )
 						{
-							str += "\t\tR0"; str+= comp; str+= " = "; str += readBuf; str += "[(me%"; str+= SztToStr(blockWidth); str += ") + ";
-							str += "(me/"; str+= SztToStr(blockWidth); str+= ")*"; str += SztToStr(params.fft_inStride[0]);
-							str += " + t*"; str += SztToStr(params.fft_inStride[0]*blockWGS/blockWidth); str += "];\n";
+							bufOffset.clear();
+							bufOffset += "(me%"; bufOffset += SztToStr(blockWidth); bufOffset += ") + ";
+							bufOffset += "(me/"; bufOffset+= SztToStr(blockWidth); bufOffset+= ")*"; bufOffset += SztToStr(params.fft_inStride[0]);
+							bufOffset += " + t*"; bufOffset += SztToStr(params.fft_inStride[0]*blockWGS/blockWidth);
+
+							if ((blockComputeType == BCT_C2C) && params.fft_hasPreCallback)
+							{
+								if (c == 0)
+								{
+									str += "\t\tretCallback = "; str += params.fft_preCallback.funcname; str += "(";
+								
+									if(inInterleaved)
+									{
+										str += (params.fft_placeness == CLFFT_INPLACE) ? "gb, " : "gbIn, ";
+									}
+									else
+									{
+										str += (params.fft_placeness == CLFFT_INPLACE) ? "gbRe, gbIm, " : "gbInRe, gbInIm, ";
+									}
+
+									str += inOffset; str += " + "; str += bufOffset; str += ", userdata";
+									str += (params.fft_preCallback.localMemSize > 0) ? str += ", localmem);\n" : ");\n";
+								}
+
+								str += "\t\tR0"; str+= comp; str+= " = retCallback"; str+= comp; str += ";\n";
+							}
+							else
+							{
+								str += "\t\tR0"; str+= comp; str+= " = "; 
+								str += readBuf; str += "[";	str += bufOffset; str += "];\n";
+							}
 						}
 						else
 						{
@@ -3296,15 +3743,34 @@ namespace StockhamGenerator
 				{
 					if(rcSimple)
 					{
-						if(inInterleaved || inReal)		inBuf  = "lwbIn, ";
+						if(inInterleaved || inReal)		inBuf  = params.fft_hasPreCallback ?  "gbIn, " : "lwbIn, ";
 						else							inBuf  = "lwbInRe, lwbInIm, ";
 						if(outInterleaved || outReal)	outBuf = "lwbOut";
 						else							outBuf = "lwbOutRe, lwbOutIm";
 					}
 					else
 					{
-						if(inInterleaved || inReal)		inBuf  = "lwbIn, lwbIn2, ";
-						else							inBuf  = "lwbInRe, lwbInRe2, lwbInIm, lwbInIm2, ";
+						if(inInterleaved || inReal)		
+						{
+							if (!params.fft_hasPreCallback)
+							{
+								inBuf  = "lwbIn, lwbIn2, ";
+							}
+							else
+							{
+								if (params.fft_placeness == CLFFT_INPLACE) 
+								{
+									inBuf = "(__global "; inBuf += r2c ? rType : r2Type; inBuf += "*) gb, ";
+									inBuf += "(__global "; inBuf += r2c ? rType : r2Type; inBuf += "*) gb, ";
+								}
+								else
+								{
+									inBuf  = "gbIn, gbIn, " ;
+								}
+							}	
+						}
+						else							inBuf  = (params.fft_hasPreCallback) ? "gbInRe, gbInRe, gbInIm, gbInIm, " : "lwbInRe, lwbInRe2, lwbInIm, lwbInIm2, ";
+
 						if(outInterleaved || outReal)	outBuf = "lwbOut, lwbOut2";
 						else							outBuf = "lwbOutRe, lwbOutRe2, lwbOutIm, lwbOutIm2";
 					}
@@ -3313,13 +3779,13 @@ namespace StockhamGenerator
 				{
 					if(params.fft_placeness == CLFFT_INPLACE)
 					{
-						if(inInterleaved)	{ inBuf = "lwb, "; outBuf = "lwb"; }
-						else				{ inBuf = "lwbRe, lwbIm, "; outBuf = "lwbRe, lwbIm"; }
+						if(inInterleaved)	{ inBuf = "gb, "; outBuf = "lwb"; }
+						else				{ inBuf = "gbRe, gbIm, "; outBuf = "lwbRe, lwbIm"; }
 					}
 					else
 					{
-						if(inInterleaved)	inBuf  = "lwbIn, ";
-						else				inBuf  = "lwbInRe, lwbInIm, ";
+						if(inInterleaved)	inBuf  = "gbIn, ";
+						else				inBuf  = "gbInRe, gbInIm, ";
 						if(outInterleaved)	outBuf = "lwbOut";
 						else				outBuf = "lwbOutRe, lwbOutIm";
 					}
@@ -3353,9 +3819,23 @@ namespace StockhamGenerator
 					str += "\t";
 					str += PassName(0, fwd);
 					str += "("; str += rw; str += me;
-					str += "0, 0, ";
+					
+					str += (params.fft_hasPreCallback || !r2c2r) ? inOffset : "0";
+					
+					str += ", 0, ";
 					str += inBuf; str += outBuf;
 					str += IterRegs("&");
+
+					//if precalback set 
+					if (params.fft_hasPreCallback)
+					{
+						str += (r2c2r && !rcSimple) ?  ", iOffset2, userdata" : ", userdata";
+
+						if (params.fft_preCallback.localMemSize > 0)
+						{
+							str += ", localmem";
+						}
+					}
 					str += ");\n";
 				}
 				else
@@ -3399,12 +3879,32 @@ namespace StockhamGenerator
 						str += me;
 						if(p == passes.begin()) // beginning pass
 						{
-							str += blockCompute ? ldsOff : "0";
+							if (blockCompute)
+							{
+								str += ldsOff;
+							}
+							else
+							{
+								str += (params.fft_hasPreCallback || !r2c2r) ? inOffset : "0";
+							}
 							str += ", ";
 							str += ldsOff;
 							str += ", ";
 							str += inBuf;
-							str += ldsArgs; str += IterRegs("&"); str += ");\n";
+							str += ldsArgs; str += IterRegs("&"); 
+							
+							//if precalback set, append additional arguments
+							if (!blockCompute && params.fft_hasPreCallback)
+							{
+								str += (r2c2r && !rcSimple) ?  ", iOffset2, userdata" : ", userdata";
+
+								if (params.fft_preCallback.localMemSize > 0)
+								{
+									str += ", localmem";
+								}
+							}
+
+							str += ");\n";
 							if(!halfLds) { str += exTab; str += "\tbarrier(CLK_LOCAL_MEM_FENCE);\n"; }
 						}
 						else if((p+1) == passes.end()) // ending pass
@@ -3618,6 +4118,12 @@ clfftStatus FFTGeneratedStockhamAction::initParams ()
 	this->signature.fft_R = (nt * this->signature.fft_N[0])/wgs;
 	this->signature.fft_SIMD = wgs;
 
+	//Set callback if specified
+	if (this->plan->hasPreCallback)
+	{
+		this->signature.fft_hasPreCallback = true;
+		this->signature.fft_preCallback = this->plan->preCallback;
+	}
 
     if (this->plan->large1D != 0) {
         ARG_CHECK (this->signature.fft_N[0] != 0)
@@ -3720,6 +4226,42 @@ clfftStatus FFTGeneratedStockhamAction::generateKernel(FFTRepo& fftRepo, const c
 			Kernel<P_DOUBLE> kernel(this->signature);
 			kernel.GenerateKernel(programCode, Device);
 		} break;
+	}
+
+	//Requested local memory size by callback must not exceed the device LDS limits after factoring the LDS size required by main FFT kernel
+	if (this->signature.fft_hasPreCallback && this->signature.fft_preCallback.localMemSize > 0)
+	{
+		bool validLDSSize = false;
+		if (this->plan->blockCompute)
+		{
+			validLDSSize = ((this->signature.blockLDS * this->plan->ElementSize()) +  this->signature.fft_preCallback.localMemSize) < this->plan->envelope.limit_LocalMemSize;
+		}
+		else
+		{
+			size_t length = this->signature.fft_N[0];
+			size_t workGroupSize = this->signature.fft_SIMD;
+			size_t numTrans = (workGroupSize * this->signature.fft_R) / length;
+
+			//TODO - Need to abstract this out. Repeating the same compute as in GenerateKernel. 
+			// Set half lds only for power-of-2 problem sizes & interleaved data
+			bool halfLds = ( (this->signature.fft_inputLayout == CLFFT_COMPLEX_INTERLEAVED) &&
+						(this->signature.fft_outputLayout == CLFFT_COMPLEX_INTERLEAVED) ) ? true : false;
+			halfLds = halfLds ? ((length & (length-1)) ? false : true) : false;
+
+			// Set half lds for real transforms
+			halfLds = ( (this->signature.fft_inputLayout == CLFFT_REAL) &&
+						(this->signature.fft_outputLayout == CLFFT_REAL) ) ? true : halfLds;
+
+			size_t ldsSize = halfLds ? length*numTrans : 2*length*numTrans;
+			size_t elementSize = ((this->signature.fft_precision == CLFFT_DOUBLE) || (this->signature.fft_precision == CLFFT_DOUBLE_FAST)) ? sizeof(double) : sizeof(float);
+
+			validLDSSize = ((ldsSize * elementSize) + this->signature.fft_preCallback.localMemSize) < this->plan->envelope.limit_LocalMemSize;
+		}
+		if(!validLDSSize)
+		{
+			fprintf(stderr, "Requested local memory size not available\n");
+			return CLFFT_INVALID_ARG_VALUE;
+		}
 	}
 
 #ifdef KERNEL_INTERJECT

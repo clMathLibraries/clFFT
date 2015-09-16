@@ -72,6 +72,7 @@ option( BUILD_TEST "Build the library testing suite (dependency on google test, 
 option( BUILD_LOADLIBRARIES "Build the optional dynamic load libraries that the FFT runtime will search for" ON )
 option( BUILD_SHARED_LIBS "Build shared libraries." ON)
 option( BUILD_EXAMPLES "Build examples." ON)
+option( BUILD_CALLBACK_CLIENT "Build a command line clFFT client program that tests callback functionality (dependency on Boost)" ON )
 
 # If BOOST_ROOT is defined as an environment value, use that value and cache it so it's visible in the cmake-gui.
 # Otherwise, create a sensible default that the user can change
@@ -173,6 +174,13 @@ if( BUILD_TEST )
 	else( )
 		message( "GoogleTest unit testing will NOT be built" )
     endif( )
+endif( )
+
+# Enable building of the callback client if requested and all dependencies are found
+if( BUILD_CALLBACK_CLIENT AND Boost_FOUND )
+	set( FFT_CALLBACK_CLIENT ON )
+else( )
+	set( FFT_CALLBACK_CLIENT OFF )
 endif( )
 
 # FFLAGS depend on the compiler, grab the compiler name from the path
@@ -281,6 +289,13 @@ if( UNIT_TEST AND IS_DIRECTORY "${PROJECT_SOURCE_DIR}/tests" )
 	add_subdirectory( tests )
 else( )
 	message( "GoogleTest unit tests will NOT be built" )
+endif( )
+
+# We only want to build the following if the user options are set
+if( FFT_CALLBACK_CLIENT AND IS_DIRECTORY "${PROJECT_SOURCE_DIR}/callback-client" )
+	add_subdirectory( callback-client )
+else( )
+	message( "FFT callback client will NOT be built" )
 endif( )
 
 if( BUILD_EXAMPLES )

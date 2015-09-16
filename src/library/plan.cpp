@@ -664,6 +664,14 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 					trans1Plan->gen           = transGen;
 					trans1Plan->transflag     = true;
 
+					//Set callback data if set on top level plan
+					if (fftPlan->hasPreCallback)
+					{
+						trans1Plan->hasPreCallback = true;
+						trans1Plan->preCallback = fftPlan->preCallback;
+						trans1Plan->precallUserData = fftPlan->precallUserData;
+					}
+
 					OPENCL_V(clfftBakePlan(fftPlan->planTX, numQueues, commQueueFFT, NULL, NULL ),
 						_T( "BakePlan large1d trans1 plan failed" ) );
 
@@ -869,6 +877,14 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 					trans1Plan->oDist         = clLengths[0] * trans1Plan->outStride[1];
 					trans1Plan->gen           = Transpose_GCN;
 					trans1Plan->transflag     = true;
+
+					//Set callback data if set on top level plan
+					if (fftPlan->hasPreCallback)
+					{
+						trans1Plan->hasPreCallback = true;
+						trans1Plan->preCallback = fftPlan->preCallback;
+						trans1Plan->precallUserData = fftPlan->precallUserData;
+					}
 
 					OPENCL_V(clfftBakePlan(fftPlan->planTX, numQueues, commQueueFFT, NULL, NULL ),
 						_T( "BakePlan large1d trans1 plan failed" ) );
@@ -1096,6 +1112,14 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 						colTPlan->oDist        *= fftPlan->length[index];
 					}
 
+					//Set callback data if set on top level plan
+					if (fftPlan->hasPreCallback)
+					{
+						colTPlan->hasPreCallback = true;
+						colTPlan->preCallback = fftPlan->preCallback;
+						colTPlan->precallUserData = fftPlan->precallUserData;
+					}
+
 					OPENCL_V(clfftBakePlan(fftPlan->planX, numQueues, commQueueFFT, NULL, NULL ), _T( "BakePlan large1d first column plan failed" ) );
 
 					//another column FFT, size clLengths[0], batch clLengths[1], output without transpose
@@ -1237,6 +1261,14 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 						copyPlan->outStride.push_back(copyPlan->outStride[index-1] * fftPlan->length[index-1]);
 						copyPlan->oDist   *= fftPlan->length[index];
 						copyPlan->inStride.push_back(fftPlan->inStride[index]);
+					}
+
+					//Set callback data if set on top level plan
+					if (fftPlan->hasPreCallback)
+					{
+						copyPlan->hasPreCallback = true;
+						copyPlan->preCallback = fftPlan->preCallback;
+						copyPlan->precallUserData = fftPlan->precallUserData;
 					}
 
 					OPENCL_V(clfftBakePlan(fftPlan->planRCcopy, numQueues, commQueueFFT, NULL, NULL ), _T( "BakePlan large1d RC copy plan failed" ) );
@@ -1395,6 +1427,14 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 							trans1Plan->inStride.push_back(fftPlan->inStride[index]);
 							trans1Plan->outStride.push_back(trans1Plan->oDist);
 							trans1Plan->oDist *= fftPlan->length[index];
+						}
+
+						//Set callback data if set on top level plan
+						if (fftPlan->hasPreCallback)
+						{
+							trans1Plan->hasPreCallback = true;
+							trans1Plan->preCallback = fftPlan->preCallback;
+							trans1Plan->precallUserData = fftPlan->precallUserData;
 						}
 
 						OPENCL_V(clfftBakePlan(fftPlan->planTX, numQueues, commQueueFFT, NULL, NULL ),
@@ -1592,6 +1632,14 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 						colTPlan->oDist         = length0 * length1;
 						colTPlan->inStride.push_back(fftPlan->inStride[0]);
 						colTPlan->outStride.push_back(1);
+
+						//Set callback data if set on top level plan
+						if (fftPlan->hasPreCallback)
+						{
+							colTPlan->hasPreCallback = true;
+							colTPlan->preCallback = fftPlan->preCallback;
+							colTPlan->precallUserData = fftPlan->precallUserData;
+						}
 
 						// Enabling block column compute
 						if( (colTPlan->inStride[0] == length0) && IsPo2(fftPlan->length[0]) && (fftPlan->length[0] < 524288) )
@@ -1869,6 +1917,14 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 				rowPlan->inStride.push_back(fftPlan->inStride[1]);
 				rowPlan->iDist           = fftPlan->iDist;
 				
+				//Set callback data if set on top level plan
+				if (fftPlan->hasPreCallback)
+				{
+					rowPlan->hasPreCallback = true;
+					rowPlan->preCallback = fftPlan->preCallback;
+					rowPlan->precallUserData = fftPlan->precallUserData;
+				}
+
 				OPENCL_V(clfftBakePlan(fftPlan->planX, numQueues, commQueueFFT, NULL, NULL ),
 					_T( "BakePlan for planX failed" ) );
 
@@ -2092,6 +2148,13 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 					rowPlan->outStride.push_back(fftPlan->outStride[index]);
 				}
 
+				//Set callback data if set on top level plan
+				if (fftPlan->hasPreCallback)
+				{
+					rowPlan->hasPreCallback = true;
+					rowPlan->preCallback = fftPlan->preCallback;
+					rowPlan->precallUserData = fftPlan->precallUserData;
+				}
 
 				OPENCL_V(clfftBakePlan(fftPlan->planX, numQueues, commQueueFFT, NULL, NULL ), _T( "BakePlan for planX failed" ) );
 
@@ -2441,6 +2504,14 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 						trans1Plan->oDist *= fftPlan->length[index];
 					}
 
+					//Set callback data if set on top level plan
+					if (fftPlan->hasPreCallback)
+					{
+						trans1Plan->hasPreCallback = true;
+						trans1Plan->preCallback = fftPlan->preCallback;
+						trans1Plan->precallUserData = fftPlan->precallUserData;
+					}
+
 					OPENCL_V(clfftBakePlan(fftPlan->planTY, numQueues, commQueueFFT, NULL, NULL ),
 						_T( "BakePlan for planTY failed" ) );
 
@@ -2683,6 +2754,14 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 
 					colPlan->batchsize = fftPlan->batchsize;
 
+					//Set callback data if set on top level plan
+					if (fftPlan->hasPreCallback)
+					{
+						colPlan->hasPreCallback = true;
+						colPlan->preCallback = fftPlan->preCallback;
+						colPlan->precallUserData = fftPlan->precallUserData;
+					}
+
 					OPENCL_V(clfftBakePlan(fftPlan->planY, numQueues, commQueueFFT, NULL, NULL ), _T( "BakePlan for planY failed" ) );
 
 					// create row plan
@@ -2812,6 +2891,13 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 
 				rowPlan->iDist    = fftPlan->iDist;
 
+				//Set callback data if set on top level plan
+				if (fftPlan->hasPreCallback)
+				{
+					rowPlan->hasPreCallback = true;
+					rowPlan->preCallback = fftPlan->preCallback;
+					rowPlan->precallUserData = fftPlan->precallUserData;
+				}
 
 				OPENCL_V(clfftBakePlan(fftPlan->planX, numQueues, commQueueFFT, NULL, NULL ), _T( "BakePlan for planX failed" ) );
 
@@ -2927,6 +3013,14 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 					xyPlan->length.push_back(fftPlan->length[index]);
 					xyPlan->inStride.push_back(fftPlan->inStride[index]);
 					xyPlan->outStride.push_back(fftPlan->outStride[index]);
+				}
+
+				//Set callback data if set on top level plan
+				if (fftPlan->hasPreCallback)
+				{
+					xyPlan->hasPreCallback = true;
+					xyPlan->preCallback = fftPlan->preCallback;
+					xyPlan->precallUserData = fftPlan->precallUserData;
 				}
 
 				OPENCL_V(clfftBakePlan(fftPlan->planX, numQueues, commQueueFFT, NULL, NULL ), _T( "BakePlan 3D->2D planX failed" ) );
@@ -3281,6 +3375,14 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 						trans1Plan->oDist *= fftPlan->length[index];
 					}
 
+					//Set callback data if set on top level plan
+					if (fftPlan->hasPreCallback)
+					{
+						trans1Plan->hasPreCallback = true;
+						trans1Plan->preCallback = fftPlan->preCallback;
+						trans1Plan->precallUserData = fftPlan->precallUserData;
+					}
+
 					OPENCL_V(clfftBakePlan(fftPlan->planTZ, numQueues, commQueueFFT, NULL, NULL ),
 						_T( "BakePlan for planTZ failed" ) );
 
@@ -3523,6 +3625,13 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 
 					colPlan->batchsize = fftPlan->batchsize;
 
+					//Set callback data if set on top level plan
+					if (fftPlan->hasPreCallback)
+					{
+						colPlan->hasPreCallback = true;
+						colPlan->preCallback = fftPlan->preCallback;
+						colPlan->precallUserData = fftPlan->precallUserData;
+					}
 				
 					OPENCL_V(clfftBakePlan(fftPlan->planZ, numQueues, commQueueFFT, NULL, NULL ), _T( "BakePlan 3D->1D planZ failed" ) );
 
@@ -3646,6 +3755,14 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 				xyPlan->outStride.push_back(fftPlan->outStride[2]);
 				xyPlan->iDist    = fftPlan->iDist;
 				xyPlan->oDist    = fftPlan->oDist;
+
+				//Set callback data if set on top level plan
+				if (fftPlan->hasPreCallback)
+				{
+					xyPlan->hasPreCallback = true;
+					xyPlan->preCallback = fftPlan->preCallback;
+					xyPlan->precallUserData = fftPlan->precallUserData;
+				}
 
 				OPENCL_V(clfftBakePlan(fftPlan->planX, numQueues, commQueueFFT, NULL, NULL ), _T( "BakePlan 3D->2D planX failed" ) );
 

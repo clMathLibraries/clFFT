@@ -91,6 +91,17 @@ enum BlockComputeType
 #define CLFFT_CB_SIZE 32
 #define CLFFT_MAX_INTERNAL_DIM 16
 
+/*! @brief Data structure to store the callback function string and other metadata passed by client 
+*  @details Client sets the callback function and other required parameters through clfftSetPlanCallback() 
+*  in order to register the callback function. The library populates these values into this data structure
+*/ 
+typedef struct clfftCallbackParam_
+{
+	int localMemSize;			/*!< optional local memory size if needed by callback */
+	const char* funcname;		/*!< callback function name */
+	const char* funcstring;		/*!< callback function in string form */
+}clfftCallbackParam;
+
 struct FFTKernelGenKeyParams {
 	/*
 	 *	This structure distills a subset of the fftPlan data,
@@ -135,6 +146,8 @@ struct FFTKernelGenKeyParams {
 	size_t					 blockSIMD;
 	size_t					 blockLDS;
 
+	bool fft_hasPreCallback;
+	clfftCallbackParam fft_preCallback;
 
 	// Default constructor
 	FFTKernelGenKeyParams()
@@ -170,6 +183,8 @@ struct FFTKernelGenKeyParams {
 		blockComputeType = BCT_C2C;
 		blockSIMD = 0;
 		blockLDS = 0;
+
+		fft_hasPreCallback = false;
 	}
 };
 
@@ -434,6 +449,10 @@ public:
 	bool blockCompute;
 	BlockComputeType blockComputeType;
 
+	bool hasPreCallback;
+
+	clfftCallbackParam preCallback;
+	cl_mem precallUserData;
 
     clfftPlanHandle plHandle;
 
@@ -485,7 +504,9 @@ public:
 	,	gen(Stockham)
     ,   action(0)
     ,   plHandle(0)
-	{};
+	,   hasPreCallback(false)
+	{
+	};
 
 
 	size_t ElementSize() const;
