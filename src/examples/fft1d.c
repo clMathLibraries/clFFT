@@ -74,8 +74,8 @@ int main( void )
     printf("\nPerforming fft on an one dimensional array of size N = %ld\n", N);
     int print_iter = 0;
     while(print_iter<N) {
-        float x = print_iter;
-        float y = print_iter*3;
+        float x = (float)print_iter;
+        float y = (float)print_iter*3;
         X[2*print_iter  ] = x;
         X[2*print_iter+1] = y;
         printf("(%f, %f) ", x, y);

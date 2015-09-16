@@ -254,7 +254,7 @@ void FFTBinaryLookup::finalizeVariant()
     if (whole_variant_size_in_bytes != 0)
     {
         char md5_sum[33];
-        md5sum(this->m_signature, this->m_header.signature_size, md5_sum);
+        md5sum(this->m_signature, (unsigned long)this->m_header.signature_size, md5_sum);
         this->m_cache_entry_name = md5_sum;
     }
     else
@@ -298,7 +298,7 @@ bool FFTBinaryLookup::loadBinaryAndSignature(std::ifstream &file)
         this->m_variants.clear();
 
         char * current = this->m_signature;
-        for (int i=0 ; i<this->m_header.signature_size ; ++i)
+        for (size_t i=0 ; i<this->m_header.signature_size ; ++i)
         {
             Variant v;
             v.m_kind = *(VariantKind*) current;

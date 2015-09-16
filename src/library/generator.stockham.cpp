@@ -825,9 +825,9 @@ namespace StockhamGenerator
 				return;
 			}
 
-			int hid = 0;
+			size_t hid = 0;
 			bool swapElement = false;
-			int tIter = numB * radix;
+			size_t tIter = numB * radix;
 
 			// block to rearrange reads of adjacent memory locations together
 			if(linearRegs && (flag == SR_READ))
