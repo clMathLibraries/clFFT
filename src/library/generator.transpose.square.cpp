@@ -131,6 +131,9 @@ static void OffsetCalc(std::stringstream& transKernel, const FFTKernelGenKeyPara
 // the generator that it wants the twiddle factors generated inside of the transpose
 static clfftStatus genTwiddleMath( const FFTKernelGenKeyParams& params, std::stringstream& transKernel, const std::string& dtComplex, bool fwd )
 {
+
+	clKernWrite( transKernel, 9 ) << std::endl;
+
     clKernWrite( transKernel, 9 ) << dtComplex << " Wm = TW3step( (t_gx_p*32 + lidx) * (t_gy_p*32 + lidy + loop*8) );" << std::endl;
 	clKernWrite( transKernel, 9 ) << dtComplex << " Wt = TW3step( (t_gy_p*32 + lidx) * (t_gx_p*32 + lidy + loop*8) );" << std::endl;
     clKernWrite( transKernel, 9 ) << dtComplex << " Tm, Tt;" << std::endl;
@@ -155,6 +158,7 @@ static clfftStatus genTwiddleMath( const FFTKernelGenKeyParams& params, std::str
     clKernWrite( transKernel, 9 ) << "tmpt.x = Tt.x;" << std::endl;
     clKernWrite( transKernel, 9 ) << "tmpt.y = Tt.y;" << std::endl;
 
+	clKernWrite( transKernel, 9 ) << std::endl;
 
     return CLFFT_SUCCESS;
 }
@@ -582,6 +586,9 @@ static clfftStatus genTransposeKernel( const FFTGeneratedTransposeSquareAction::
 					return CLFFT_TRANSPOSED_NOTIMPLEMENTED;
 			}
 
+			// If requested, generate the Twiddle math to multiply constant values
+			if( params.fft_3StepTwiddle )
+				genTwiddleMath( params, transKernel, dtComplex, fwd );
 
 			clKernWrite(transKernel, 9) << "xy_s[index] = tmpm;" << std::endl;
 			clKernWrite(transKernel, 9) << "yx_s[index] = tmpt;" << std::endl;
@@ -598,20 +605,20 @@ static clfftStatus genTransposeKernel( const FFTGeneratedTransposeSquareAction::
 			{
 				case CLFFT_COMPLEX_INTERLEAVED:
 					clKernWrite(transKernel, 9) << "if ((idy + loop*" << 16/reShapeFactor << ")<" << params.fft_N[0] << "&& idx<" << params.fft_N[0] << ")" << std::endl;			
-					clKernWrite(transKernel, 12) << "xy_s[index] = inputA[(idy + loop*" << 16 / reShapeFactor << ")*" << params.fft_N[0] << " + idx];" << std::endl;
+					clKernWrite(transKernel, 12) << "tmpm = inputA[(idy + loop*" << 16 / reShapeFactor << ")*" << params.fft_N[0] << " + idx];" << std::endl;
 					clKernWrite(transKernel, 9) << "if ((t_gy_p *" <<16*reShapeFactor << " + lidx)<" << params.fft_N[0] << " && (t_gx_p * " << 16*reShapeFactor << " + lidy + loop*" << 16/reShapeFactor << ")<" << params.fft_N[0] << ") " << std::endl;
-					clKernWrite(transKernel, 12) << "yx_s[index] = inputA[(lidy + loop*" << 16/reShapeFactor << ")*" << params.fft_N[0] << " + lidx + starting_index_yx];" << std::endl;
+					clKernWrite(transKernel, 12) << "tmpt = inputA[(lidy + loop*" << 16/reShapeFactor << ")*" << params.fft_N[0] << " + lidx + starting_index_yx];" << std::endl;
 
 					break;
 				case CLFFT_COMPLEX_PLANAR:
 					dtInput = dtPlanar;
 					dtOutput = dtPlanar;
 					clKernWrite(transKernel, 9) << "if ((idy + loop*" << 16/reShapeFactor << ")<" << params.fft_N[0] << "&& idx<" << params.fft_N[0] << ") {" << std::endl;			
-					clKernWrite(transKernel, 12) << "xy_s[index].x = inputA_R[(idy + loop*" << 16 / reShapeFactor << ")*" << params.fft_N[0] << " + idx];" << std::endl;
-					clKernWrite(transKernel, 12) << "xy_s[index].y = inputA_I[(idy + loop*" << 16 / reShapeFactor << ")*" << params.fft_N[0] << " + idx]; }" << std::endl;
+					clKernWrite(transKernel, 12) << "tmpm.x = inputA_R[(idy + loop*" << 16 / reShapeFactor << ")*" << params.fft_N[0] << " + idx];" << std::endl;
+					clKernWrite(transKernel, 12) << "tmpm.y = inputA_I[(idy + loop*" << 16 / reShapeFactor << ")*" << params.fft_N[0] << " + idx]; }" << std::endl;
 					clKernWrite(transKernel, 9) << "if ((t_gy_p *" <<16*reShapeFactor << " + lidx)<" << params.fft_N[0] << " && (t_gx_p * " << 16*reShapeFactor << " + lidy + loop*" << 16/reShapeFactor << ")<" << params.fft_N[0] << ") {" << std::endl;
-					clKernWrite(transKernel, 12) << "yx_s[index].x = inputA_R[(lidy + loop*" << 16/reShapeFactor << ")*" << params.fft_N[0] << " + lidx + starting_index_yx];" << std::endl;
-					clKernWrite(transKernel, 12) << "yx_s[index].y = inputA_I[(lidy + loop*" << 16/reShapeFactor << ")*" << params.fft_N[0] << " + lidx + starting_index_yx]; }" << std::endl;
+					clKernWrite(transKernel, 12) << "tmpt.x = inputA_R[(lidy + loop*" << 16/reShapeFactor << ")*" << params.fft_N[0] << " + lidx + starting_index_yx];" << std::endl;
+					clKernWrite(transKernel, 12) << "tmpt.y = inputA_I[(lidy + loop*" << 16/reShapeFactor << ")*" << params.fft_N[0] << " + lidx + starting_index_yx]; }" << std::endl;
 
 					break;
 				case CLFFT_HERMITIAN_INTERLEAVED:
@@ -623,6 +630,13 @@ static clfftStatus genTransposeKernel( const FFTGeneratedTransposeSquareAction::
 					return CLFFT_TRANSPOSED_NOTIMPLEMENTED;
 			}
 
+
+			// If requested, generate the Twiddle math to multiply constant values
+			if( params.fft_3StepTwiddle )
+				genTwiddleMath( params, transKernel, dtComplex, fwd );
+
+			clKernWrite(transKernel, 9) << "xy_s[index] = tmpm;" << std::endl;
+			clKernWrite(transKernel, 9) << "yx_s[index] = tmpt;" << std::endl;
 
 			clKernWrite(transKernel, 9) << "}" << std::endl;
 			clKernWrite(transKernel, 3) << "}" << std::endl;
