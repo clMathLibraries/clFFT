@@ -701,7 +701,7 @@ public:
 						o_prev_val = o_the_index <= 0 ? 0 : *(o_base_ptr + o_the_index - 1);
 						o_next_val = o_the_index >= (other_buffer.total_number_of_points_including_data_and_intervening() - 1) ? 0 : *(o_base_ptr + o_the_index +  1);
 						
-						average = (o_prev_val + *(o_base_ptr + o_the_index) + o_next_val)/ 3.0 ;
+						average = (o_prev_val + *(o_base_ptr + o_the_index) + o_next_val)/ 3.0f ;
 
 						if( is_interleaved() )
 						{

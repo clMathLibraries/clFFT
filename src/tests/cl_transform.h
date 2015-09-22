@@ -696,7 +696,7 @@ public:
 					{
 						the_index = ( input.stride(dimx) * x + input.stride(dimy) * y + input.stride(dimz) * z + input.distance() * batch );
 
-						userdata[the_index].scalar1 = temp.real(x, y, z, batch);
+						userdata[the_index].scalar1 = (float)temp.real(x, y, z, batch);
 						userdata[the_index].scalar2 = 1;
 					}
 
