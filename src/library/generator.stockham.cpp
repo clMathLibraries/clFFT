@@ -385,7 +385,7 @@ namespace StockhamGenerator
 	// Given the length of 1d fft, this function determines the appropriate work group size
 	// and the number of transforms per work group
 	// TODO for optimizations - experiment with different possibilities for work group sizes and num transforms for improving performance
-	void DetermineSizes(const size_t &MAX_WGS, const size_t &length, size_t &workGroupSize, size_t &numTrans)
+	void DetermineSizes(const size_t &MAX_WGS, const size_t &length, size_t &workGroupSize, size_t &numTrans, Precision &pr)
 	{
 		assert(MAX_WGS >= 64);
 
@@ -396,7 +396,7 @@ namespace StockhamGenerator
 			return;
 		}
 
-		size_t baseRadix[] = {5,3,2}; // list only supported primes
+		size_t baseRadix[] = {7,5,3,2}; // list only supported primes
 		size_t baseRadixSize = sizeof(baseRadix)/sizeof(baseRadix[0]);
 
 		size_t l = length;
@@ -418,9 +418,7 @@ namespace StockhamGenerator
 
 		if		(primeFactorsExpanded[2] == length)	// Length is pure power of 2
 		{
-			//if(length == 1024) { workGroupSize = 128;  numTrans = 1; }
 			if		(length >= 1024)	{ workGroupSize = (MAX_WGS >= 256) ? 256 : MAX_WGS; numTrans = 1; }
-			//else if (length == 512)		{ workGroupSize = (MAX_WGS >= 128) ? 128 : MAX_WGS; numTrans = 1; }
 			else if (length == 512)		{ workGroupSize = 64; numTrans = 1; }
 			else if	(length >= 16)		{ workGroupSize = 64;  numTrans = 256/length; }
 			else						{ workGroupSize = 64;  numTrans = 128/length; }
@@ -428,69 +426,79 @@ namespace StockhamGenerator
 		else if	(primeFactorsExpanded[3] == length) // Length is pure power of 3
 		{
 			workGroupSize = (MAX_WGS >= 256) ? 243 : 27;
-			if(length >= 3*workGroupSize)	numTrans = 1;
-			else							numTrans = (3*workGroupSize)/length;
+			numTrans = length >= 3*workGroupSize ? 1 : (3*workGroupSize)/length;
 		}
 		else if	(primeFactorsExpanded[5] == length) // Length is pure power of 5
 		{
 			workGroupSize = (MAX_WGS >= 128) ? 125 : 25;
-			if(length >= 5*workGroupSize)	numTrans = 1;
-			else							numTrans = (5*workGroupSize)/length;
+			numTrans = length >= 5*workGroupSize ? 1 : (5*workGroupSize)/length;
 		}
-		else
+		else if	(primeFactorsExpanded[7] == length) // Length is pure power of 7
 		{
-			size_t leastNumPerWI; // least number of elements in one work item
-			size_t maxWorkGroupSize; // maximum work group size desired
-
-			if		(primeFactorsExpanded[2] * primeFactorsExpanded[3] == length) // Length is mix of 2&3 only
-			{
-				if(!(length%12))	{ leastNumPerWI = 12; maxWorkGroupSize = (MAX_WGS >= 128) ? 128 : MAX_WGS; }
-				else				{ leastNumPerWI = 6;  maxWorkGroupSize = (MAX_WGS >= 256) ? 256 : MAX_WGS; }
-			}
-			else if	(primeFactorsExpanded[2] * primeFactorsExpanded[5] == length) // Length is mix of 2&5 only
-			{
-				if(!(length%20))	{ leastNumPerWI = 20; maxWorkGroupSize = 64; }
-				else				{ leastNumPerWI = 10; maxWorkGroupSize = (MAX_WGS >= 128) ? 128 : MAX_WGS; }
-			}
-			else if (primeFactorsExpanded[3] * primeFactorsExpanded[5] == length) // Length is mix of 3&5 only
-			{
-				leastNumPerWI = 15;
-				maxWorkGroupSize = 64;
-			}
-			else
-			{
-				leastNumPerWI = 30;
-				maxWorkGroupSize = 64;
-			}
+			workGroupSize = 49;
+			numTrans = length >= 7*workGroupSize ? 1 : (7*workGroupSize)/length;
+		} else {
+			size_t leastNumPerWI = 1; // least number of elements in one work item
+			size_t maxWorkGroupSize = MAX_WGS; // maximum work group size desired
 
 
-			// Make sure the work group size does not exceed MAX_WGS
-			// for large problems sizes, this means doing more work per work-item
-			size_t lnpi;
-			size_t ft = 1;
-			while(1)
+			if        (primeFactorsExpanded[2] * primeFactorsExpanded[3] == length) { 
+				if (length % 12 == 0) { 
+					leastNumPerWI = 12; maxWorkGroupSize = 128;
+				} else { 
+					leastNumPerWI =  6; maxWorkGroupSize = 256;
+				}
+			} else if (primeFactorsExpanded[2] * primeFactorsExpanded[5] == length) { 
+				if (length % 20 == 0) { 
+					leastNumPerWI = 20; maxWorkGroupSize = 64;
+				} else { 
+					leastNumPerWI = 10; maxWorkGroupSize = 128;
+				}
+			} else if (primeFactorsExpanded[2] * primeFactorsExpanded[7] == length) { 
+					leastNumPerWI = 14; maxWorkGroupSize = 64;
+			} else if (primeFactorsExpanded[3] * primeFactorsExpanded[5] == length) { 
+				    leastNumPerWI = 15; maxWorkGroupSize = 128;
+			} else if (primeFactorsExpanded[3] * primeFactorsExpanded[7] == length) { 
+				    leastNumPerWI = 21; maxWorkGroupSize = 128;
+			} else if (primeFactorsExpanded[5] * primeFactorsExpanded[7] == length) { 
+				    leastNumPerWI = 35; maxWorkGroupSize = 64;
+			} else if (primeFactorsExpanded[2] * primeFactorsExpanded[3] * primeFactorsExpanded[5] == length) { 
+				    leastNumPerWI = 30; maxWorkGroupSize = 64;
+			} else if (primeFactorsExpanded[2] * primeFactorsExpanded[3] * primeFactorsExpanded[7] == length) { 
+				    leastNumPerWI = 42; maxWorkGroupSize = 60;
+			} else if (primeFactorsExpanded[2] * primeFactorsExpanded[5] * primeFactorsExpanded[7] == length) { 
+				    leastNumPerWI = 70; maxWorkGroupSize = 36;
+			} else if (primeFactorsExpanded[3] * primeFactorsExpanded[5] * primeFactorsExpanded[7] == length) { 
+				    leastNumPerWI =105; maxWorkGroupSize = 24;
+			} else { 
+				    leastNumPerWI =210; maxWorkGroupSize = 12;
+			}
+			if (pr==P_DOUBLE)
 			{
-				lnpi = leastNumPerWI * ft++;
-				if(length%lnpi) continue;
+				//leastNumPerWI /= 2; 
+				maxWorkGroupSize /= 2;
+			}
+			
 
-				if( (length/lnpi) <= MAX_WGS )
-				{
+			if (maxWorkGroupSize > MAX_WGS)
+				maxWorkGroupSize = MAX_WGS;
+			assert (leastNumPerWI > 0 && length % leastNumPerWI == 0);
+
+			for (size_t lnpi = leastNumPerWI; lnpi <= length; lnpi += leastNumPerWI) {
+				if (length % lnpi != 0) continue;
+
+				if (length / lnpi <= MAX_WGS) {
 					leastNumPerWI = lnpi;
 					break;
 				}
 			}
 
-			numTrans = 1;
-			size_t n=1;
-			while( ((n*length)/leastNumPerWI) <= maxWorkGroupSize )
-			{
-				numTrans = n;
-				n++;
-			}
-
-			workGroupSize = (numTrans*length)/leastNumPerWI;
-			assert(workGroupSize <= MAX_WGS);
+			numTrans = maxWorkGroupSize / (length / leastNumPerWI);
+			numTrans = numTrans < 1 ? 1 : numTrans;
+			workGroupSize = numTrans * (length / leastNumPerWI);
 		}
+
+		assert(workGroupSize <= MAX_WGS);
 	}
 
 	// Twiddle factors table
@@ -2801,7 +2809,7 @@ namespace StockhamGenerator
 			else
 			{
 				// Possible radices
-				size_t cRad[] = {10,8,6,5,4,3,2,1}; // Must be in descending order
+				size_t cRad[] = {10,8,7,6,5,4,3,2,1}; // Must be in descending order
 				size_t cRadSize = (sizeof(cRad)/sizeof(cRad[0]));
 
 				// Generate the radix and pass objects
@@ -3022,6 +3030,16 @@ namespace StockhamGenerator
 
 			str += "#define C3QA 0.50000000000000000000000000000000"; str += sfx; str += "\n";
 			str += "#define C3QB 0.86602540378443864676372317075294"; str += sfx; str += "\n";
+
+			str += "#define C7Q1 -1.16666666666666651863693004997913"; str += sfx; str += "\n";
+			str += "#define C7Q2  0.79015646852540022404554065360571"; str += sfx; str += "\n";
+			str += "#define C7Q3  0.05585426728964774240049351305970"; str += sfx; str += "\n";
+			str += "#define C7Q4  0.73430220123575240531721419756650"; str += sfx; str += "\n";
+			str += "#define C7Q5  0.44095855184409837868031445395900"; str += sfx; str += "\n";
+			str += "#define C7Q6  0.34087293062393136944265847887436"; str += sfx; str += "\n";
+			str += "#define C7Q7 -0.53396936033772524066165487965918"; str += sfx; str += "\n";
+			str += "#define C7Q8  0.87484229096165666561546458979137"; str += sfx; str += "\n";
+
 			str += "\n";
 
 			bool cReg = linearRegs ? true : false;
@@ -4109,7 +4127,7 @@ clfftStatus FFTGeneratedStockhamAction::initParams ()
 		nt = t_nt;
 	}
 	else
-		DetermineSizes(this->plan->envelope.limit_WorkGroupSize, this->signature.fft_N[0], wgs, nt);
+		DetermineSizes(this->plan->envelope.limit_WorkGroupSize, this->signature.fft_N[0], wgs, nt, pr);
 #endif
 
 	assert((nt * this->signature.fft_N[0]) >= wgs);

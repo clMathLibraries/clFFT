@@ -118,6 +118,7 @@ namespace ParameterizedTest {
 		supported_radices.push_back(2);
 		supported_radices.push_back(3);
 		supported_radices.push_back(5);
+		supported_radices.push_back(7);
 
 		// total size of this problem should be some fraction of the total space available on the device
 		size_t this_problem_size = random_int(1, max_problem_size_in_datapoints(precision,layout));
