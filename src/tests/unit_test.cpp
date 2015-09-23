@@ -366,8 +366,8 @@ TEST_F(clfft_UnitTest, setPlanDimLength_should_fail_if_a_length_is_set_to_zero) 
 }
 
 TEST_F(clfft_UnitTest, setPlanDimLength_should_fail_on_radices_that_have_non_supported_factors) {
-	// currently only factors of 2, 3, and 5 are supported
-	lengths[0] = 2*3*5*7;
+	// currently only factors of 2, 3, 5, and 7 are supported
+	lengths[0] = 2*3*5*7*11;
 	EXPECT_EQ( CLFFT_NOTIMPLEMENTED, clfftSetPlanLength( test_plan, CLFFT_1D, lengths ) );
 
 	lengths[0] = 2*2*3*3*5*5*5*5*13;
@@ -516,14 +516,14 @@ TEST_F(clfft_UnitTest, createDefaultPlan_should_fail_when_passed_invalid_dimensi
 TEST_F(clfft_UnitTest, createDefaultPlan_should_fail_when_passed_unsupported_length) {
     size_t length[3] = {1,1,1};
 
-    length[0] = 7;
+    length[0] = 11;
 	EXPECT_EQ( CLFFT_NOTIMPLEMENTED, clfftCreateDefaultPlan( &test_plan, context, CLFFT_1D, length));
 
     length[0] = 13;
     length[1] = 1;
 	EXPECT_EQ( CLFFT_NOTIMPLEMENTED, clfftCreateDefaultPlan( &test_plan, context, CLFFT_2D, length));
     length[0] = 1;
-    length[1] = 14;
+    length[1] = 34;
 	EXPECT_EQ( CLFFT_NOTIMPLEMENTED, clfftCreateDefaultPlan( &test_plan, context, CLFFT_2D, length));
     length[0] = 19;
     length[1] = 22;
@@ -537,13 +537,13 @@ TEST_F(clfft_UnitTest, createDefaultPlan_should_fail_when_passed_unsupported_len
     length[1] = 17;
     length[2] = 1;
 	EXPECT_EQ( CLFFT_NOTIMPLEMENTED, clfftCreateDefaultPlan( &test_plan, context, CLFFT_3D, length));
-    length[0] = 42;
+    length[0] = 66;
     length[1] = 1;
     length[2] = 1;
 	EXPECT_EQ( CLFFT_NOTIMPLEMENTED, clfftCreateDefaultPlan( &test_plan, context, CLFFT_3D, length));
     length[0] = 5;
     length[1] = 6;
-    length[2] = 7;
+    length[2] = 17;
 	EXPECT_EQ( CLFFT_NOTIMPLEMENTED, clfftCreateDefaultPlan( &test_plan, context, CLFFT_3D, length));
 }
 
