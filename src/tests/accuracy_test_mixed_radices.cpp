@@ -168,8 +168,8 @@ public:
 	Supported_Fft_Sizes()
 	: max_mixed_radices_to_test( 4096 )
 	{
-		size_t i=0, j=0, k=0;
-		size_t sum, sumi, sumj, sumk;
+		size_t i=0, j=0, k=0, l=0;
+		size_t sum, sumi, sumj, sumk, suml;
 
 		sumi = 1; i = 0;
 		while(1)
@@ -180,22 +180,30 @@ public:
 				sumk = 1; k = 0;
 				while(1)
 				{
-					sum = (sumi*sumj*sumk);
-					if( sum > max_mixed_radices_to_test ) break;
+					suml = 1; l = 0;
+					while(1)
+					{
+						sum = (sumi*sumj*sumk*suml);
+						if( sum > max_mixed_radices_to_test ) break;
 
-					sizes.push_back(sum);
+						sizes.push_back(sum);
+						l++;
+						suml *= 2;
+					}
+
+					if(l == 0) break;
 					k++;
-					sumk *= 2;
+					sumk *= 3;
 				}
 
-				if(k == 0) break;
+				if( (k == 0) && (l == 0) ) break;
 				j++;
-				sumj *= 3;
+				sumj *= 5;
 			}
 
-			if( (j == 0) && (k == 0) ) break;
+			if( (j == 0) && (k == 0) && (l == 0) ) break;
 			i++;
-			sumi *= 5;
+			sumi *= 7;
 		}
 	}
 } supported_sizes;
