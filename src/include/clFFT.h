@@ -559,7 +559,7 @@ extern "C" {
 	 *  @param[funcString] Callback function in string form
 	 *  @param[localMemSize] Optional - Local memory size if needed by callback. Pass 0 if local memory not needed by callback
 	 *  @param[callbackType] Type of callback - Pre-Callback or Post-Callback
-	 *  @param[userdata] cl_mem object passed as paarameter to callback function
+	 *  @param[userdata] Supplementary data if any used by callback function
 	 *  @param[numUserdataBuffers] Number of userdata buffers
 	 */
 	CLFFTAPI clfftStatus clfftSetPlanCallback(clfftPlanHandle plHandle, const char* funcName, const char* funcString,  

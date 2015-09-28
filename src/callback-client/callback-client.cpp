@@ -224,12 +224,8 @@ void runR2CPrecallbackFFT(std::auto_ptr< clfftSetupData > setupData, cl_context 
 		//Reference fftw output
 		fftwf_complex *refout;
 
-		refout = get_R2C_fftwf_output(inlengths, fftLength, batchSize, inLayout, dim);
+		refout = get_R2C_fftwf_output(inlengths, fftLength, (int)batchSize, inLayout, dim);
 
-		/*for( cl_uint i = 0; i < fftLength/2; i++)
-		{
-			std::cout << "i " << i << " refreal " << refout[i][0] << " refimag " << refout[i][1] << " clreal " << output[i].real() << " climag " << output[i].imag() << std::endl;
-		}*/
 		if (!compare<fftwf_complex, T>(refout, output, fftLength/2))
 		{
 			std::cout << "\n\n\t\tInternal Client Test (with clFFT Pre-callback) *****FAIL*****" << std::endl;
@@ -434,7 +430,7 @@ void runR2CPreprocessKernelFFT(std::auto_ptr< clfftSetupData > setupData, cl_con
 		//Reference fftw output
 		fftwf_complex *refout;
 
-		refout = get_R2C_fftwf_output(inlengths, fftLength, batchSize, inLayout, dim);
+		refout = get_R2C_fftwf_output(inlengths, fftLength, (int)batchSize, inLayout, dim);
 
 		/*for( cl_uint i = 0; i < fftLength/2; i++)
 		{
@@ -531,8 +527,8 @@ fftwf_complex* get_R2C_fftwf_output(size_t* lengths, size_t fftbatchLength, int 
 
 	fftwf_plan refPlan;
 		
-	size_t infftVectorLength = inembed[0] * inembed[1] * inembed[2];
-	size_t outfftVectorLength = outembed[0] * outembed[1] * outembed[2];
+	int infftVectorLength = inembed[0] * inembed[1] * inembed[2];
+	int outfftVectorLength = outembed[0] * outembed[1] * outembed[2];
 
 	float *refin = (float*) malloc(sizeof(float)*fftbatchLength);
 	fftwf_complex *refout = (fftwf_complex*)fftwf_malloc(sizeof(fftwf_complex)*outfftVectorLength*batch_size);
@@ -558,7 +554,7 @@ fftwf_complex* get_R2C_fftwf_output(size_t* lengths, size_t fftbatchLength, int 
 	
 	for( size_t i = 0; i < fftbatchLength; i++)
 	{
-		val = in24bitData[i][0] << 16 | in24bitData[i][1] << 8 | in24bitData[i][2] ;
+		val = (float)(in24bitData[i][0] << 16 | in24bitData[i][1] << 8 | in24bitData[i][2]) ;
 		
 		refin[i] = val;
 	}
