@@ -886,6 +886,353 @@ namespace StockhamGenerator
 						}
 					}
 				} break;
+			case 7:
+				{
+					static const char *C7SFR = "\
+					/*FFT7 Forward Real */ \n\
+					\n\
+						pr0 = *R1 + *R6; \n\
+						pi0 = *I1 + *I6; \n\
+						pr1 = *R1 - *R6; \n\
+						pi1 = *I1 - *I6; \n\
+						pr2 = *R2 + *R5; \n\
+						pi2 = *I2 + *I5; \n\
+						pr3 = *R2 - *R5; \n\
+						pi3 = *I2 - *I5; \n\
+						pr4 = *R4 + *R3; \n\
+						pi4 = *I4 + *I3; \n\
+						pr5 = *R4 - *R3; \n\
+						pi5 = *I4 - *I3; \n\
+					\n\
+						pr6 = pr2 + pr0; \n\
+						pi6 = pi2 + pi0; \n\
+						qr4 = pr2 - pr0; \n\
+						qi4 = pi2 - pi0; \n\
+						qr2 = pr0 - pr4; \n\
+						qi2 = pi0 - pi4; \n\
+						qr3 = pr4 - pr2; \n\
+						qi3 = pi4 - pi2; \n\
+						pr7 = pr5 + pr3; \n\
+						pi7 = pi5 + pi3; \n\
+						qr7 = pr5 - pr3; \n\
+						qi7 = pi5 - pi3; \n\
+						qr6 = pr1 - pr5; \n\
+						qi6 = pi1 - pi5; \n\
+						qr8 = pr3 - pr1; \n\
+						qi8 = pi3 - pi1; \n\
+						qr1 = pr6 + pr4; \n\
+						qi1 = pi6 + pi4; \n\
+						qr5 = pr7 + pr1; \n\
+						qi5 = pi7 + pi1; \n\
+						qr0 = *R0 + qr1; \n\
+						qi0 = *I0 + qi1; \n\
+					\n\
+						qr1 *= C7Q1; \n\
+						qi1 *= C7Q1; \n\
+						qr2 *= C7Q2; \n\
+						qi2 *= C7Q2; \n\
+						qr3 *= C7Q3; \n\
+						qi3 *= C7Q3; \n\
+						qr4 *= C7Q4; \n\
+						qi4 *= C7Q4; \n\
+					\n\
+						qr5 *= (C7Q5); \n\
+						qi5 *= (C7Q5); \n\
+						qr6 *= (C7Q6); \n\
+						qi6 *= (C7Q6); \n\
+						qr7 *= (C7Q7); \n\
+						qi7 *= (C7Q7); \n\
+						qr8 *= (C7Q8); \n\
+						qi8 *= (C7Q8); \n\
+					\n\
+						pr0 =  qr0 + qr1; \n\
+						pi0 =  qi0 + qi1; \n\
+						pr1 =  qr2 + qr3; \n\
+						pi1 =  qi2 + qi3; \n\
+						pr2 =  qr4 - qr3; \n\
+						pi2 =  qi4 - qi3; \n\
+						pr3 = -qr2 - qr4; \n\
+						pi3 = -qi2 - qi4; \n\
+						pr4 =  qr6 + qr7; \n\
+						pi4 =  qi6 + qi7; \n\
+						pr5 =  qr8 - qr7; \n\
+						pi5 =  qi8 - qi7; \n\
+						pr6 = -qr8 - qr6; \n\
+						pi6 = -qi8 - qi6; \n\
+						pr7 =  pr0 + pr1; \n\
+						pi7 =  pi0 + pi1; \n\
+						pr8 =  pr0 + pr2; \n\
+						pi8 =  pi0 + pi2; \n\
+						pr9 =  pr0 + pr3; \n\
+						pi9 =  pi0 + pi3; \n\
+						qr6 =  pr4 + qr5; \n\
+						qi6 =  pi4 + qi5; \n\
+						qr7 =  pr5 + qr5; \n\
+						qi7 =  pi5 + qi5; \n\
+						qr8 =  pr6 + qr5; \n\
+						qi8 =  pi6 + qi5; \n\
+					\n\
+						TR0 = qr0; TI0 = qi0; \n\
+						TR1 = pr7 + qi6; \n\
+						TI1 = pi7 - qr6; \n\
+						TR2 = pr9 + qi8; \n\
+						TI2 = pi9 - qr8; \n\
+						TR3 = pr8 - qi7; \n\
+						TI3 = pi8 + qr7; \n\
+						TR4 = pr8 + qi7; \n\
+						TI4 = pi8 - qr7; \n\
+						TR5 = pr9 - qi8; \n\
+						TI5 = pi9 + qr8; \n\
+						TR6 = pr7 - qi6; \n\
+						TI6 = pi7 + qr6; \n\
+					";
+
+					static const char *C7SBR = "\
+					/*FFT7 Backward Real */ \n\
+					\n\
+						pr0 = *R1 + *R6; \n\
+						pi0 = *I1 + *I6; \n\
+						pr1 = *R1 - *R6; \n\
+						pi1 = *I1 - *I6; \n\
+						pr2 = *R2 + *R5; \n\
+						pi2 = *I2 + *I5; \n\
+						pr3 = *R2 - *R5; \n\
+						pi3 = *I2 - *I5; \n\
+						pr4 = *R4 + *R3; \n\
+						pi4 = *I4 + *I3; \n\
+						pr5 = *R4 - *R3; \n\
+						pi5 = *I4 - *I3; \n\
+					\n\
+						pr6 = pr2 + pr0; \n\
+						pi6 = pi2 + pi0; \n\
+						qr4 = pr2 - pr0; \n\
+						qi4 = pi2 - pi0; \n\
+						qr2 = pr0 - pr4; \n\
+						qi2 = pi0 - pi4; \n\
+						qr3 = pr4 - pr2; \n\
+						qi3 = pi4 - pi2; \n\
+						pr7 = pr5 + pr3; \n\
+						pi7 = pi5 + pi3; \n\
+						qr7 = pr5 - pr3; \n\
+						qi7 = pi5 - pi3; \n\
+						qr6 = pr1 - pr5; \n\
+						qi6 = pi1 - pi5; \n\
+						qr8 = pr3 - pr1; \n\
+						qi8 = pi3 - pi1; \n\
+						qr1 = pr6 + pr4; \n\
+						qi1 = pi6 + pi4; \n\
+						qr5 = pr7 + pr1; \n\
+						qi5 = pi7 + pi1; \n\
+						qr0 = *R0 + qr1; \n\
+						qi0 = *I0 + qi1; \n\
+					\n\
+						qr1 *= C7Q1; \n\
+						qi1 *= C7Q1; \n\
+						qr2 *= C7Q2; \n\
+						qi2 *= C7Q2; \n\
+						qr3 *= C7Q3; \n\
+						qi3 *= C7Q3; \n\
+						qr4 *= C7Q4; \n\
+						qi4 *= C7Q4; \n\
+					\n\
+						qr5 *= -(C7Q5); \n\
+						qi5 *= -(C7Q5); \n\
+						qr6 *= -(C7Q6); \n\
+						qi6 *= -(C7Q6); \n\
+						qr7 *= -(C7Q7); \n\
+						qi7 *= -(C7Q7); \n\
+						qr8 *= -(C7Q8); \n\
+						qi8 *= -(C7Q8); \n\
+					\n\
+						pr0 =  qr0 + qr1; \n\
+						pi0 =  qi0 + qi1; \n\
+						pr1 =  qr2 + qr3; \n\
+						pi1 =  qi2 + qi3; \n\
+						pr2 =  qr4 - qr3; \n\
+						pi2 =  qi4 - qi3; \n\
+						pr3 = -qr2 - qr4; \n\
+						pi3 = -qi2 - qi4; \n\
+						pr4 =  qr6 + qr7; \n\
+						pi4 =  qi6 + qi7; \n\
+						pr5 =  qr8 - qr7; \n\
+						pi5 =  qi8 - qi7; \n\
+						pr6 = -qr8 - qr6; \n\
+						pi6 = -qi8 - qi6; \n\
+						pr7 =  pr0 + pr1; \n\
+						pi7 =  pi0 + pi1; \n\
+						pr8 =  pr0 + pr2; \n\
+						pi8 =  pi0 + pi2; \n\
+						pr9 =  pr0 + pr3; \n\
+						pi9 =  pi0 + pi3; \n\
+						qr6 =  pr4 + qr5; \n\
+						qi6 =  pi4 + qi5; \n\
+						qr7 =  pr5 + qr5; \n\
+						qi7 =  pi5 + qi5; \n\
+						qr8 =  pr6 + qr5; \n\
+						qi8 =  pi6 + qi5; \n\
+					\n\
+						TR0 = qr0; TI0 = qi0; \n\
+						TR1 = pr7 + qi6; \n\
+						TI1 = pi7 - qr6; \n\
+						TR2 = pr9 + qi8; \n\
+						TI2 = pi9 - qr8; \n\
+						TR3 = pr8 - qi7; \n\
+						TI3 = pi8 + qr7; \n\
+						TR4 = pr8 + qi7; \n\
+						TI4 = pi8 - qr7; \n\
+						TR5 = pr9 - qi8; \n\
+						TI5 = pi9 + qr8; \n\
+						TR6 = pr7 - qi6; \n\
+						TI6 = pi7 + qr6; \n\
+					";
+
+					static const char *C7SFC = "\
+					/*FFT7 Forward Complex */ \n\
+					\n\
+						p0 = *R1 + *R6; \n\
+						p1 = *R1 - *R6; \n\
+						p2 = *R2 + *R5; \n\
+						p3 = *R2 - *R5; \n\
+						p4 = *R4 + *R3; \n\
+						p5 = *R4 - *R3; \n\
+					\n\
+						p6 = p2 + p0; \n\
+						q4 = p2 - p0; \n\
+						q2 = p0 - p4; \n\
+						q3 = p4 - p2; \n\
+						p7 = p5 + p3; \n\
+						q7 = p5 - p3; \n\
+						q6 = p1 - p5; \n\
+						q8 = p3 - p1; \n\
+						q1 = p6 + p4; \n\
+						q5 = p7 + p1; \n\
+						q0 = *R0 + q1; \n\
+					\n\
+						q1 *= C7Q1; \n\
+						q2 *= C7Q2; \n\
+						q3 *= C7Q3; \n\
+						q4 *= C7Q4; \n\
+					\n\
+						q5 *= (C7Q5); \n\
+						q6 *= (C7Q6); \n\
+						q7 *= (C7Q7); \n\
+						q8 *= (C7Q8); \n\
+					\n\
+						p0 = q0 + q1; \n\
+						p1 = q2 + q3; \n\
+						p2 = q4 - q3; \n\
+						p3 = -q2 - q4; \n\
+						p4 = q6 + q7; \n\
+						p5 = q8 - q7; \n\
+						p6 = -q8 - q6; \n\
+						p7 = p0 + p1; \n\
+						p8 = p0 + p2; \n\
+						p9 = p0 + p3; \n\
+						q6 = p4 + q5; \n\
+						q7 = p5 + q5; \n\
+						q8 = p6 + q5; \n\
+					\n\
+						*R0 = q0; \n\
+						(*R1).x = p7.x + q6.y; \n\
+						(*R1).y = p7.y - q6.x; \n\
+						(*R2).x = p9.x + q8.y; \n\
+						(*R2).y = p9.y - q8.x; \n\
+						(*R3).x = p8.x - q7.y; \n\
+						(*R3).y = p8.y + q7.x; \n\
+						(*R4).x = p8.x + q7.y; \n\
+						(*R4).y = p8.y - q7.x; \n\
+						(*R5).x = p9.x - q8.y; \n\
+						(*R5).y = p9.y + q8.x; \n\
+						(*R6).x = p7.x - q6.y; \n\
+						(*R6).y = p7.y + q6.x; \n\
+					";
+
+					static const char *C7SBC = "\
+					/*FFT7 Backward Complex */ \n\
+					\n\
+						p0 = *R1 + *R6; \n\
+						p1 = *R1 - *R6; \n\
+						p2 = *R2 + *R5; \n\
+						p3 = *R2 - *R5; \n\
+						p4 = *R4 + *R3; \n\
+						p5 = *R4 - *R3; \n\
+					\n\
+						p6 = p2 + p0; \n\
+						q4 = p2 - p0; \n\
+						q2 = p0 - p4; \n\
+						q3 = p4 - p2; \n\
+						p7 = p5 + p3; \n\
+						q7 = p5 - p3; \n\
+						q6 = p1 - p5; \n\
+						q8 = p3 - p1; \n\
+						q1 = p6 + p4; \n\
+						q5 = p7 + p1; \n\
+						q0 = *R0 + q1; \n\
+					\n\
+						q1 *= C7Q1; \n\
+						q2 *= C7Q2; \n\
+						q3 *= C7Q3; \n\
+						q4 *= C7Q4; \n\
+					\n\
+						q5 *= -(C7Q5); \n\
+						q6 *= -(C7Q6); \n\
+						q7 *= -(C7Q7); \n\
+						q8 *= -(C7Q8); \n\
+					\n\
+						p0 = q0 + q1; \n\
+						p1 = q2 + q3; \n\
+						p2 = q4 - q3; \n\
+						p3 = -q2 - q4; \n\
+						p4 = q6 + q7; \n\
+						p5 = q8 - q7; \n\
+						p6 = -q8 - q6; \n\
+						p7 = p0 + p1; \n\
+						p8 = p0 + p2; \n\
+						p9 = p0 + p3; \n\
+						q6 = p4 + q5; \n\
+						q7 = p5 + q5; \n\
+						q8 = p6 + q5; \n\
+					\n\
+						*R0 = q0; \n\
+						(*R1).x = p7.x + q6.y; \n\
+						(*R1).y = p7.y - q6.x; \n\
+						(*R2).x = p9.x + q8.y; \n\
+						(*R2).y = p9.y - q8.x; \n\
+						(*R3).x = p8.x - q7.y; \n\
+						(*R3).y = p8.y + q7.x; \n\
+						(*R4).x = p8.x + q7.y; \n\
+						(*R4).y = p8.y - q7.x; \n\
+						(*R5).x = p9.x - q8.y; \n\
+						(*R5).y = p9.y + q8.x; \n\
+						(*R6).x = p7.x - q6.y; \n\
+						(*R6).y = p7.y + q6.x; \n\
+					";
+
+
+
+					if (!cReg) {
+						for (size_t i = 0; i < 10; i++)
+							bflyStr += regType + " pr" + SztToStr(i) + ", pi" + SztToStr(i) + ";\n\t";
+						for (size_t i = 0; i < 9; i++)
+							bflyStr += regType + " qr" + SztToStr(i) + ", qi" + SztToStr(i) + ";\n\t";
+
+						if (fwd)
+							bflyStr += C7SFR;
+						else
+							bflyStr += C7SBR;
+					} else {
+						for (size_t i = 0; i < 10; i++)
+							bflyStr += regType + " p" + SztToStr(i) + ";\n\t";
+						for (size_t i = 0; i < 9; i++)
+							bflyStr += regType + " q" + SztToStr(i) + ";\n\t";
+						if (fwd)
+							bflyStr += C7SFC;
+						else
+							bflyStr += C7SBC;
+					}
+				}
+				break;
+
 			case 8:
 				{
 					if(fwd)
@@ -1315,8 +1662,11 @@ namespace StockhamGenerator
 				{
 					if(cReg)
 					{
+						if (radix !=7) 
+						{
 						bflyStr += "((*R"; bflyStr += SztToStr(i); bflyStr += ").x) = TR"; bflyStr += SztToStr(i); bflyStr += "; ";
 						bflyStr += "((*R"; bflyStr += SztToStr(i); bflyStr += ").y) = TI"; bflyStr += SztToStr(i); bflyStr += ";\n\t";
+						}
 					}
 					else
 					{
