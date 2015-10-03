@@ -21,6 +21,9 @@
 #include <iosfwd>
 #include <vector>
 #include <algorithm>
+#ifdef __FreeBSD__
+#include <sys/timespec>
+#endif
 #include "statisticalTimer.h"
 
 /**
