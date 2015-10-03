@@ -22,7 +22,7 @@
 #include <vector>
 #include <algorithm>
 #ifdef __FreeBSD__
-#include <sys/timespec>
+#include <sys/timespec.h>
 #endif
 #include "statisticalTimer.h"
 
