@@ -494,7 +494,7 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 	{
 	case CLFFT_1D:
 		{
-			if ( fftPlan->length[0] > Large1DThreshold )
+			if ( !Is1DPossible(fftPlan->length[0], Large1DThreshold) )
 			{
 				size_t clLengths[] = { 1, 1, 0 };
 				size_t in_1d, in_x, count;

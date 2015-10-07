@@ -2746,6 +2746,9 @@ namespace StockhamGenerator
 			// Set half lds for real transforms
 			halfLds = r2c2r ? true : halfLds;
 
+			// Set half lds for radix7
+			halfLds = (length % 7 == 0) ? true : halfLds;
+
 			linearRegs = halfLds;
 
 			realSpecial = params.fft_realSpecial;

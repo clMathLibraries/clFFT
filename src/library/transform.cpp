@@ -126,7 +126,7 @@ clfftStatus clfftEnqueueTransform(
 	{
 		case CLFFT_1D:
 		{
-			if (fftPlan->length[0] <= Large1DThreshold)
+			if ( Is1DPossible(fftPlan->length[0], Large1DThreshold) )
 				break;
 
 			if( ( fftPlan->inputLayout == CLFFT_REAL ) && ( fftPlan->planTZ != 0) )
