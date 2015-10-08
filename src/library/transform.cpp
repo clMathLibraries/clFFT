@@ -225,20 +225,32 @@ clfftStatus clfftEnqueueTransform(
 					_T("clfftEnqueueTransform large1D col pass failed"));
 
 
-				// another column FFT output, INPLACE
-				OPENCL_V( clfftEnqueueTransform( fftPlan->planY, CLFFT_FORWARD, numQueuesAndEvents, commQueues, 1, &colOutEvents,
-					&copyInEvents, &(fftPlan->intBufferRC), &(fftPlan->intBufferRC), localIntBuffer ),
-					_T("clfftEnqueueTransform large1D second column failed"));
-				clReleaseEvent(colOutEvents);
-
 				cl_mem *out_local;
 				out_local = (fftPlan->placeness==CLFFT_INPLACE) ? clInputBuffers : clOutputBuffers;
 
-				// copy from full complex to hermitian
-				OPENCL_V( clfftEnqueueTransform( fftPlan->planRCcopy, CLFFT_FORWARD, numQueuesAndEvents, commQueues, 1, &copyInEvents,
-					outEvents, &(fftPlan->intBufferRC), out_local, localIntBuffer ),
-					_T("clfftEnqueueTransform large1D RC copy failed"));
-				clReleaseEvent(copyInEvents);
+				if ((fftPlan->outputLayout == CLFFT_HERMITIAN_INTERLEAVED) ||
+					(fftPlan->outputLayout == CLFFT_HERMITIAN_PLANAR))
+				{
+					// another column FFT output, INPLACE
+					OPENCL_V(clfftEnqueueTransform(fftPlan->planY, CLFFT_FORWARD, numQueuesAndEvents, commQueues, 1, &colOutEvents,
+						&copyInEvents, &(fftPlan->intBufferRC), &(fftPlan->intBufferRC), localIntBuffer),
+						_T("clfftEnqueueTransform large1D second column failed"));
+					clReleaseEvent(colOutEvents);
+
+					// copy from full complex to hermitian
+					OPENCL_V(clfftEnqueueTransform(fftPlan->planRCcopy, CLFFT_FORWARD, numQueuesAndEvents, commQueues, 1, &copyInEvents,
+						outEvents, &(fftPlan->intBufferRC), out_local, localIntBuffer),
+						_T("clfftEnqueueTransform large1D RC copy failed"));
+					clReleaseEvent(copyInEvents);
+				}
+				else
+				{
+					// another column FFT output, OUTOFPLACE
+					OPENCL_V(clfftEnqueueTransform(fftPlan->planY, CLFFT_FORWARD, numQueuesAndEvents, commQueues, 1, &colOutEvents,
+						outEvents, &(fftPlan->intBufferRC), out_local, localIntBuffer),
+						_T("clfftEnqueueTransform large1D second column failed"));
+					clReleaseEvent(colOutEvents);
+				}
 
 			}
 			else if( fftPlan->outputLayout == CLFFT_REAL )

@@ -54,6 +54,8 @@ struct StatData
 	std::vector< size_t > lengths;
 	std::vector< size_t > inStride;
 	std::vector< size_t > outStride;
+	size_t iDist;
+	size_t oDist;
 	std::vector< size_t > enqueueWorkSize;
 	std::vector< cl_event > outEvents;
 
@@ -66,7 +68,7 @@ struct StatData
 		plHandle( id ), planX( plan->planX ), planY( plan->planY ), planZ( plan->planZ ),
 		planTX( plan->planTX ), planTY( plan->planTY ), planTZ( plan->planTZ ),
 		planRCcopy( plan->planRCcopy ), planCopy( plan->planCopy ),
-		inStride( plan->inStride ), outStride( plan->outStride ),
+		inStride( plan->inStride ), outStride( plan->outStride ), iDist( plan->iDist ), oDist( plan->oDist ),
 		lengths( plan->length ), enqueueWorkSize( gWorkSize )
 	{
 		for( cl_uint e = 0; e < nEv; ++e )

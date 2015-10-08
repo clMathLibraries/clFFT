@@ -582,6 +582,9 @@ GpuStatTimer::Print( )
 					<< std::setw( tableThird )  << mean[ t ].batchSize << std::endl;
 			}
 
+			tout << std::setw(tableFourth) << _T("Input Dist:") << std::setw(tableThird) << mean[t].iDist << std::endl;
+			tout << std::setw(tableFourth) << _T("Output Dist:") << std::setw(tableThird) << mean[t].oDist << std::endl;
+
 			tout << std::setw( tableFourth ) << _T( "Input Stride:" );
 
 			catLengths.str( _T( "" ) );
