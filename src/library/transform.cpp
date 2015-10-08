@@ -228,29 +228,19 @@ clfftStatus clfftEnqueueTransform(
 				cl_mem *out_local;
 				out_local = (fftPlan->placeness==CLFFT_INPLACE) ? clInputBuffers : clOutputBuffers;
 
-				if ((fftPlan->outputLayout == CLFFT_HERMITIAN_INTERLEAVED) ||
-					(fftPlan->outputLayout == CLFFT_HERMITIAN_PLANAR))
-				{
-					// another column FFT output, INPLACE
-					OPENCL_V(clfftEnqueueTransform(fftPlan->planY, CLFFT_FORWARD, numQueuesAndEvents, commQueues, 1, &colOutEvents,
-						&copyInEvents, &(fftPlan->intBufferRC), &(fftPlan->intBufferRC), localIntBuffer),
-						_T("clfftEnqueueTransform large1D second column failed"));
-					clReleaseEvent(colOutEvents);
 
-					// copy from full complex to hermitian
-					OPENCL_V(clfftEnqueueTransform(fftPlan->planRCcopy, CLFFT_FORWARD, numQueuesAndEvents, commQueues, 1, &copyInEvents,
-						outEvents, &(fftPlan->intBufferRC), out_local, localIntBuffer),
-						_T("clfftEnqueueTransform large1D RC copy failed"));
-					clReleaseEvent(copyInEvents);
-				}
-				else
-				{
-					// another column FFT output, OUTOFPLACE
-					OPENCL_V(clfftEnqueueTransform(fftPlan->planY, CLFFT_FORWARD, numQueuesAndEvents, commQueues, 1, &colOutEvents,
-						outEvents, &(fftPlan->intBufferRC), out_local, localIntBuffer),
-						_T("clfftEnqueueTransform large1D second column failed"));
-					clReleaseEvent(colOutEvents);
-				}
+				// another column FFT output, INPLACE
+				OPENCL_V(clfftEnqueueTransform(fftPlan->planY, CLFFT_FORWARD, numQueuesAndEvents, commQueues, 1, &colOutEvents,
+					&copyInEvents, &(fftPlan->intBufferRC), &(fftPlan->intBufferRC), localIntBuffer),
+					_T("clfftEnqueueTransform large1D second column failed"));
+				clReleaseEvent(colOutEvents);
+
+				// copy from full complex to hermitian
+				OPENCL_V(clfftEnqueueTransform(fftPlan->planRCcopy, CLFFT_FORWARD, numQueuesAndEvents, commQueues, 1, &copyInEvents,
+					outEvents, &(fftPlan->intBufferRC), out_local, localIntBuffer),
+					_T("clfftEnqueueTransform large1D RC copy failed"));
+				clReleaseEvent(copyInEvents);
+
 
 			}
 			else if( fftPlan->outputLayout == CLFFT_REAL )

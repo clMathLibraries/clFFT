@@ -597,8 +597,11 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 					{
 						if( fftPlan->length[0] % supported[i] == 0 )
 						{
-							clLengths[1] = supported[i];
-							break;
+							if (Is1DPossible(supported[i], Large1DThreshold))
+							{
+								clLengths[1] = supported[i];
+								break;
+							}
 						}
 					}
 				}
@@ -608,10 +611,7 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
                 // Start of block where transposes are generated; 1D FFT
 				while (1 && (fftPlan->inputLayout != CLFFT_REAL) && (fftPlan->outputLayout != CLFFT_REAL))
 				{
-					//if (!IsPo2(fftPlan->length[0])) break;
 
-					//TBD, only one dimension?
-					if (fftPlan->length.size() > 1) break;
 					if (fftPlan->inStride[0] != 1 || fftPlan->outStride[0] != 1) break;
 
 					if ( IsPo2(fftPlan->length[0])
@@ -644,6 +644,11 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 					{
 						fftPlan->tmpBufSize = (smallerDim + padding) * biggerDim *
 							fftPlan->batchsize * fftPlan->ElementSize();
+
+						for (size_t index = 1; index < fftPlan->length.size(); index++)
+						{
+							fftPlan->tmpBufSize *= fftPlan->length[index];
+						}
 					}
 
 					//Transpose
@@ -670,6 +675,14 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 					trans1Plan->oDist         = clLengths[0] * trans1Plan->outStride[1];
 					trans1Plan->gen           = transGen;
 					trans1Plan->transflag     = true;
+
+					for (size_t index = 1; index < fftPlan->length.size(); index++)
+					{
+						trans1Plan->length.push_back(fftPlan->length[index]);
+						trans1Plan->inStride.push_back(fftPlan->inStride[index]);
+						trans1Plan->outStride.push_back(trans1Plan->oDist);
+						trans1Plan->oDist *= fftPlan->length[index];
+					}
 
 					//Set callback data if set on top level plan
 					if (fftPlan->hasPreCallback)
@@ -715,6 +728,13 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 					row1Plan->iDist         = clLengths[0] * row1Plan->inStride[1];
 					row1Plan->oDist         = fftPlan->oDist;
 
+					for (size_t index = 1; index < fftPlan->length.size(); index++)
+					{
+						row1Plan->length.push_back(fftPlan->length[index]);
+						row1Plan->inStride.push_back(row1Plan->iDist);
+						row1Plan->iDist *= fftPlan->length[index];
+						row1Plan->outStride.push_back(fftPlan->outStride[index]);
+					}
 
 					OPENCL_V(clfftBakePlan(fftPlan->planX, numQueues, commQueueFFT, NULL, NULL ),
 						_T( "BakePlan large1d first row plan failed" ) );
@@ -745,6 +765,14 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
                     trans2Plan->gen           = transGen;
 					trans2Plan->large1D		  = fftPlan->length[0];
 					trans2Plan->transflag     = true;
+
+					for (size_t index = 1; index < fftPlan->length.size(); index++)
+					{
+						trans2Plan->length.push_back(fftPlan->length[index]);
+						trans2Plan->inStride.push_back(fftPlan->outStride[index]);
+						trans2Plan->outStride.push_back(trans2Plan->oDist);
+						trans2Plan->oDist *= fftPlan->length[index];
+					}
 
 					OPENCL_V(clfftBakePlan(fftPlan->planTY, numQueues, commQueueFFT, NULL, NULL ),
 						_T( "BakePlan large1d trans2 plan failed" ) );
@@ -780,6 +808,14 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 					row2Plan->iDist         = clLengths[1] * row2Plan->inStride[1];
 					row2Plan->oDist         = clLengths[1] * row2Plan->outStride[1];
 
+					for (size_t index = 1; index < fftPlan->length.size(); index++)
+					{
+						row2Plan->length.push_back(fftPlan->length[index]);
+						row2Plan->inStride.push_back(row2Plan->iDist);
+						row2Plan->outStride.push_back(row2Plan->oDist);
+						row2Plan->iDist *= fftPlan->length[index];
+						row2Plan->oDist *= fftPlan->length[index];
+					}
 
 					OPENCL_V(clfftBakePlan(fftPlan->planY, numQueues, commQueueFFT, NULL, NULL ),
 						_T( "BakePlan large1d second row plan failed" ) );
@@ -810,6 +846,15 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 					trans3Plan->transflag     = true;
 					trans3Plan->transOutHorizontal = true;
 
+					for (size_t index = 1; index < fftPlan->length.size(); index++)
+					{
+						trans3Plan->length.push_back(fftPlan->length[index]);
+						trans3Plan->inStride.push_back(trans3Plan->iDist);
+						trans3Plan->iDist *= fftPlan->length[index];
+						trans3Plan->outStride.push_back(fftPlan->outStride[index]);
+					}
+
+
 					OPENCL_V(clfftBakePlan(fftPlan->planTZ, numQueues, commQueueFFT, NULL, NULL ),
 						_T( "BakePlan large1d trans3 plan failed" ) );
 
@@ -825,6 +870,7 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 				// For real transforms
 				// Special case optimization with 5-step algorithm
 				if( (fftPlan->inputLayout == CLFFT_REAL) && IsPo2(fftPlan->length[0])
+					&& (fftPlan->length.size() == 1)
 					&& (fftPlan->inStride[0] == 1) && (fftPlan->outStride[0] == 1)
 					&& (fftPlan->length[0] > 4096) && (fftPlan->length.size() == 1) )
 				{
@@ -1155,50 +1201,28 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 					col2Plan->inStride.push_back(1);
 					col2Plan->iDist = length0 * length1;
 
-					if (colTPlan->planX)
+					// make sure colTPlan (first column plan) does not recurse, otherwise large twiddle mul
+					// cannot be done with this algorithm sequence
+					assert(colTPlan->planX == 0);
+
+
+					col2Plan->placeness = CLFFT_INPLACE;
+					col2Plan->inputLayout = CLFFT_COMPLEX_INTERLEAVED;
+					col2Plan->outputLayout = CLFFT_COMPLEX_INTERLEAVED;
+
+					col2Plan->outStride[0] = length1;
+					col2Plan->outStride.push_back(1);
+					col2Plan->oDist = length0 * length1;
+
+					for (size_t index = 1; index < fftPlan->length.size(); index++)
 					{
-						col2Plan->large1D = fftPlan->length[0];
-						col2Plan->twiddleFront = true;
+						col2Plan->length.push_back(fftPlan->length[index]);
+						col2Plan->inStride.push_back(col2Plan->iDist);
+						col2Plan->outStride.push_back(col2Plan->oDist);
+						col2Plan->iDist *= fftPlan->length[index];
+						col2Plan->oDist *= fftPlan->length[index];
 					}
 
-					if ((fftPlan->outputLayout == CLFFT_HERMITIAN_INTERLEAVED) ||
-						(fftPlan->outputLayout == CLFFT_HERMITIAN_PLANAR))
-					{
-						col2Plan->placeness = CLFFT_INPLACE;
-						col2Plan->inputLayout = CLFFT_COMPLEX_INTERLEAVED;
-						col2Plan->outputLayout = CLFFT_COMPLEX_INTERLEAVED;
-
-						col2Plan->outStride[0] = length1;
-						col2Plan->outStride.push_back(1);
-						col2Plan->oDist = length0 * length1;
-
-						for (size_t index = 1; index < fftPlan->length.size(); index++)
-						{
-							col2Plan->length.push_back(fftPlan->length[index]);
-							col2Plan->inStride.push_back(col2Plan->iDist);
-							col2Plan->outStride.push_back(col2Plan->oDist);
-							col2Plan->iDist *= fftPlan->length[index];
-							col2Plan->oDist *= fftPlan->length[index];
-						}
-					}
-					else
-					{
-						col2Plan->placeness = CLFFT_OUTOFPLACE;
-						col2Plan->inputLayout = CLFFT_COMPLEX_INTERLEAVED;
-						col2Plan->outputLayout = fftPlan->outputLayout;
-
-						col2Plan->outStride[0] = length1*fftPlan->outStride[0];
-						col2Plan->outStride.push_back(fftPlan->outStride[0]);
-						col2Plan->oDist = fftPlan->oDist;
-
-						for (size_t index = 1; index < fftPlan->length.size(); index++)
-						{
-							col2Plan->length.push_back(fftPlan->length[index]);
-							col2Plan->inStride.push_back(col2Plan->iDist);
-							col2Plan->outStride.push_back(fftPlan->outStride[index]);
-							col2Plan->iDist *= fftPlan->length[index];
-						}
-					}
 
 					OPENCL_V(clfftBakePlan(fftPlan->planY, numQueues, commQueueFFT, NULL, NULL ), _T( "BakePlan large1d second column plan failed" ) );
 
