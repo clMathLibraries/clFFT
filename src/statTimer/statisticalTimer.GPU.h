@@ -56,6 +56,8 @@ struct StatData
 	std::vector< size_t > outStride;
 	size_t iDist;
 	size_t oDist;
+	clfftResultLocation placeness;
+	std::vector< size_t > enqueueLocalWorkSize;
 	std::vector< size_t > enqueueWorkSize;
 	std::vector< cl_event > outEvents;
 
@@ -63,13 +65,13 @@ struct StatData
 	{}
 
 	StatData( clfftPlanHandle id, FFTPlan* plan, cl_kernel kern, cl_uint nEv, cl_event* Ev,
-		const std::vector< size_t >& gWorkSize ):
+		const std::vector< size_t >& gWorkSize, const std::vector< size_t >& lWorkSize):
 		deltaNanoSec( 0 ), kernel( kern ), batchSize( plan->batchsize ), dim( plan->dim ),
 		plHandle( id ), planX( plan->planX ), planY( plan->planY ), planZ( plan->planZ ),
 		planTX( plan->planTX ), planTY( plan->planTY ), planTZ( plan->planTZ ),
 		planRCcopy( plan->planRCcopy ), planCopy( plan->planCopy ),
 		inStride( plan->inStride ), outStride( plan->outStride ), iDist( plan->iDist ), oDist( plan->oDist ),
-		lengths( plan->length ), enqueueWorkSize( gWorkSize )
+		lengths( plan->length ), enqueueWorkSize( gWorkSize ), enqueueLocalWorkSize( lWorkSize ), placeness( plan->placeness )
 	{
 		for( cl_uint e = 0; e < nEv; ++e )
 		{
@@ -217,7 +219,7 @@ public:
 	 * \brief Explicitely add a timing sample into the class
 	 */
 	virtual void AddSample( clfftPlanHandle plHandle, FFTPlan* plan, cl_kernel kern, cl_uint numQueuesAndEvents, cl_event* ev,
-		const std::vector< size_t >& gWorkSize );
+		const std::vector< size_t >& gWorkSize, const std::vector< size_t >& lWorkSize );
 
 	/**
 	 * \fn void Reset(void)

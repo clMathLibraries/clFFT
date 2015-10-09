@@ -2738,14 +2738,7 @@ namespace StockhamGenerator
 
 			rcSimple = params.fft_RCsimple;
 
-			// Set half lds only for power-of-2 problem sizes & interleaved data
-			halfLds = ( (params.fft_inputLayout == CLFFT_COMPLEX_INTERLEAVED) &&
-						(params.fft_outputLayout == CLFFT_COMPLEX_INTERLEAVED) ) ? true : false;
-			halfLds = halfLds ? ((length & (length-1)) ? false : true) : false;
-
-			// Set half lds for real transforms
-			halfLds = r2c2r ? true : halfLds;
-
+			halfLds = true;
 			linearRegs = true;
 
 			realSpecial = params.fft_realSpecial;

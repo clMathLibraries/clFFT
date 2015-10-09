@@ -42,7 +42,7 @@ void mixed_radix_complex_to_complex( size_t problem_size )
 
 		std::vector<size_t> lengths;
 		lengths.push_back( problem_size );
-		size_t batch = 1;
+		size_t batch = 500;
 
 		std::vector<size_t> input_strides;
 		std::vector<size_t> output_strides;

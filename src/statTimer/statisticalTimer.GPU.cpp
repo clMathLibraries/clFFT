@@ -202,7 +202,7 @@ GpuStatTimer::Stop( size_t id )
 
 void
 GpuStatTimer::AddSample( clfftPlanHandle plHandle, FFTPlan* plan, cl_kernel kern, cl_uint numEvents, cl_event* ev,
-	const std::vector< size_t >& gWorkSize )
+	const std::vector< size_t >& gWorkSize, const std::vector< size_t >& lWorkSize )
 {
 	if( (numEvents != 0) && (ev == NULL) )
 		return;
@@ -219,12 +219,12 @@ GpuStatTimer::AddSample( clfftPlanHandle plHandle, FFTPlan* plan, cl_kernel kern
 	{
 		timerData.at( currID ).push_back( StatDataVec( ) );
 		timerData.at( currID ).back( ).reserve( nSamples );
-		timerData.at( currID ).back( ).push_back( StatData( plHandle, plan, kern, numEvents, ev, gWorkSize ) );
+		timerData.at( currID ).back( ).push_back( StatData( plHandle, plan, kern, numEvents, ev, gWorkSize, lWorkSize) );
 	}
 	else
 	{
 		timerData.at( currID ).at( currSample )
-			.push_back( StatData( plHandle, plan, kern, numEvents, ev, gWorkSize ) );
+			.push_back( StatData( plHandle, plan, kern, numEvents, ev, gWorkSize, lWorkSize ) );
 		++currSample;
 	}
 }
@@ -582,6 +582,9 @@ GpuStatTimer::Print( )
 					<< std::setw( tableThird )  << mean[ t ].batchSize << std::endl;
 			}
 
+			tout << std::setw(tableFourth) << _T("Placeness:") << std::setw(tableThird)
+				<< ( mean[t].placeness == CLFFT_INPLACE ? "InPlace": "OutOfPlace" ) << std::endl;
+
 			tout << std::setw(tableFourth) << _T("Input Dist:") << std::setw(tableThird) << mean[t].iDist << std::endl;
 			tout << std::setw(tableFourth) << _T("Output Dist:") << std::setw(tableThird) << mean[t].oDist << std::endl;
 
@@ -624,6 +627,18 @@ GpuStatTimer::Print( )
 				}
 				catLengths << _T( ")" );
 				tout << std::setw( tableThird ) << catLengths.str( ) << std::endl;
+
+				tout << std::setw(tableFourth) << _T("Local Work:");
+				catLengths.str(_T(""));
+				catLengths << _T("(");
+				for (size_t i = 0; i < mean[t].enqueueLocalWorkSize.size(); ++i)
+				{
+					catLengths << mean[t].enqueueLocalWorkSize.at(i);
+					if (i < (mean[t].enqueueLocalWorkSize.size() - 1))
+						catLengths << _T(",");
+				}
+				catLengths << _T(")");
+				tout << std::setw(tableThird) << catLengths.str() << std::endl;
 			}
 
 			tout << std::setw( tableFourth ) << _T( "Gflops:" )
