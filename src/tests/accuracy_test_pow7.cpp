@@ -7353,4 +7353,122 @@ namespace power7
         catch (const std::exception& err) { handle_exception(err); }
     }
 
-} //namespace
+    // *****************************************************
+    // *****************************************************
+
+    struct InpSizeParameters {
+        unsigned int x_dim;
+        unsigned int y_dim;
+        unsigned int z_dim;
+        clfftPrecision precision;
+        unsigned int batch_size;
+
+        InpSizeParameters(unsigned int ip_x_dim, unsigned int ip_y_dim, unsigned int ip_z_dim, clfftPrecision ip_precision)
+        {
+            size_t SP_MAX_LEN = 1 << 24;
+            size_t DP_MAX_LEN = 1 << 22;
+
+            x_dim = ip_x_dim;
+            y_dim = ip_y_dim;
+            z_dim = ip_z_dim;
+            precision = ip_precision;
+            if (ip_precision == CLFFT_SINGLE) batch_size = (SP_MAX_LEN) / (ip_x_dim * ip_y_dim * ip_z_dim);
+            if (ip_precision == CLFFT_DOUBLE) batch_size = (DP_MAX_LEN) / (ip_x_dim * ip_y_dim * ip_z_dim);
+        }
+    };
+
+    class TestParameterGenerator {
+    private:
+        std::vector<InpSizeParameters> data_sets;
+    public:
+        TestParameterGenerator(int max_pow7)
+        {
+            generate(max_pow7);
+        }
+
+        std::vector<InpSizeParameters> & parameter_sets() { return data_sets; }
+
+    private:
+        void generate(int max_pow7) {
+            for (int z = 1; z <= max_pow7; z++)
+            {
+                for (int y = 1; y <= max_pow7; y++)
+                {
+                    for (int x = 1; x <= max_pow7; x++)
+                    {
+                        data_sets.push_back(InpSizeParameters(7 ^ x, 7 ^ y, 7 ^ z, CLFFT_SINGLE));
+                        data_sets.push_back(InpSizeParameters(7 ^ x, 7 ^ y, 7 ^ z, CLFFT_DOUBLE));
+                    }
+                }
+            }
+        }
+    }; //class TestParameterGenerator
+
+}; //namespace
+
+  // *****************************************************
+  // *****************************************************
+
+class accuracy_test_pow7_all_ip_size : public ::testing::TestWithParam<power7::InpSizeParameters> {
+    protected:
+        accuracy_test_pow7_all_ip_size() {}
+        virtual ~accuracy_test_pow7_all_ip_size() {}
+        virtual void SetUp() {}
+        virtual void TearDown() {}
+};
+
+template< class T, class cl_T, class fftw_T >
+void accuracy_test_pow7_all_ip_size_in_place(power7::InpSizeParameters params)
+{
+    std::vector<size_t> lengths;
+    lengths.push_back(params.x_dim);
+    lengths.push_back(params.y_dim);
+    lengths.push_back(params.z_dim);
+
+    size_t batch = params.batch_size;
+    std::vector<size_t> input_strides;
+    std::vector<size_t> output_strides;
+    size_t input_distance = 0;
+    size_t output_distance = 0;
+
+    layout::buffer_layout_t in_layout = layout::complex_interleaved;
+    layout::buffer_layout_t out_layout = layout::complex_interleaved;
+    placeness::placeness_t placeness = placeness::in_place;
+    direction::direction_t direction = direction::forward;
+
+    data_pattern pattern = sawtooth;
+
+    complex_to_complex<T, cl_T, fftw_T>(pattern, direction, lengths, batch, input_strides, output_strides, input_distance, output_distance, in_layout, out_layout, placeness);
+}
+
+TEST_P(accuracy_test_pow7_all_ip_size, power7_all_input_size) {
+    power7::InpSizeParameters params = GetParam();
+
+    RecordProperty("x_dim_size", params.x_dim);
+    RecordProperty("y_dim_size", params.y_dim);
+    RecordProperty("z_dim_size", params.z_dim);
+    RecordProperty("precision", params.precision);
+    RecordProperty("batch_size", params.batch_size);
+
+    switch(params.precision )
+    {
+        case CLFFT_SINGLE:
+            try { accuracy_test_pow7_all_ip_size_in_place< float, cl_float, fftwf_complex >(params); }
+            catch (const std::exception& err) { handle_exception(err); }
+            break;
+        case CLFFT_DOUBLE:
+            try { accuracy_test_pow7_all_ip_size_in_place< double, cl_double, fftw_complex >(params); }
+            catch (const std::exception& err) { handle_exception(err); }
+            break;
+        default:
+            FAIL() << "input parameter corruption in the test:accuracy_test_pow7_all_ip_size.";
+    };
+
+}
+
+INSTANTIATE_TEST_CASE_P(
+    clfft_pow7_AllInpSizeTest,
+    accuracy_test_pow7_all_ip_size,
+    ::testing::ValuesIn(power7::TestParameterGenerator
+        (4).parameter_sets())
+    );
