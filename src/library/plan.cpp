@@ -494,7 +494,7 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 	{
 	case CLFFT_1D:
 		{
-			if ( fftPlan->length[0] > Large1DThreshold )
+			if ( !Is1DPossible(fftPlan->length[0], Large1DThreshold) )
 			{
 				size_t clLengths[] = { 1, 1, 0 };
 				size_t in_1d, in_x, count;
@@ -597,22 +597,21 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 					{
 						if( fftPlan->length[0] % supported[i] == 0 )
 						{
-							clLengths[1] = supported[i];
-							break;
+							if (Is1DPossible(supported[i], Large1DThreshold))
+							{
+								clLengths[1] = supported[i];
+								break;
+							}
 						}
 					}
 				}
 
 				clLengths[0] = fftPlan->length[0]/clLengths[1];
 
-
                 // Start of block where transposes are generated; 1D FFT
 				while (1 && (fftPlan->inputLayout != CLFFT_REAL) && (fftPlan->outputLayout != CLFFT_REAL))
 				{
-					//if (!IsPo2(fftPlan->length[0])) break;
 
-					//TBD, only one dimension?
-					if (fftPlan->length.size() > 1) break;
 					if (fftPlan->inStride[0] != 1 || fftPlan->outStride[0] != 1) break;
 
 					if ( IsPo2(fftPlan->length[0])
@@ -645,6 +644,11 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 					{
 						fftPlan->tmpBufSize = (smallerDim + padding) * biggerDim *
 							fftPlan->batchsize * fftPlan->ElementSize();
+
+						for (size_t index = 1; index < fftPlan->length.size(); index++)
+						{
+							fftPlan->tmpBufSize *= fftPlan->length[index];
+						}
 					}
 
 					//Transpose
@@ -671,6 +675,14 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 					trans1Plan->oDist         = clLengths[0] * trans1Plan->outStride[1];
 					trans1Plan->gen           = transGen;
 					trans1Plan->transflag     = true;
+
+					for (size_t index = 1; index < fftPlan->length.size(); index++)
+					{
+						trans1Plan->length.push_back(fftPlan->length[index]);
+						trans1Plan->inStride.push_back(fftPlan->inStride[index]);
+						trans1Plan->outStride.push_back(trans1Plan->oDist);
+						trans1Plan->oDist *= fftPlan->length[index];
+					}
 
 					//Set callback data if set on top level plan
 					if (fftPlan->hasPreCallback)
@@ -716,6 +728,13 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 					row1Plan->iDist         = clLengths[0] * row1Plan->inStride[1];
 					row1Plan->oDist         = fftPlan->oDist;
 
+					for (size_t index = 1; index < fftPlan->length.size(); index++)
+					{
+						row1Plan->length.push_back(fftPlan->length[index]);
+						row1Plan->inStride.push_back(row1Plan->iDist);
+						row1Plan->iDist *= fftPlan->length[index];
+						row1Plan->outStride.push_back(fftPlan->outStride[index]);
+					}
 
 					OPENCL_V(clfftBakePlan(fftPlan->planX, numQueues, commQueueFFT, NULL, NULL ),
 						_T( "BakePlan large1d first row plan failed" ) );
@@ -746,6 +765,14 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
                     trans2Plan->gen           = transGen;
 					trans2Plan->large1D		  = fftPlan->length[0];
 					trans2Plan->transflag     = true;
+
+					for (size_t index = 1; index < fftPlan->length.size(); index++)
+					{
+						trans2Plan->length.push_back(fftPlan->length[index]);
+						trans2Plan->inStride.push_back(fftPlan->outStride[index]);
+						trans2Plan->outStride.push_back(trans2Plan->oDist);
+						trans2Plan->oDist *= fftPlan->length[index];
+					}
 
 					OPENCL_V(clfftBakePlan(fftPlan->planTY, numQueues, commQueueFFT, NULL, NULL ),
 						_T( "BakePlan large1d trans2 plan failed" ) );
@@ -781,6 +808,14 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 					row2Plan->iDist         = clLengths[1] * row2Plan->inStride[1];
 					row2Plan->oDist         = clLengths[1] * row2Plan->outStride[1];
 
+					for (size_t index = 1; index < fftPlan->length.size(); index++)
+					{
+						row2Plan->length.push_back(fftPlan->length[index]);
+						row2Plan->inStride.push_back(row2Plan->iDist);
+						row2Plan->outStride.push_back(row2Plan->oDist);
+						row2Plan->iDist *= fftPlan->length[index];
+						row2Plan->oDist *= fftPlan->length[index];
+					}
 
 					OPENCL_V(clfftBakePlan(fftPlan->planY, numQueues, commQueueFFT, NULL, NULL ),
 						_T( "BakePlan large1d second row plan failed" ) );
@@ -811,6 +846,15 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 					trans3Plan->transflag     = true;
 					trans3Plan->transOutHorizontal = true;
 
+					for (size_t index = 1; index < fftPlan->length.size(); index++)
+					{
+						trans3Plan->length.push_back(fftPlan->length[index]);
+						trans3Plan->inStride.push_back(trans3Plan->iDist);
+						trans3Plan->iDist *= fftPlan->length[index];
+						trans3Plan->outStride.push_back(fftPlan->outStride[index]);
+					}
+
+
 					OPENCL_V(clfftBakePlan(fftPlan->planTZ, numQueues, commQueueFFT, NULL, NULL ),
 						_T( "BakePlan large1d trans3 plan failed" ) );
 
@@ -826,6 +870,7 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 				// For real transforms
 				// Special case optimization with 5-step algorithm
 				if( (fftPlan->inputLayout == CLFFT_REAL) && IsPo2(fftPlan->length[0])
+					&& (fftPlan->length.size() == 1)
 					&& (fftPlan->inStride[0] == 1) && (fftPlan->outStride[0] == 1)
 					&& (fftPlan->length[0] > 4096) && (fftPlan->length.size() == 1) )
 				{
@@ -1058,13 +1103,13 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 					fftPlan->baked = true;
 					return	CLFFT_SUCCESS;
 				}
-				else if(fftPlan->inputLayout == CLFFT_REAL)
+				else if (fftPlan->inputLayout == CLFFT_REAL)
 				{
-					if (fftPlan->tmpBufSizeRC==0 )
+					if (fftPlan->tmpBufSizeRC == 0)
 					{
 						fftPlan->tmpBufSizeRC = length0 * length1 *
 							fftPlan->batchsize * fftPlan->ElementSize();
-						for (size_t index=1; index < fftPlan->length.size(); index++)
+						for (size_t index = 1; index < fftPlan->length.size(); index++)
 						{
 							fftPlan->tmpBufSizeRC *= fftPlan->length[index];
 						}
@@ -1072,12 +1117,12 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 
 					// column FFT, size clLengths[1], batch clLengths[0], with length[0] twiddle factor multiplication
 					// transposed output
-					OPENCL_V(clfftCreateDefaultPlanInternal( &fftPlan->planX, fftPlan->context, CLFFT_1D, &clLengths[1] ),
-						_T( "CreateDefaultPlan Large1d column failed" ) );
+					OPENCL_V(clfftCreateDefaultPlanInternal(&fftPlan->planX, fftPlan->context, CLFFT_1D, &clLengths[1]),
+						_T("CreateDefaultPlan Large1d column failed"));
 
-					FFTPlan* colTPlan	= NULL;
-					lockRAII* colLock	= NULL;
-					OPENCL_V( fftRepo.getPlan( fftPlan->planX, colTPlan, colLock ), _T( "fftRepo.getPlan failed" ) );
+					FFTPlan* colTPlan = NULL;
+					lockRAII* colLock = NULL;
+					OPENCL_V(fftRepo.getPlan(fftPlan->planX, colTPlan, colLock), _T("fftRepo.getPlan failed"));
 
 					// current plan is to create intermediate buffer, packed and interleave
 					// This is a column FFT, the first elements distance between each FFT is the distance of the first two
@@ -1085,39 +1130,39 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 					// we need to pass clLengths[0] and instride size to kernel, so kernel can tell the difference
 
 					//this part are common for both passes
-					colTPlan->placeness     = CLFFT_OUTOFPLACE;
-					colTPlan->precision     = fftPlan->precision;
-					colTPlan->forwardScale  = 1.0f;
+					colTPlan->placeness = CLFFT_OUTOFPLACE;
+					colTPlan->precision = fftPlan->precision;
+					colTPlan->forwardScale = 1.0f;
 					colTPlan->backwardScale = 1.0f;
-					colTPlan->tmpBufSize    = 0;
-					colTPlan->batchsize     = fftPlan->batchsize;
+					colTPlan->tmpBufSize = 0;
+					colTPlan->batchsize = fftPlan->batchsize;
 
-					colTPlan->gen			= fftPlan->gen;
-					colTPlan->envelope			= fftPlan->envelope;
+					colTPlan->gen = fftPlan->gen;
+					colTPlan->envelope = fftPlan->envelope;
 
 					//Pass large1D flag to confirm we need multiply twiddle factor
-					colTPlan->large1D       = fftPlan->length[0];
-					colTPlan->RCsimple		= true;
+					colTPlan->large1D = fftPlan->length[0];
+					colTPlan->RCsimple = true;
 
 					colTPlan->length.push_back(clLengths[0]);
 
 					// first Pass
-					colTPlan->inputLayout   = fftPlan->inputLayout;
-					colTPlan->outputLayout  = CLFFT_COMPLEX_INTERLEAVED;
-					colTPlan->inStride[0]   = fftPlan->inStride[0] * clLengths[0];
-					colTPlan->outStride[0]  = 1;
-					colTPlan->iDist         = fftPlan->iDist;
-					colTPlan->oDist         = length0 * length1;//fftPlan->length[0];
+					colTPlan->inputLayout = fftPlan->inputLayout;
+					colTPlan->outputLayout = CLFFT_COMPLEX_INTERLEAVED;
+					colTPlan->inStride[0] = fftPlan->inStride[0] * clLengths[0];
+					colTPlan->outStride[0] = 1;
+					colTPlan->iDist = fftPlan->iDist;
+					colTPlan->oDist = length0 * length1;//fftPlan->length[0];
 					colTPlan->inStride.push_back(fftPlan->inStride[0]);
 					colTPlan->outStride.push_back(length1);//clLengths[1]);
 
-					for (size_t index=1; index < fftPlan->length.size(); index++)
+					for (size_t index = 1; index < fftPlan->length.size(); index++)
 					{
 						colTPlan->length.push_back(fftPlan->length[index]);
 						colTPlan->inStride.push_back(fftPlan->inStride[index]);
 						// tmp buffer is tightly packed
 						colTPlan->outStride.push_back(colTPlan->oDist);
-						colTPlan->oDist        *= fftPlan->length[index];
+						colTPlan->oDist *= fftPlan->length[index];
 					}
 
 					//Set callback data if set on top level plan
@@ -1128,96 +1173,104 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 						colTPlan->precallUserData = fftPlan->precallUserData;
 					}
 
-					OPENCL_V(clfftBakePlan(fftPlan->planX, numQueues, commQueueFFT, NULL, NULL ), _T( "BakePlan large1d first column plan failed" ) );
+					OPENCL_V(clfftBakePlan(fftPlan->planX, numQueues, commQueueFFT, NULL, NULL), _T("BakePlan large1d first column plan failed"));
 
 					//another column FFT, size clLengths[0], batch clLengths[1], output without transpose
-					OPENCL_V(clfftCreateDefaultPlanInternal( &fftPlan->planY, fftPlan->context, CLFFT_1D,  &clLengths[0] ),
-						_T( "CreateDefaultPlan large1D row failed" ) );
+					OPENCL_V(clfftCreateDefaultPlanInternal(&fftPlan->planY, fftPlan->context, CLFFT_1D, &clLengths[0]),
+						_T("CreateDefaultPlan large1D row failed"));
 
-					FFTPlan* col2Plan	= NULL;
-					lockRAII* rowLock	= NULL;
-					OPENCL_V( fftRepo.getPlan( fftPlan->planY, col2Plan, rowLock ), _T( "fftRepo.getPlan failed" ) );
+					FFTPlan* col2Plan = NULL;
+					lockRAII* rowLock = NULL;
+					OPENCL_V(fftRepo.getPlan(fftPlan->planY, col2Plan, rowLock), _T("fftRepo.getPlan failed"));
 
 					// This is second column fft, intermediate buffer is packed and interleaved
 					// we need to pass clLengths[1] and instride size to kernel, so kernel can tell the difference
 
-					// common part for both passes
-					col2Plan->placeness     = CLFFT_INPLACE;
-					col2Plan->inputLayout   = CLFFT_COMPLEX_INTERLEAVED;
-					col2Plan->outputLayout  = CLFFT_COMPLEX_INTERLEAVED;
-
-					col2Plan->precision     = fftPlan->precision;
-					col2Plan->forwardScale  = fftPlan->forwardScale;
+					col2Plan->precision = fftPlan->precision;
+					col2Plan->forwardScale = fftPlan->forwardScale;
 					col2Plan->backwardScale = fftPlan->backwardScale;
-					col2Plan->tmpBufSize    = 0;
-					col2Plan->batchsize     = fftPlan->batchsize;
+					col2Plan->tmpBufSize = 0;
+					col2Plan->batchsize = fftPlan->batchsize;
 
-					col2Plan->gen			= fftPlan->gen;
-					col2Plan->envelope			= fftPlan->envelope;
+					col2Plan->gen = fftPlan->gen;
+					col2Plan->envelope = fftPlan->envelope;
 
 					col2Plan->length.push_back(length1);
 
-					col2Plan->inStride[0]  = length1;
+					col2Plan->inStride[0] = length1;
 					col2Plan->inStride.push_back(1);
-					col2Plan->iDist        = length0 * length1;
+					col2Plan->iDist = length0 * length1;
+
+					// make sure colTPlan (first column plan) does not recurse, otherwise large twiddle mul
+					// cannot be done with this algorithm sequence
+					assert(colTPlan->planX == 0);
+
+
+					col2Plan->placeness = CLFFT_INPLACE;
+					col2Plan->inputLayout = CLFFT_COMPLEX_INTERLEAVED;
+					col2Plan->outputLayout = CLFFT_COMPLEX_INTERLEAVED;
 
 					col2Plan->outStride[0] = length1;
 					col2Plan->outStride.push_back(1);
-					col2Plan->oDist         = length0 * length1;
+					col2Plan->oDist = length0 * length1;
 
-					for (size_t index=1; index < fftPlan->length.size(); index++)
+					for (size_t index = 1; index < fftPlan->length.size(); index++)
 					{
 						col2Plan->length.push_back(fftPlan->length[index]);
 						col2Plan->inStride.push_back(col2Plan->iDist);
 						col2Plan->outStride.push_back(col2Plan->oDist);
-						col2Plan->iDist   *= fftPlan->length[index];
-						col2Plan->oDist   *= fftPlan->length[index];
+						col2Plan->iDist *= fftPlan->length[index];
+						col2Plan->oDist *= fftPlan->length[index];
 					}
+
 
 					OPENCL_V(clfftBakePlan(fftPlan->planY, numQueues, commQueueFFT, NULL, NULL ), _T( "BakePlan large1d second column plan failed" ) );
 
-
-					// copy plan to get back to hermitian
-					OPENCL_V(clfftCreateDefaultPlanInternal( &fftPlan->planRCcopy, fftPlan->context, CLFFT_1D,  &fftPlan->length[0] ),
-						_T( "CreateDefaultPlan RC copy failed" ) );
-
-					FFTPlan* copyPlan	= NULL;
-					lockRAII* copyLock	= NULL;
-					OPENCL_V( fftRepo.getPlan( fftPlan->planRCcopy, copyPlan, copyLock ), _T( "fftRepo.getPlan failed" ) );
-
-					// This is second column fft, intermediate buffer is packed and interleaved
-					// we need to pass clLengths[1] and instride size to kernel, so kernel can tell the difference
-
-					// common part for both passes
-					copyPlan->placeness     = CLFFT_OUTOFPLACE;
-					copyPlan->inputLayout   = CLFFT_COMPLEX_INTERLEAVED;
-					copyPlan->outputLayout  = fftPlan->outputLayout;
-
-					copyPlan->precision     = fftPlan->precision;
-					copyPlan->forwardScale  = 1.0f;
-					copyPlan->backwardScale = 1.0f;
-					copyPlan->tmpBufSize    = 0;
-					copyPlan->batchsize     = fftPlan->batchsize;
-
-					copyPlan->gen			= Copy;
-					copyPlan->envelope		= fftPlan->envelope;
-
-
-					copyPlan->inStride[0]  = 1;
-					copyPlan->iDist        = fftPlan->length[0];
-
-					copyPlan->outStride[0] = fftPlan->outStride[0];
-					copyPlan->oDist         = fftPlan->oDist;
-
-					for (size_t index=1; index < fftPlan->length.size(); index++)
+					if ( (fftPlan->outputLayout == CLFFT_HERMITIAN_INTERLEAVED) ||
+						 (fftPlan->outputLayout == CLFFT_HERMITIAN_PLANAR) )
 					{
-						copyPlan->length.push_back(fftPlan->length[index]);
-						copyPlan->inStride.push_back(copyPlan->inStride[index-1] * fftPlan->length[index-1]);
-						copyPlan->iDist   *= fftPlan->length[index];
-						copyPlan->outStride.push_back(fftPlan->outStride[index]);
-					}
+						// copy plan to get back to hermitian
+						OPENCL_V(clfftCreateDefaultPlanInternal(&fftPlan->planRCcopy, fftPlan->context, CLFFT_1D, &fftPlan->length[0]),
+							_T("CreateDefaultPlan RC copy failed"));
 
-					OPENCL_V(clfftBakePlan(fftPlan->planRCcopy, numQueues, commQueueFFT, NULL, NULL ), _T( "BakePlan large1d RC copy plan failed" ) );
+						FFTPlan* copyPlan = NULL;
+						lockRAII* copyLock = NULL;
+						OPENCL_V(fftRepo.getPlan(fftPlan->planRCcopy, copyPlan, copyLock), _T("fftRepo.getPlan failed"));
+
+						// This is second column fft, intermediate buffer is packed and interleaved
+						// we need to pass clLengths[1] and instride size to kernel, so kernel can tell the difference
+
+						// common part for both passes
+						copyPlan->placeness = CLFFT_OUTOFPLACE;
+						copyPlan->inputLayout = CLFFT_COMPLEX_INTERLEAVED;
+						copyPlan->outputLayout = fftPlan->outputLayout;
+
+						copyPlan->precision = fftPlan->precision;
+						copyPlan->forwardScale = 1.0f;
+						copyPlan->backwardScale = 1.0f;
+						copyPlan->tmpBufSize = 0;
+						copyPlan->batchsize = fftPlan->batchsize;
+
+						copyPlan->gen = Copy;
+						copyPlan->envelope = fftPlan->envelope;
+
+
+						copyPlan->inStride[0] = 1;
+						copyPlan->iDist = fftPlan->length[0];
+
+						copyPlan->outStride[0] = fftPlan->outStride[0];
+						copyPlan->oDist = fftPlan->oDist;
+
+						for (size_t index = 1; index < fftPlan->length.size(); index++)
+						{
+							copyPlan->length.push_back(fftPlan->length[index]);
+							copyPlan->inStride.push_back(copyPlan->inStride[index - 1] * fftPlan->length[index - 1]);
+							copyPlan->iDist *= fftPlan->length[index];
+							copyPlan->outStride.push_back(fftPlan->outStride[index]);
+						}
+
+						OPENCL_V(clfftBakePlan(fftPlan->planRCcopy, numQueues, commQueueFFT, NULL, NULL), _T("BakePlan large1d RC copy plan failed"));
+					}
 
 				}
 				else if(fftPlan->outputLayout == CLFFT_REAL)
@@ -1232,54 +1285,58 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 						}
 					}
 
-					// copy plan to from hermitian to full complex
-					OPENCL_V(clfftCreateDefaultPlanInternal( &fftPlan->planRCcopy, fftPlan->context, CLFFT_1D,  &fftPlan->length[0] ),
-						_T( "CreateDefaultPlan RC copy failed" ) );
-
-					FFTPlan* copyPlan	= NULL;
-					lockRAII* copyLock	= NULL;
-					OPENCL_V( fftRepo.getPlan( fftPlan->planRCcopy, copyPlan, copyLock ), _T( "fftRepo.getPlan failed" ) );
-
-					// This is second column fft, intermediate buffer is packed and interleaved
-					// we need to pass clLengths[1] and instride size to kernel, so kernel can tell the difference
-
-					// common part for both passes
-					copyPlan->placeness     = CLFFT_OUTOFPLACE;
-					copyPlan->inputLayout   = fftPlan->inputLayout;
-					copyPlan->outputLayout  = CLFFT_COMPLEX_INTERLEAVED;
-
-					copyPlan->precision     = fftPlan->precision;
-					copyPlan->forwardScale  = 1.0f;
-					copyPlan->backwardScale = 1.0f;
-					copyPlan->tmpBufSize    = 0;
-					copyPlan->batchsize     = fftPlan->batchsize;
-
-					copyPlan->gen			= Copy;
-					copyPlan->envelope		= fftPlan->envelope;
-
-					copyPlan->inStride[0]  = fftPlan->inStride[0];
-					copyPlan->iDist        = fftPlan->iDist;
-
-					copyPlan->outStride[0]  = 1;
-					copyPlan->oDist        = fftPlan->length[0];
-
-					for (size_t index=1; index < fftPlan->length.size(); index++)
+					if ((fftPlan->inputLayout == CLFFT_HERMITIAN_INTERLEAVED) ||
+						(fftPlan->inputLayout == CLFFT_HERMITIAN_PLANAR))
 					{
-						copyPlan->length.push_back(fftPlan->length[index]);
-						copyPlan->outStride.push_back(copyPlan->outStride[index-1] * fftPlan->length[index-1]);
-						copyPlan->oDist   *= fftPlan->length[index];
-						copyPlan->inStride.push_back(fftPlan->inStride[index]);
-					}
+						// copy plan to from hermitian to full complex
+						OPENCL_V(clfftCreateDefaultPlanInternal(&fftPlan->planRCcopy, fftPlan->context, CLFFT_1D, &fftPlan->length[0]),
+							_T("CreateDefaultPlan RC copy failed"));
 
-					//Set callback data if set on top level plan
-					if (fftPlan->hasPreCallback)
-					{
-						copyPlan->hasPreCallback = true;
-						copyPlan->preCallback = fftPlan->preCallback;
-						copyPlan->precallUserData = fftPlan->precallUserData;
-					}
+						FFTPlan* copyPlan = NULL;
+						lockRAII* copyLock = NULL;
+						OPENCL_V(fftRepo.getPlan(fftPlan->planRCcopy, copyPlan, copyLock), _T("fftRepo.getPlan failed"));
 
-					OPENCL_V(clfftBakePlan(fftPlan->planRCcopy, numQueues, commQueueFFT, NULL, NULL ), _T( "BakePlan large1d RC copy plan failed" ) );
+						// This is second column fft, intermediate buffer is packed and interleaved
+						// we need to pass clLengths[1] and instride size to kernel, so kernel can tell the difference
+
+						// common part for both passes
+						copyPlan->placeness = CLFFT_OUTOFPLACE;
+						copyPlan->inputLayout = fftPlan->inputLayout;
+						copyPlan->outputLayout = CLFFT_COMPLEX_INTERLEAVED;
+
+						copyPlan->precision = fftPlan->precision;
+						copyPlan->forwardScale = 1.0f;
+						copyPlan->backwardScale = 1.0f;
+						copyPlan->tmpBufSize = 0;
+						copyPlan->batchsize = fftPlan->batchsize;
+
+						copyPlan->gen = Copy;
+						copyPlan->envelope = fftPlan->envelope;
+
+						copyPlan->inStride[0] = fftPlan->inStride[0];
+						copyPlan->iDist = fftPlan->iDist;
+
+						copyPlan->outStride[0] = 1;
+						copyPlan->oDist = fftPlan->length[0];
+
+						for (size_t index = 1; index < fftPlan->length.size(); index++)
+						{
+							copyPlan->length.push_back(fftPlan->length[index]);
+							copyPlan->outStride.push_back(copyPlan->outStride[index - 1] * fftPlan->length[index - 1]);
+							copyPlan->oDist *= fftPlan->length[index];
+							copyPlan->inStride.push_back(fftPlan->inStride[index]);
+						}
+
+						//Set callback data if set on top level plan
+						if (fftPlan->hasPreCallback)
+						{
+							copyPlan->hasPreCallback = true;
+							copyPlan->preCallback = fftPlan->preCallback;
+							copyPlan->precallUserData = fftPlan->precallUserData;
+						}
+
+						OPENCL_V(clfftBakePlan(fftPlan->planRCcopy, numQueues, commQueueFFT, NULL, NULL), _T("BakePlan large1d RC copy plan failed"));
+					}
 
 					// column FFT, size clLengths[1], batch clLengths[0], with length[0] twiddle factor multiplication
 					// transposed output
@@ -1296,7 +1353,6 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 					// we need to pass clLengths[0] and instride size to kernel, so kernel can tell the difference
 
 					//this part are common for both passes
-					colTPlan->placeness     = CLFFT_INPLACE;
 					colTPlan->precision     = fftPlan->precision;
 					colTPlan->forwardScale  = 1.0f;
 					colTPlan->backwardScale = 1.0f;
@@ -1304,18 +1360,16 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 					colTPlan->batchsize     = fftPlan->batchsize;
 
 					colTPlan->gen			= fftPlan->gen;
-					colTPlan->envelope			= fftPlan->envelope;
+					colTPlan->envelope		= fftPlan->envelope;
 
 					//Pass large1D flag to confirm we need multiply twiddle factor
 					colTPlan->large1D       = fftPlan->length[0];
 
 					colTPlan->length.push_back(clLengths[0]);
 
-					// first Pass
 					colTPlan->inputLayout   = CLFFT_COMPLEX_INTERLEAVED;
 					colTPlan->outputLayout  = CLFFT_COMPLEX_INTERLEAVED;
-
-
+					
 					colTPlan->inStride[0]  = length0;
 					colTPlan->inStride.push_back(1);
 					colTPlan->iDist        = length0 * length1;
@@ -1333,6 +1387,15 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 						colTPlan->oDist   *= fftPlan->length[index];
 					}
 
+					if ((fftPlan->inputLayout == CLFFT_HERMITIAN_INTERLEAVED) ||
+						(fftPlan->inputLayout == CLFFT_HERMITIAN_PLANAR))
+					{
+						colTPlan->placeness = CLFFT_INPLACE;
+					}
+					else
+					{
+						colTPlan->placeness = CLFFT_OUTOFPLACE;
+					}
 
 					OPENCL_V(clfftBakePlan(fftPlan->planX, numQueues, commQueueFFT, NULL, NULL ), _T( "BakePlan large1d first column plan failed" ) );
 
@@ -1600,7 +1663,6 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 						}
 
 						// column FFT, size clLengths[1], batch clLengths[0], with length[0] twiddle factor multiplication
-						// transposed output
 						OPENCL_V(clfftCreateDefaultPlanInternal( &fftPlan->planX, fftPlan->context, CLFFT_1D, &clLengths[1] ),
 							_T( "CreateDefaultPlan Large1d column failed" ) );
 
@@ -1668,7 +1730,7 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 
 						OPENCL_V(clfftBakePlan(fftPlan->planX, numQueues, commQueueFFT, NULL, NULL ), _T( "BakePlan large1d first column plan failed" ) );
 
-						//another column FFT, size clLengths[0], batch clLengths[1], output without transpose
+						//another column FFT, size clLengths[0], batch clLengths[1], output with transpose
 						OPENCL_V(clfftCreateDefaultPlanInternal( &fftPlan->planY, fftPlan->context, CLFFT_1D,  &clLengths[0] ),
 							_T( "CreateDefaultPlan large1D row failed" ) );
 

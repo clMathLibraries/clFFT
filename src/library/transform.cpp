@@ -126,7 +126,7 @@ clfftStatus clfftEnqueueTransform(
 	{
 		case CLFFT_1D:
 		{
-			if (fftPlan->length[0] <= Large1DThreshold)
+			if ( Is1DPossible(fftPlan->length[0], Large1DThreshold) )
 				break;
 
 			if( ( fftPlan->inputLayout == CLFFT_REAL ) && ( fftPlan->planTZ != 0) )
@@ -225,20 +225,22 @@ clfftStatus clfftEnqueueTransform(
 					_T("clfftEnqueueTransform large1D col pass failed"));
 
 
-				// another column FFT output, INPLACE
-				OPENCL_V( clfftEnqueueTransform( fftPlan->planY, CLFFT_FORWARD, numQueuesAndEvents, commQueues, 1, &colOutEvents,
-					&copyInEvents, &(fftPlan->intBufferRC), &(fftPlan->intBufferRC), localIntBuffer ),
-					_T("clfftEnqueueTransform large1D second column failed"));
-				clReleaseEvent(colOutEvents);
-
 				cl_mem *out_local;
 				out_local = (fftPlan->placeness==CLFFT_INPLACE) ? clInputBuffers : clOutputBuffers;
 
+
+				// another column FFT output, INPLACE
+				OPENCL_V(clfftEnqueueTransform(fftPlan->planY, CLFFT_FORWARD, numQueuesAndEvents, commQueues, 1, &colOutEvents,
+					&copyInEvents, &(fftPlan->intBufferRC), &(fftPlan->intBufferRC), localIntBuffer),
+					_T("clfftEnqueueTransform large1D second column failed"));
+				clReleaseEvent(colOutEvents);
+
 				// copy from full complex to hermitian
-				OPENCL_V( clfftEnqueueTransform( fftPlan->planRCcopy, CLFFT_FORWARD, numQueuesAndEvents, commQueues, 1, &copyInEvents,
-					outEvents, &(fftPlan->intBufferRC), out_local, localIntBuffer ),
+				OPENCL_V(clfftEnqueueTransform(fftPlan->planRCcopy, CLFFT_FORWARD, numQueuesAndEvents, commQueues, 1, &copyInEvents,
+					outEvents, &(fftPlan->intBufferRC), out_local, localIntBuffer),
 					_T("clfftEnqueueTransform large1D RC copy failed"));
 				clReleaseEvent(copyInEvents);
+
 
 			}
 			else if( fftPlan->outputLayout == CLFFT_REAL )
@@ -246,17 +248,29 @@ clfftStatus clfftEnqueueTransform(
 				cl_event colOutEvents = NULL;
 				cl_event copyOutEvents = NULL;
 
-				// copy from hermitian to full complex
-				OPENCL_V( clfftEnqueueTransform( fftPlan->planRCcopy, CLFFT_BACKWARD, numQueuesAndEvents, commQueues, numWaitEvents,
-					waitEvents, &copyOutEvents, clInputBuffers, &(fftPlan->intBufferRC), localIntBuffer ),
-					_T("clfftEnqueueTransform large1D RC copy failed"));
+				if (fftPlan->planRCcopy)
+				{
+					// copy from hermitian to full complex
+					OPENCL_V(clfftEnqueueTransform(fftPlan->planRCcopy, CLFFT_BACKWARD, numQueuesAndEvents, commQueues, numWaitEvents,
+						waitEvents, &copyOutEvents, clInputBuffers, &(fftPlan->intBufferRC), localIntBuffer),
+						_T("clfftEnqueueTransform large1D RC copy failed"));
 
-				// First pass
-				// column with twiddle first, INPLACE,
-				OPENCL_V( clfftEnqueueTransform( fftPlan->planX, CLFFT_BACKWARD, numQueuesAndEvents, commQueues, 1,
-					&copyOutEvents, &colOutEvents, &(fftPlan->intBufferRC), &(fftPlan->intBufferRC), localIntBuffer),
-					_T("clfftEnqueueTransform large1D col pass failed"));
-				clReleaseEvent(copyOutEvents);
+					// First pass
+					// column with twiddle first, INPLACE,
+					OPENCL_V(clfftEnqueueTransform(fftPlan->planX, CLFFT_BACKWARD, numQueuesAndEvents, commQueues, 1,
+						&copyOutEvents, &colOutEvents, &(fftPlan->intBufferRC), &(fftPlan->intBufferRC), localIntBuffer),
+						_T("clfftEnqueueTransform large1D col pass failed"));
+					clReleaseEvent(copyOutEvents);
+				}
+				else
+				{
+					// First pass
+					// column with twiddle first, INPLACE,
+					OPENCL_V(clfftEnqueueTransform(fftPlan->planX, CLFFT_BACKWARD, numQueuesAndEvents, commQueues, numWaitEvents,
+						waitEvents, &colOutEvents, clInputBuffers, &(fftPlan->intBufferRC), localIntBuffer),
+						_T("clfftEnqueueTransform large1D col pass failed"));
+					clReleaseEvent(copyOutEvents);
+				}
 
 				cl_mem *out_local;
 				out_local = (fftPlan->placeness==CLFFT_INPLACE) ? clInputBuffers : clOutputBuffers;
@@ -497,9 +511,9 @@ clfftStatus clfftEnqueueTransform(
 						{
 							cl_event colOutEvents = NULL;
 							// First pass
-							// column with twiddle first, OUTOFPLACE, + transpose
+							// column with twiddle first, OUTOFPLACE
 							OPENCL_V( clfftEnqueueTransform( fftPlan->planX, dir, numQueuesAndEvents, commQueues, numWaitEvents,
-								waitEvents, &colOutEvents, clInputBuffers, &localIntBuffer, localIntBuffer),
+								waitEvents, &colOutEvents, clInputBuffers, &localIntBuffer, NULL),
 								_T("clfftEnqueueTransform large1D col pass failed"));
 
 #if defined(DEBUGGING)
@@ -534,11 +548,11 @@ clfftStatus clfftEnqueueTransform(
 							}
 							else
 							{
-								//another column FFT output, OUTOFPLACE
+								//another column FFT output, OUTOFPLACE + transpose
 								if (fftPlan->placeness == CLFFT_INPLACE)
 								{
 									OPENCL_V( clfftEnqueueTransform( fftPlan->planY, dir, numQueuesAndEvents, commQueues, 1, &colOutEvents,
-										outEvents, &localIntBuffer, clInputBuffers, localIntBuffer ),
+										outEvents, &localIntBuffer, clInputBuffers, NULL ),
 										_T("clfftEnqueueTransform large1D second column failed"));
 
 #if defined(DEBUGGING)
@@ -558,7 +572,7 @@ clfftStatus clfftEnqueueTransform(
 									_T("Reading the result buffer failed") );
 #endif
 									OPENCL_V( clfftEnqueueTransform( fftPlan->planY, dir, numQueuesAndEvents, commQueues, 1, &colOutEvents,
-										outEvents, &localIntBuffer, clOutputBuffers, localIntBuffer ),
+										outEvents, &localIntBuffer, clOutputBuffers, NULL ),
 										_T("clfftEnqueueTransform large1D second column failed"));
 
 #if defined(DEBUGGING)
@@ -601,7 +615,7 @@ clfftStatus clfftEnqueueTransform(
 
 			if( fftRepo.pStatTimer )
 			{
-				fftRepo.pStatTimer->AddSample( plHandle, fftPlan, NULL, 0, NULL, std::vector< size_t >( ) );
+				fftRepo.pStatTimer->AddSample( plHandle, fftPlan, NULL, 0, NULL, std::vector< size_t >( ), std::vector< size_t >() );
 			}
 
 			return	CLFFT_SUCCESS;
@@ -985,7 +999,7 @@ clfftStatus clfftEnqueueTransform(
 					{
 						//deal with row first
 						OPENCL_V( clfftEnqueueTransform( fftPlan->planX, dir, numQueuesAndEvents, commQueues, numWaitEvents,
-							waitEvents, &rowOutEvents, clInputBuffers, &localIntBuffer, localIntBuffer ),
+							waitEvents, &rowOutEvents, clInputBuffers, &localIntBuffer, NULL ),
 							_T("clfftEnqueueTransform for row failed"));
 
 
@@ -993,14 +1007,14 @@ clfftStatus clfftEnqueueTransform(
 						{
 							//deal with column
 							OPENCL_V( clfftEnqueueTransform( fftPlan->planY, dir, numQueuesAndEvents, commQueues, 1, &rowOutEvents,
-								outEvents, &localIntBuffer, clInputBuffers, localIntBuffer ),
+								outEvents, &localIntBuffer, clInputBuffers, NULL ),
 								_T("clfftEnqueueTransform for column failed"));
 						}
 						else
 						{
 							//deal with column
 							OPENCL_V( clfftEnqueueTransform( fftPlan->planY, dir, numQueuesAndEvents, commQueues, 1, &rowOutEvents,
-								outEvents, &localIntBuffer, clOutputBuffers, localIntBuffer ),
+								outEvents, &localIntBuffer, clOutputBuffers, NULL ),
 								_T("clfftEnqueueTransform for column failed"));
 
 			#if defined(DEBUGGING)
@@ -1019,7 +1033,7 @@ clfftStatus clfftEnqueueTransform(
 
 			if( fftRepo.pStatTimer )
 			{
-				fftRepo.pStatTimer->AddSample( plHandle, fftPlan, NULL, 0, NULL, std::vector< size_t >( ) );
+				fftRepo.pStatTimer->AddSample( plHandle, fftPlan, NULL, 0, NULL, std::vector< size_t >( ), std::vector< size_t >() );
 			}
 
 			return	CLFFT_SUCCESS;
@@ -1267,7 +1281,7 @@ clfftStatus clfftEnqueueTransform(
 
 			if( fftRepo.pStatTimer )
 			{
-				fftRepo.pStatTimer->AddSample( plHandle, fftPlan, NULL, 0, NULL, std::vector< size_t >( ) );
+				fftRepo.pStatTimer->AddSample( plHandle, fftPlan, NULL, 0, NULL, std::vector< size_t >( ), std::vector< size_t >() );
 			}
 
 			return	CLFFT_SUCCESS;
