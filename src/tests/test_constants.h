@@ -134,6 +134,11 @@ const size_t normal5 = 625;
 const size_t large5 = 15625;
 const size_t dlarge5 = 3125;
 
+const size_t small7 = 49;
+const size_t normal7 = 2401;
+const size_t large7 = 16807;
+const size_t dlarge7 = 2401;
+
 const size_t large_batch_size = 2048;
 const size_t do_not_output_any_mismatches = 0;
 const size_t default_number_of_mismatches_to_output = 10;
@@ -172,6 +177,7 @@ inline size_t MaxLength2D<float>(size_t rad)
 	case 2:		return large2;
 	case 3:		return large3;
 	case 5:		return large5;
+	case 7:		return large7;
 	default:	return 0;
 	}
 }
@@ -184,6 +190,7 @@ inline size_t MaxLength2D<double>(size_t rad)
 	case 2:		return dlarge2;
 	case 3:		return dlarge3;
 	case 5:		return dlarge5;
+	case 7:		return dlarge7;
 	default:	return 0;
 	}
 }
