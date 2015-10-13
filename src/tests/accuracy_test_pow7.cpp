@@ -7361,19 +7361,13 @@ namespace power7
         unsigned int y_dim;
         unsigned int z_dim;
         clfftPrecision precision;
-        unsigned int batch_size;
 
         InpSizeParameters(unsigned int ip_x_dim, unsigned int ip_y_dim, unsigned int ip_z_dim, clfftPrecision ip_precision)
         {
-            size_t SP_MAX_LEN = 1 << 24;
-            size_t DP_MAX_LEN = 1 << 22;
-
             x_dim = ip_x_dim;
             y_dim = ip_y_dim;
             z_dim = ip_z_dim;
             precision = ip_precision;
-            if (ip_precision == CLFFT_SINGLE) batch_size = (SP_MAX_LEN) / (ip_x_dim * ip_y_dim * ip_z_dim);
-            if (ip_precision == CLFFT_DOUBLE) batch_size = (DP_MAX_LEN) / (ip_x_dim * ip_y_dim * ip_z_dim);
         }
     };
 
@@ -7381,23 +7375,40 @@ namespace power7
     private:
         std::vector<InpSizeParameters> data_sets;
     public:
-        TestParameterGenerator(int max_pow7)
+        TestParameterGenerator()
         {
-            generate(max_pow7);
+            generate();
         }
 
         std::vector<InpSizeParameters> & parameter_sets() { return data_sets; }
 
     private:
-        void generate(int max_pow7) {
-            for (int z = 1; z <= max_pow7; z++)
+        void generate(void) {
+
+            size_t SP_MAX_LEN = 1 << 24;
+            size_t DP_MAX_LEN = 1 << 22;
+            int x, y, z;
+            size_t max_pow7 = 8; /*because 7 ^ 9 is greater than SP_MAX_LEN*/
+
+            /*Generate test parameters*/
+            for ( z = 0; z <= max_pow7; z++)
             {
-                for (int y = 1; y <= max_pow7; y++)
+                for ( y = 0; y <= max_pow7; y++)
                 {
-                    for (int x = 1; x <= max_pow7; x++)
+                    for ( x = 1; x <= max_pow7; x++)
                     {
-                        data_sets.push_back(InpSizeParameters(7 ^ x, 7 ^ y, 7 ^ z, CLFFT_SINGLE));
-                        data_sets.push_back(InpSizeParameters(7 ^ x, 7 ^ y, 7 ^ z, CLFFT_DOUBLE));
+                        if (pow(7,(x + y + z)) <= (SP_MAX_LEN))
+                        {
+                            data_sets.push_back(InpSizeParameters(pow(7 , x), pow(7 , y), pow(7 , z), CLFFT_SINGLE));
+                        }
+                        else
+                        {
+                            break;
+                        }
+                        if (pow(7,(x + y + z)) <= (DP_MAX_LEN))
+                        {
+                            data_sets.push_back(InpSizeParameters(pow(7 , x), pow(7 , y), pow(7 , z), CLFFT_DOUBLE));
+                        }          
                     }
                 }
             }
@@ -7425,7 +7436,7 @@ void accuracy_test_pow7_all_ip_size_in_place(power7::InpSizeParameters params)
     lengths.push_back(params.y_dim);
     lengths.push_back(params.z_dim);
 
-    size_t batch = params.batch_size;
+    size_t batch = 1;
     std::vector<size_t> input_strides;
     std::vector<size_t> output_strides;
     size_t input_distance = 0;
@@ -7448,7 +7459,6 @@ TEST_P(accuracy_test_pow7_all_ip_size, power7_all_input_size) {
     RecordProperty("y_dim_size", params.y_dim);
     RecordProperty("z_dim_size", params.z_dim);
     RecordProperty("precision", params.precision);
-    RecordProperty("batch_size", params.batch_size);
 
     switch(params.precision )
     {
@@ -7470,5 +7480,5 @@ INSTANTIATE_TEST_CASE_P(
     clfft_pow7_AllInpSizeTest,
     accuracy_test_pow7_all_ip_size,
     ::testing::ValuesIn(power7::TestParameterGenerator
-        (4).parameter_sets())
+        ().parameter_sets())
     );
