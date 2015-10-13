@@ -135,7 +135,7 @@ const size_t large5 = 15625;
 const size_t dlarge5 = 3125;
 
 const size_t small7 = 49;
-const size_t normal7 = 2401;
+const size_t normal7 = 343;
 const size_t large7 = 16807;
 const size_t dlarge7 = 2401;
 
