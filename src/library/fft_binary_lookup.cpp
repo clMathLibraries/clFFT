@@ -60,6 +60,20 @@ static char * sep()
 
 static std::string cache_path;
 static bool cache_enabled(false);
+static bool request_nomemalloc(false);
+
+void clfftInitRequestLibNoMemAlloc()
+{
+	const char * val = getenv("CLFFT_REQUEST_LIB_NOMEMALLOC");
+
+	if (val)
+		request_nomemalloc = true;
+}
+
+bool clfftGetRequestLibNoMemAlloc()
+{
+	return request_nomemalloc;
+}
 
 void clfftInitBinaryCache()
 {

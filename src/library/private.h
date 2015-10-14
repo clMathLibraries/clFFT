@@ -90,6 +90,9 @@
 	}
 #endif
 
+void clfftInitRequestLibNoMemAlloc();
+bool clfftGetRequestLibNoMemAlloc();
+
 void clfftInitBinaryCache();
 
 //	This header file is not visible to clients, and contains internal structures and functions for use

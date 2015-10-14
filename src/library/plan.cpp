@@ -619,8 +619,6 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 
 					if ( clLengths[0]<=32 && clLengths[1]<=32) break;
 
-					ARG_CHECK(clLengths[0] <= Large1DThreshold);
-
 
 					size_t biggerDim = clLengths[0] > clLengths[1] ? clLengths[0] : clLengths[1];
 					size_t smallerDim = biggerDim == clLengths[0] ? clLengths[1] : clLengths[0];
@@ -630,7 +628,8 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 
 					clfftGenerators transGen = Transpose_GCN;
 
-					if( (clLengths[0] == clLengths[1]) &&
+					if( clfftGetRequestLibNoMemAlloc() &&
+						(clLengths[0] == clLengths[1]) &&
 						(fftPlan->iDist == fftPlan->length[0]) &&
 						(fftPlan->oDist == fftPlan->length[0]) &&
 						fftPlan->placeness == CLFFT_INPLACE )
