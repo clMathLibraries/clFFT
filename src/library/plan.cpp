@@ -630,7 +630,8 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 
 					clfftGenerators transGen = Transpose_GCN;
 
-					if( (clLengths[0] == clLengths[1]) &&
+					if( clfftGetRequestLibNoMemAlloc() &&
+						(clLengths[0] == clLengths[1]) &&
 						(fftPlan->iDist == fftPlan->length[0]) &&
 						(fftPlan->oDist == fftPlan->length[0]) &&
 						fftPlan->placeness == CLFFT_INPLACE )
