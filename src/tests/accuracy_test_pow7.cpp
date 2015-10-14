@@ -7387,16 +7387,17 @@ namespace power7
 
             size_t SP_MAX_LEN = 1 << 24;
             size_t DP_MAX_LEN = 1 << 22;
-            int x, y, z;
+            int x, y, z, is_1D_parameters_pushed = 0;
             size_t max_pow7 = 8; /*because 7 ^ 9 is greater than SP_MAX_LEN*/
 
             /*Generate test parameters*/
             for ( z = 0; z <= max_pow7; z++)
             {
-                for ( y = 0; y <= max_pow7; y++)
+                for ( y = is_1D_parameters_pushed; y <= max_pow7; y++)
                 {
                     for ( x = 1; x <= max_pow7; x++)
                     {
+                        is_1D_parameters_pushed = 1;
                         if (pow(7,(x + y + z)) <= (SP_MAX_LEN))
                         {
                             data_sets.push_back(InpSizeParameters(pow(7 , x), pow(7 , y), pow(7 , z), CLFFT_SINGLE));
@@ -7432,11 +7433,11 @@ template< class T, class cl_T, class fftw_T >
 void accuracy_test_pow7_all_ip_size_in_place(power7::InpSizeParameters params)
 {
     std::vector<size_t> lengths;
-    lengths.push_back(params.x_dim);
-    lengths.push_back(params.y_dim);
-    lengths.push_back(params.z_dim);
+    if (params.x_dim > 1) lengths.push_back(params.x_dim);
+    if (params.y_dim > 1) lengths.push_back(params.y_dim);
+    if (params.z_dim > 1) lengths.push_back(params.z_dim);
 
-    size_t batch = 1;
+    size_t batch = (1 << 24) / (params.x_dim * params.y_dim * params.z_dim);
     std::vector<size_t> input_strides;
     std::vector<size_t> output_strides;
     size_t input_distance = 0;
