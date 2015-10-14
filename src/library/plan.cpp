@@ -619,8 +619,6 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 
 					if ( clLengths[0]<=32 && clLengths[1]<=32) break;
 
-					ARG_CHECK(clLengths[0] <= Large1DThreshold);
-
 
 					size_t biggerDim = clLengths[0] > clLengths[1] ? clLengths[0] : clLengths[1];
 					size_t smallerDim = biggerDim == clLengths[0] ? clLengths[1] : clLengths[0];
