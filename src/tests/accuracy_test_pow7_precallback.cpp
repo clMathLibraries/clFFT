@@ -1052,5 +1052,34 @@ TEST_F(accuracy_test_pow7_precallback_double, very_small_1D_non_unit_stride_and_
     catch (const std::exception& err) { handle_exception(err); }
 }
 
+template< class T, class cl_T, class fftw_T >
+void normal_1D_user_defined_scale_real_to_hermitian()
+{
+    std::vector<size_t> lengths;
+    lengths.push_back(normal7);
+    size_t batch = 1;
+    std::vector<size_t> input_strides;
+    std::vector<size_t> output_strides;
+    size_t input_distance = 0;
+    size_t output_distance = 0;
+    layout::buffer_layout_t layout = layout::hermitian_planar;
+    placeness::placeness_t placeness = placeness::out_of_place;
+
+    data_pattern pattern = impulse;
+    precallback_real_to_complex<T, cl_T, fftw_T>(pattern, lengths, batch, input_strides, output_strides, input_distance, output_distance, layout, placeness, 42.0f);
+}
+
+TEST_F(accuracy_test_pow7_precallback_single, normal_1D_user_defined_scale_real_to_hermitian)
+{
+    try { normal_1D_user_defined_scale_real_to_hermitian< float, cl_float, fftwf_complex >(); }
+    catch (const std::exception& err) { handle_exception(err); }
+}
+
+TEST_F(accuracy_test_pow7_precallback_double, normal_1D_user_defined_scale_real_to_hermitian)
+{
+    try { normal_1D_user_defined_scale_real_to_hermitian< double, cl_double, fftw_complex >(); }
+    catch (const std::exception& err) { handle_exception(err); }
+}
+
 #pragma endregion
 }
