@@ -32,6 +32,7 @@ set( clFFT.Test.Source
 	 accuracy_test_pow2_precallback.cpp
 	 accuracy_test_pow3_precallback.cpp
 	 accuracy_test_pow5_precallback.cpp
+	 accuracy_test_pow7_precallback.cpp
 	 gtest_main.cpp
 	 ${PROJECT_SOURCE_DIR}/client/openCL.misc.cpp
 	 c-compliance.c

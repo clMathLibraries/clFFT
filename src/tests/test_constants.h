@@ -96,10 +96,10 @@
 				return ret; \n \
 				}
 
-typedef struct USER_DATA  
-				{  
-				float scalar1;  
-				float scalar2; 
+typedef struct USER_DATA
+				{
+				float scalar1;
+				float scalar2;
 				} USER_DATA;
 
 #define CALLBCKSTR(...) #__VA_ARGS__
@@ -177,7 +177,7 @@ inline size_t MaxLength2D<float>(size_t rad)
 	case 2:		return large2;
 	case 3:		return large3;
 	case 5:		return large5;
-    case 7:		return large7;
+	case 7:		return large7;
 	default:	return 0;
 	}
 }
@@ -190,7 +190,7 @@ inline size_t MaxLength2D<double>(size_t rad)
 	case 2:		return dlarge2;
 	case 3:		return dlarge3;
 	case 5:		return dlarge5;
-    case 7:		return dlarge7;
+	case 7:		return dlarge7;
 	default:	return 0;
 	}
 }
