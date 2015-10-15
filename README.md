@@ -1,7 +1,11 @@
+## Build Status
+| Build branch | master | develop |
+|-----|-----|-----|
+| GCC/Clang x64 | [![Build Status](https://travis-ci.org/clMathLibraries/clFFT.svg?branch=master)](https://travis-ci.org/clMathLibraries/clFFT/branches) | [![Build Status](https://travis-ci.org/clMathLibraries/clFFT.svg?branch=develop)](https://travis-ci.org/clMathLibraries/clFFT/branches) |
+| Visual Studio x64 |  |[![Build status](https://ci.appveyor.com/api/projects/status/facii32v72y98opv/branch/develop?svg=true)](https://ci.appveyor.com/project/kknox/clfft-whc3m/branch/develop) |
+
 clFFT
 =====
-[![Build Status](https://travis-ci.org/clMathLibraries/clFFT.png)](https://travis-ci.org/clMathLibraries/clFFT)
-
 clFFT is a software library containing FFT functions written
 in OpenCL. In addition to GPU devices, the libraries also support
 running on CPU devices to facilitate debugging and heterogeneous
@@ -109,12 +113,12 @@ int main( void )
     cl_event event = NULL;
     int ret = 0;
 	size_t N = 16;
-	
+
 	/* FFT library realted declarations */
 	clfftPlanHandle planHandle;
 	clfftDim dim = CLFFT_1D;
 	size_t clLengths[1] = {N};
-                
+
     /* Setup OpenCL environment. */
     err = clGetPlatformIDs( 1, &platform, NULL );
     err = clGetDeviceIDs( platform, CL_DEVICE_TYPE_GPU, 1, &device, NULL );
@@ -131,7 +135,7 @@ int main( void )
 	/* Allocate host & initialize data. */
 	/* Only allocation shown for simplicity. */
 	X = (float *)malloc(N * 2 * sizeof(*X));
-                
+
     /* Prepare OpenCL memory objects and place data inside them. */
     bufX = clCreateBuffer( ctx, CL_MEM_READ_WRITE, N * 2 * sizeof(*X), NULL, &err );
 
@@ -140,15 +144,15 @@ int main( void )
 
 	/* Create a default plan for a complex FFT. */
 	err = clfftCreateDefaultPlan(&planHandle, ctx, dim, clLengths);
-	
+
 	/* Set plan parameters. */
 	err = clfftSetPlanPrecision(planHandle, CLFFT_SINGLE);
 	err = clfftSetLayout(planHandle, CLFFT_COMPLEX_INTERLEAVED, CLFFT_COMPLEX_INTERLEAVED);
 	err = clfftSetResultLocation(planHandle, CLFFT_INPLACE);
-                                
+
     /* Bake the plan. */
 	err = clfftBakePlan(planHandle, 1, &queue, NULL, NULL);
-	
+
 	/* Execute the plan. */
 	err = clfftEnqueueTransform(planHandle, CLFFT_FORWARD, 1, &queue, 0, NULL, NULL, &bufX, NULL, NULL);
 
@@ -162,7 +166,7 @@ int main( void )
     clReleaseMemObject( bufX );
 
 	free(X);
-	
+
 	/* Release the plan. */
 	err = clfftDestroyPlan( &planHandle );
 
