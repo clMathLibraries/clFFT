@@ -48,7 +48,7 @@ if( NOT DEFINED CLFFT_VERSION_PATCH )
 endif( )
 
 set( CLFFT_VERSION "${CLFFT_VERSION_MAJOR}.${CLFFT_VERSION_MINOR}.${CLFFT_VERSION_PATCH}")
-	
+
 # This is incremented when the ABI to the library changes
 set( CLFFT_SOVERSION 2 )
 
@@ -177,7 +177,7 @@ if( BUILD_TEST )
 endif( )
 
 # Enable building of the callback client if requested and all dependencies are found
-if( BUILD_CALLBACK_CLIENT AND Boost_FOUND )
+if( BUILD_CALLBACK_CLIENT AND Boost_FOUND AND FFTW_FOUND )
 	set( FFT_CALLBACK_CLIENT ON )
 else( )
 	set( FFT_CALLBACK_CLIENT OFF )
@@ -211,7 +211,7 @@ elseif( CMAKE_COMPILER_IS_GNUCXX )
 		# we only want c++0x if we're using gcc 4.5.2
 		set( CMAKE_CXX_FLAGS "-std=c++0x ${CMAKE_CXX_FLAGS}" )
 	endif()
-	
+
 	set( CMAKE_CXX_FLAGS "-pthread ${CMAKE_CXX_FLAGS}" )
 	set( CMAKE_C_FLAGS "-pthread ${CMAKE_C_FLAGS}" )
 
