@@ -584,7 +584,7 @@ The workflow of FFT execution using callback feature of clFFT is as follows
 											const char* funcName, 
 											const char* funcString, 
 											int localMemSize, 
-											clFFTCallbackType callbackType, 
+											clfftCallbackType callbackType, 
 											void *userdata,
 											int numUserdataBuffers)
 		@endcode

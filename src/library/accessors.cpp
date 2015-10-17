@@ -769,7 +769,7 @@ clfftStatus clfftLocalMemSize( const clfftPlanHandle plHandle, cl_ulong* local_m
 
 clfftStatus clfftSetPlanCallback(clfftPlanHandle plHandle, const char* funcName, 
 								 const char* funcString, int localMemSize, 
-								 clFFTCallbackType callbackType, cl_mem *userdata, int numUserdataBuffers)
+								 clfftCallbackType callbackType, cl_mem *userdata, int numUserdataBuffers)
 {
 	FFTRepo& fftRepo	= FFTRepo::getInstance( );
 	FFTPlan* fftPlan	= NULL;

@@ -215,11 +215,11 @@ typedef struct clfftSetupData_ clfftSetupData;
 
 /*! @brief Type of Callback function.
 */
-typedef enum clFFTCallbackType_
+typedef enum clfftCallbackType_
 {
 	PRECALLBACK,	/*!< Callback function is invoked only once for every point of input at the beginning of FFT transform. */
 	POSTCALLBACK	/*!< Callback function is invoked only once for every point of output at the end of FFT transform. */
-}clFFTCallbackType;
+}clfftCallbackType;
 
 /*!  @brief An abstract handle to the object that represents the state of the FFT(s) */
 typedef size_t clfftPlanHandle;
@@ -563,7 +563,7 @@ extern "C" {
 	 *  @param[numUserdataBuffers] Number of userdata buffers
 	 */
 	CLFFTAPI clfftStatus clfftSetPlanCallback(clfftPlanHandle plHandle, const char* funcName, const char* funcString,
-										int localMemSize, clFFTCallbackType callbackType, cl_mem *userdata, int numUserdataBuffers);
+										int localMemSize, clfftCallbackType callbackType, cl_mem *userdata, int numUserdataBuffers);
 
 
 	/*! @brief Enqueue an FFT transform operation, and return immediately (non-blocking)
