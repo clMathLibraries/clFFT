@@ -18,6 +18,42 @@ implementation of discrete Fast Fourier Transforms. It:
 * Supports in-place or out-of-place transforms
 
 
+clFFT - Release Notes - version 2.7
+--------------------------------------
+
+New features of this release:
+
+* Support for power-of-7 size transforms
+* Pre-callback feature that enables custom pre-processing
+  of input data directly by the library with user callback function
+* Support for 1D large size transforms with no extra memory allocation
+  requirement for certain sizes
+
+Driver notes:
+
+* This library version has been tested with Catalyst
+  Pro driver version 14.502 on Firepro W9100.
+
+
+clFFT - Release Notes - version 2.6.1
+--------------------------------------
+
+This is a patch update release to v2.6.0. It has the following.
+
+* Fix for client application crash with Linux 14.502 driver
+* Performance fixes for real forward and backward transform when
+  enabling ECC
+* Performance fixes for complex transforms over a small range in
+  power-of-2 sizes
+* Improvement in API timing in client
+* Several minor enhancements and bug fixes
+
+Driver notes:
+
+* This library version has been tested with Catalyst
+  Pro driver version 14.502 on Firepro W9100.
+
+
 clFFT - Release Notes - version 2.6.0
 --------------------------------------
 
@@ -50,5 +86,3 @@ New features of this release:
 * 2D/3D size limit relaxation on real and complex transforms
 * Binary caching feature
 * Several minor fixes and improvements
-
-

@@ -1,4 +1,4 @@
-## Build Status
+﻿## Build Status
 | Build branch | master | develop |
 |-----|-----|-----|
 | GCC/Clang x64 | [![Build Status](https://travis-ci.org/clMathLibraries/clFFT.svg?branch=master)](https://travis-ci.org/clMathLibraries/clFFT/branches) | [![Build Status](https://travis-ci.org/clMathLibraries/clFFT.svg?branch=develop)](https://travis-ci.org/clMathLibraries/clFFT/branches) |
@@ -7,7 +7,7 @@
 clFFT
 =====
 clFFT is a software library containing FFT functions written
-in OpenCL. In addition to GPU devices, the libraries also support
+in OpenCL. In addition to GPU devices, the library also supports
 running on CPU devices to facilitate debugging and heterogeneous
 programming.
 
@@ -15,6 +15,11 @@ Pre-built binaries are available [here][binary_release].
 
 ## What's New
 
+-   Support for power-of-7 size transforms
+-   Pre-callback feature that enables custom pre-processing
+    of input data directly by the library with user callback function
+-   Support for 1D large size transforms with no extra memory allocation
+    requirement for certain sizes
 -   Significant uplift of 1D complex transform performance
 -   Significant uplift of 1D real transform performance for power-of-2 sizes
 -   1D large size limit relaxation for complex transforms
@@ -27,7 +32,7 @@ Pre-built binaries are available [here][binary_release].
 
 The FFT is an implementation of the Discrete Fourier Transform (DFT)
 that makes use of symmetries in the FFT definition to reduce the
-mathematical intensity required from O(N2) to O(N log2( N )) when the
+mathematical intensity required from O(N^2) to O(N log2(N)) when the
 sequence length N is the product of small prime factors. Currently,
 there is no standard API for FFT routines. Hardware vendors usually
 provide a set of high-performance FFTs optimized for their systems: no
@@ -37,23 +42,22 @@ processors, but also are functional across CPU and other compute
 devices.
 
 The clFFT library is an open source OpenCL library implementation of
-discrete Fast Fourier Transforms. It:
+discrete Fast Fourier Transforms. The library:
 
--   Provides a fast and accurate platform for calculating discrete FFTs.
+-   provides a fast and accurate platform for calculating discrete FFTs.
 
--   Works on CPU or GPU backends.
+-   works on CPU or GPU backends.
 
--   Supports in-place or out-of-place transforms.
+-   supports in-place or out-of-place transforms.
 
--   Supports 1D, 2D, and 3D transforms with a batch size that can be
+-   supports 1D, 2D, and 3D transforms with a batch size that can be
     greater than 1.
 
--   Supports planar (real and complex components in separate arrays) and
+-   supports planar (real and complex components in separate arrays) and
     interleaved (real and complex components as a pair contiguous in
     memory) formats.
 
--   Supports dimension lengths that can be any mix of powers of 2, 3,
-    and 5.
+-   supports dimension lengths that can be any combination of powers of 2, 3, 5, and 7.
 
 -   Supports single and double precision floating point formats.
 
@@ -64,13 +68,13 @@ a GitHub Pages website
 
 ### Google Groups
 
-Two mailing lists have been created for the clMath projects:
+Two mailing lists exist for the clMath projects:
 
 -   [clmath@googlegroups.com][] - group whose focus is to answer
     questions on using the library or reporting issues
 
 -   [clmath-developers@googlegroups.com][] - group whose focus is for
-    developers interested in contributing to the library code itself
+    developers interested in contributing to the library code
 
 ## clFFT Wiki
 
@@ -82,7 +86,7 @@ primer][clmath-developers@googlegroups.com]
 
 Please refer to and read the [Contributing][] document for guidelines on
 how to contribute code to this open source project. The code in the
-/master branch is considered to be stable, and all pull-requests should
+/master branch is considered to be stable, and all pull-requests must
 be made against the /develop branch.
 
 ## License
@@ -92,7 +96,7 @@ The source for clFFT is licensed under the [Apache License, Version
 
 ## Example
 
-The simple example below shows how to use clFFT to compute an simple 1D
+The following simple example shows how to use clFFT to compute a simple 1D
 forward transform
 ```c
 #include <stdlib.h>
@@ -183,29 +187,30 @@ int main( void )
 
 ## Build dependencies
 
-### Library for Windows
+### Library for Windows   
+To develop the clFFT library code on a Windows operating system, ensure to install the following packages on your system:
 
--   Windows® 7/8
+-   Windows® 7/8.1
 
--   Visual Studio 2010 SP1, 2012
+-   Visual Studio 2012 or later
 
 -   Latest CMake
 
--   An OpenCL SDK, such as APP SDK 2.9
+-   An OpenCL SDK, such as APP SDK 3.0
 
 ### Library for Linux
-
+To develop the clFFT library code on a Linux operating system, ensure to install the following packages on your system:
 -   GCC 4.6 and onwards
 
 -   Latest CMake
 
--   An OpenCL SDK, such as APP SDK 2.9
+-   An OpenCL SDK, such as APP SDK 3.0
 
 ### Library for Mac OSX
-
--   Recommended to generate Unix makefiles with cmake
+To develop the clFFT library code on a Mac OS X, it is recommended to generate Unix makefiles with cmake.
 
 ### Test infrastructure
+To test the developed clFFT library code, ensure to install the following packages on your system:
 
 -   Googletest v1.6
 
@@ -214,8 +219,7 @@ int main( void )
 -   Latest Boost
 
 ### Performance infrastructure
-
--   Python
+To measure the performance of the clFFT library code, ensure that the Python package is installed on your system.
 
   [Library and API documentation]: http://clmathlibraries.github.io/clFFT/
   [clmath@googlegroups.com]: https://github.com/clMathLibraries/clFFT/wiki
