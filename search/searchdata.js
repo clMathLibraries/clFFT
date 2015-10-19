@@ -7,7 +7,7 @@ var indexSectionsWithContent =
   4: "dmp",
   5: "c",
   6: "c",
-  7: "ce",
+  7: "cep",
   8: "c",
   9: "o"
 };

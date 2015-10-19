@@ -1,5 +1,6 @@
 var searchData=
 [
+  ['clfftcallbacktype',['clfftCallbackType',['../clFFT_8h.html#a5054fb252880d1e32b9d758e3c6b45e3',1,'clFFT.h']]],
   ['clfftdim',['clfftDim',['../clFFT_8h.html#aa9d4934cdb8612616b6991b72e7f97b6',1,'clFFT.h']]],
   ['clfftdirection',['clfftDirection',['../clFFT_8h.html#a0a586ab5b1540f18a8596df47f5881bf',1,'clFFT.h']]],
   ['clfftlayout',['clfftLayout',['../clFFT_8h.html#a7a152426dc2895653d969b3354016f86',1,'clFFT.h']]],

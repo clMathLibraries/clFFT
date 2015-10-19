@@ -1,42 +1,44 @@
 var NAVTREE =
 [
   [ "clFFT", "index.html", [
-    [ "OpenCL Fast Fourier Transforms (FFT's)", "index.html", [
-      [ "Installation of clFFT library", "index.html#InstallFFT", [
-        [ "Downloadable Binaries", "index.html#DownBinaries", [
-          [ "CMake", "index.html#CMakeDependancy", null ],
-          [ "Boost", "index.html#BoostDependancy", null ]
-        ] ]
-      ] ],
+    [ "OpenCL Fast Fourier Transforms (FFTs)", "index.html", [
       [ "Introduction to clFFT", "index.html#IntroFFT", [
-        [ "Supported Radices", "index.html#SupportRadix", null ],
-        [ "Transform Size Limits", "index.html#SizeLimit", null ],
+        [ "Supported radices", "index.html#SupportRadix", null ],
+        [ "Transform size limits", "index.html#SizeLimit", null ],
         [ "Dimensionality", "index.html#EnumDim", null ],
         [ "Setup and Teardown of clFFT", "index.html#InitLibrary", null ],
         [ "Thread safety", "index.html#ThreadSafety", null ],
-        [ "Row Major formats", "index.html#MajorFormat", null ],
+        [ "Row major formats", "index.html#MajorFormat", null ],
         [ "OpenCL object creation", "index.html#Object", null ],
         [ "Flushing of command queues", "index.html#FlushQueue", null ]
       ] ],
-      [ "clFFT Plans", "index.html#clFFTPlans", [
-        [ "Default Plan Values", "index.html#Default", null ],
-        [ "Supported Memory Layouts", "index.html#EnumLayout", [
+      [ "clFFT plans", "index.html#clFFTPlans", [
+        [ "Default plan values", "index.html#Default", null ],
+        [ "Supported memory layouts", "index.html#EnumLayout", [
           [ "Strides and Distances", "index.html#DistanceStridesandPitches", null ]
         ] ],
-        [ "Supported Precisions in clFFT", "index.html#EnumPrecision", null ],
+        [ "Supported precisions in clFFT", "index.html#EnumPrecision", null ],
         [ "clfftDirection", "index.html#FftDirection", null ],
-        [ "In-Place and Out-of-Place", "index.html#EnumResultLocation", null ],
+        [ "In-place and out-of-place transforms", "index.html#EnumResultLocation", null ],
         [ "Batches", "index.html#clFFTEff", null ]
       ] ],
-      [ "Using clFFT on a Client Application", "index.html#Outline", null ],
-      [ "FFTs of Real Data", "index.html#RealFFT", [
+      [ "Using clFFT in a client application", "index.html#Outline", null ],
+      [ "FFTs of real data", "index.html#RealFFT", [
         [ "Supported Modes", "index.html#RealModes", null ],
         [ "Setting strides", "index.html#ExplicitStrides", null ],
         [ "Examples", "index.html#RealExamples", null ]
+      ] ],
+      [ "clFFT Callbacks", "index.html#Callbacks", [
+        [ "Callback Workflow", "index.html#CallbackWorkflow", null ],
+        [ "Callback Function Prototypes", "index.html#CallbackFunctionPrototype", [
+          [ "Pre-callback Prototypes", "index.html#PrecallbackProtyotype", null ]
+        ] ],
+        [ "Sample Pre-Callback Code", "index.html#SamplePrecallbackCode", null ],
+        [ "Pre-callback Considerations", "index.html#PreCallbackConsiderations", null ]
       ] ]
     ] ],
-    [ "Classes", null, [
-      [ "Class List", "annotated.html", "annotated" ],
+    [ "Classes", "annotated.html", [
+      [ "Class List", "annotated.html", "annotated_dup" ],
       [ "Class Index", "classes.html", null ],
       [ "Class Members", "functions.html", [
         [ "All", "functions.html", null ],

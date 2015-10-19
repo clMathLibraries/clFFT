@@ -22,6 +22,7 @@ var searchData=
   ['clfftinitsetupdata',['clfftInitSetupData',['../clFFT_8h.html#a228119faa44a5b2b96aa7403bd36b5c5',1,'clFFT.h']]],
   ['clfftsetlayout',['clfftSetLayout',['../clFFT_8h.html#a6ab27f111d76298b04062472a37433f7',1,'clFFT.h']]],
   ['clfftsetplanbatchsize',['clfftSetPlanBatchSize',['../clFFT_8h.html#a745f5b98386b73f9fc04395d30140d71',1,'clFFT.h']]],
+  ['clfftsetplancallback',['clfftSetPlanCallback',['../clFFT_8h.html#a9e11136b05502559f1d397be25a2f0c8',1,'clFFT.h']]],
   ['clfftsetplandim',['clfftSetPlanDim',['../clFFT_8h.html#aa37112477d7bca4e586dc74902a62641',1,'clFFT.h']]],
   ['clfftsetplandistance',['clfftSetPlanDistance',['../clFFT_8h.html#af185d2dd92f401f726f7fd84423a8791',1,'clFFT.h']]],
   ['clfftsetplaninstride',['clfftSetPlanInStride',['../clFFT_8h.html#a917a9af0591da63e64434d11ef149e6c',1,'clFFT.h']]],

@@ -4,6 +4,10 @@ var clFFT_8h =
     [ "CLFFT_DUMP_PROGRAMS", "clFFT_8h.html#a15228e780233c33e1bd9b1e101fb5bb6", null ],
     [ "CLFFTAPI", "clFFT_8h.html#ab54789236f35ab11911c3232856e67d8", null ],
     [ "clfftPlanHandle", "clFFT_8h.html#af8210cf8cf7d7a6183c0602506ef8425", null ],
+    [ "clfftCallbackType", "clFFT_8h.html#a5054fb252880d1e32b9d758e3c6b45e3", [
+      [ "PRECALLBACK", "clFFT_8h.html#a5054fb252880d1e32b9d758e3c6b45e3ac07041dc0f34755070319d1afc32ab6e", null ],
+      [ "POSTCALLBACK", "clFFT_8h.html#a5054fb252880d1e32b9d758e3c6b45e3a8b6cc34b822e92a0a2e8db260b42fdc8", null ]
+    ] ],
     [ "clfftDim", "clFFT_8h.html#aa9d4934cdb8612616b6991b72e7f97b6", [
       [ "CLFFT_1D", "clFFT_8h.html#aa9d4934cdb8612616b6991b72e7f97b6a91c8349bac93ab300e4f796e291c2077", null ],
       [ "CLFFT_2D", "clFFT_8h.html#aa9d4934cdb8612616b6991b72e7f97b6a0ed62a08dbd105f64738e6d158a1e280", null ],
@@ -75,6 +79,7 @@ var clFFT_8h =
     [ "clfftInitSetupData", "clFFT_8h.html#a228119faa44a5b2b96aa7403bd36b5c5", null ],
     [ "clfftSetLayout", "clFFT_8h.html#a6ab27f111d76298b04062472a37433f7", null ],
     [ "clfftSetPlanBatchSize", "clFFT_8h.html#a745f5b98386b73f9fc04395d30140d71", null ],
+    [ "clfftSetPlanCallback", "clFFT_8h.html#a9e11136b05502559f1d397be25a2f0c8", null ],
     [ "clfftSetPlanDim", "clFFT_8h.html#aa37112477d7bca4e586dc74902a62641", null ],
     [ "clfftSetPlanDistance", "clFFT_8h.html#af185d2dd92f401f726f7fd84423a8791", null ],
     [ "clfftSetPlanInStride", "clFFT_8h.html#a917a9af0591da63e64434d11ef149e6c", null ],
