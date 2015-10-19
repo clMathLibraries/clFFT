@@ -23,6 +23,88 @@
 #include <string>
 #include <stdexcept>
 
+#define MULVAL float2 mulval(__global void* in, uint offset, __global void* userdata)\n \
+				{ \n \
+				float scalar = *((__global float*)userdata + offset); \n \
+				float2 ret = *((__global float2*)in + offset) * scalar; \n \
+				return ret; \n \
+				}
+
+#define MULVAL_UDT typedef struct USER_DATA  \
+					   {  \
+						float scalar1;  \
+						float scalar2;  \
+						} USER_DATA; \n \
+					float2 mulval(__global void* in, uint offset, __global void* userdata)\n \
+					{ \n \
+					__global USER_DATA *data = ((__global USER_DATA *)userdata + offset); \n \
+					float scalar = data->scalar1 * data->scalar2; \n \
+					float2 ret = *((__global float2*)in + offset) * scalar; \n \
+					return ret; \n \
+					}
+
+#define MULVAL_DP double2 mulval(__global void* in, uint offset, __global void* userdata)\n \
+				{ \n \
+				double scalar = *((__global double*)userdata + offset); \n \
+				double2 ret = *((__global double2*)in + offset) * scalar; \n \
+				return ret; \n \
+				}
+
+#define MULVAL_PLANAR float2 mulval(__global void* inRe, __global void* inIm, uint offset, __global void* userdata)\n \
+				{ \n \
+				float scalar = *((__global float*)userdata + offset); \n \
+				float2 ret; \n \
+				ret.x = *((__global float*)inRe + offset) * scalar; \n \
+				ret.y = *((__global float*)inIm + offset) * scalar; \n \
+				return ret; \n \
+				}
+
+#define MULVAL_PLANAR_DP double2 mulval(__global void* inRe, __global void* inIm, uint offset, __global void* userdata)\n \
+				{ \n \
+				double scalar = *((__global double*)userdata + offset); \n \
+				double2 ret; \n \
+				ret.x = *((__global double*)inRe + offset) * scalar; \n \
+				ret.y = *((__global double*)inIm + offset) * scalar; \n \
+				return ret; \n \
+				}
+
+#define MULVAL_REAL float mulval(__global void* in, uint offset, __global void* userdata)\n \
+				{ \n \
+				float scalar = *((__global float*)userdata + offset); \n \
+				float ret = *((__global float*)in + offset) * scalar; \n \
+				return ret; \n \
+				}
+
+#define MULVAL_REAL_DP double mulval(__global void* in, uint offset, __global void* userdata)\n \
+				{ \n \
+				double scalar = *((__global double*)userdata + offset); \n \
+				double ret = *((__global double*)in + offset) * scalar; \n \
+				return ret; \n \
+				}
+
+//Precallback test for LDS - works when 1 WI works on one input element
+#define MULVAL_LDS float2 mulval(__global void* in, uint offset, __global void* userdata, __local void* localmem)\n \
+				{ \n \
+				uint lid = get_local_id(0); \n \
+				__local float* lds = (__local float*)localmem + lid; \n \
+				lds[0] = *((__global float*)userdata + offset); \n \
+				barrier(CLK_LOCAL_MEM_FENCE); \n \
+				float prev = offset <= 0 ? 0 : *(lds - 1); \n \
+				float next = offset >= get_global_size(0) ? 0 : *(lds + 1); \n \
+				float avg = (prev + *lds + next)/3.0;\n \
+				float2 ret = *((__global float2*)in + offset) * avg; \n \
+				return ret; \n \
+				}
+
+typedef struct USER_DATA
+				{
+				float scalar1;
+				float scalar2;
+				} USER_DATA;
+
+#define CALLBCKSTR(...) #__VA_ARGS__
+#define STRINGIFY(...) 	CALLBCKSTR(__VA_ARGS__)
+
 enum { REAL=0, IMAG=1 };
 enum { dimx=0, dimy=1, dimz=2 };
 enum fftw_dim { one_d=1, two_d=2, three_d=3 };
@@ -51,6 +133,11 @@ const size_t small5 = 25;
 const size_t normal5 = 625;
 const size_t large5 = 15625;
 const size_t dlarge5 = 3125;
+
+const size_t small7 = 49;
+const size_t normal7 = 343;
+const size_t large7 = 16807;
+const size_t dlarge7 = 2401;
 
 const size_t large_batch_size = 2048;
 const size_t do_not_output_any_mismatches = 0;
@@ -90,6 +177,7 @@ inline size_t MaxLength2D<float>(size_t rad)
 	case 2:		return large2;
 	case 3:		return large3;
 	case 5:		return large5;
+	case 7:		return large7;
 	default:	return 0;
 	}
 }
@@ -102,6 +190,7 @@ inline size_t MaxLength2D<double>(size_t rad)
 	case 2:		return dlarge2;
 	case 3:		return dlarge3;
 	case 5:		return dlarge5;
+	case 7:		return dlarge7;
 	default:	return 0;
 	}
 }

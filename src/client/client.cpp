@@ -546,7 +546,14 @@ int transform( size_t* lengths, const size_t *inStrides, const size_t *outStride
 
 		size_t totalLen = 1;
 		for(int i=0; i<dim; i++) totalLen *= lengths[i];
-		double opsconst = 5.0 * (double)totalLen * log((double)totalLen) / log(2.0);
+
+		double constMultiplier = 1.0;
+		if( (in_layout == CLFFT_REAL ) || (out_layout == CLFFT_REAL) )
+			constMultiplier = 2.5;
+		else
+			constMultiplier = 5.0;
+
+		double opsconst = constMultiplier * (double)totalLen * log((double)totalLen) / log(2.0);
 
 
 		tout << "\nExecution wall time: " << 1000.0*wtime << " ms" << std::endl;

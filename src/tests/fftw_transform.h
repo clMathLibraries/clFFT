@@ -440,6 +440,40 @@ public:
 		input = other_buffer;
 	}
 
+	void set_input_precallback()
+	{
+		//precallback user data
+		buffer<T> userdata( 	input.number_of_dimensions(),
+					input.lengths(),
+					input.strides(),
+					input.batch_size(),
+					input.distance(),
+					layout::real ,
+					CLFFT_INPLACE
+					);
+		
+		userdata.set_all_to_random_data(_lengths[0], 10);
+		
+		input *= userdata;
+	}
+
+	void set_input_precallback_special()
+	{
+		//precallback user data
+		buffer<T> userdata( 	input.number_of_dimensions(),
+					input.lengths(),
+					input.strides(),
+					input.batch_size(),
+					input.distance(),
+					layout::real ,
+					CLFFT_INPLACE
+					);
+		
+		userdata.set_all_to_random_data(_lengths[0], 10);
+		
+		input.multiply_3pt_average(userdata);
+	}
+
 	/*****************************************************/
 	void clear_data_buffer()
 	{

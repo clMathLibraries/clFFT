@@ -161,6 +161,14 @@ namespace CopyGenerator
 
 			std::string sfx = FloatSuffix<PR>();
 
+			//If pre-callback is set for the plan
+			if (params.fft_hasPreCallback && h2c)
+			{
+				//Insert callback function code at the beginning 
+				str += params.fft_preCallback.funcstring;
+				str += "\n\n";
+			}
+
 			// Copy kernel begin
 			str += "__kernel void ";
 
@@ -187,14 +195,24 @@ namespace CopyGenerator
 
 			if(outIlvd)
 			{
-				str += "__global "; str += r2Type; str += " * restrict gbOut)\n";
+				str += "__global "; str += r2Type; str += " * restrict gbOut";
 			}
 			else
 			{
 				str += "__global "; str += rType; str += " * restrict gbOutRe, ";
-				str += "__global "; str += rType; str += " * restrict gbOutIm)\n";
+				str += "__global "; str += rType; str += " * restrict gbOutIm";
 			}
 
+			if (params.fft_hasPreCallback && h2c)
+			{
+				str += ", __global void* userdata";
+				if (params.fft_preCallback.localMemSize > 0)
+				{
+					str += ", __local void* localmem";
+				}
+			}
+
+			str += ")\n";
 
 			str += "{\n";
 
@@ -214,15 +232,18 @@ namespace CopyGenerator
 			str += "uint iOffset;\n\t";
 			str += "uint oOffset;\n\t";
 
-			// input
-			if(inIlvd)
+			if (!(params.fft_hasPreCallback && h2c))
 			{
-				str += "__global "; str += r2Type; str += " *lwbIn;\n\t";
-			}
-			else
-			{
-				str += "__global "; str += rType; str += " *lwbInRe;\n\t";
-				str += "__global "; str += rType; str += " *lwbInIm;\n\t";
+				// input
+				if(inIlvd)
+				{
+					str += "__global "; str += r2Type; str += " *lwbIn;\n\t";
+				}
+				else
+				{
+					str += "__global "; str += rType; str += " *lwbInRe;\n\t";
+					str += "__global "; str += rType; str += " *lwbInIm;\n\t";
+				}
 			}
 
 			// output
@@ -246,17 +267,18 @@ namespace CopyGenerator
 					str += "__global "; str += rType; str += " *lwbOutIm2;\n\n";
 				}
 			}
-
-
-
+			
 			// Setup registers
 			str += "\t"; str += RegBaseType<PR>(2); str += " R;\n\n";
+			
+			size_t NtRounded64 = DivRoundingUp<size_t>(Nt,64) * 64;
 
 			if(!general)
 			{
 				// Setup variables
-				str += "\tuint batch, mel, mel2;\n\t";
-				str += "batch = me/"; str += SztToStr(Nt); str += ";\n\t";
+				str += "\tuint batch, meg, mel, mel2;\n\t";
+				str += "batch = me/"; str += SztToStr(NtRounded64); str += ";\n\t";
+				str += "meg = me%"; str += SztToStr(NtRounded64); str += ";\n\t";
 				str += "mel = me%"; str += SztToStr(Nt); str += ";\n\t";
 				str += "mel2 = ("; str += SztToStr(N); str += " - mel)%"; str += SztToStr(N); str += ";\n\n";
 			}
@@ -282,15 +304,18 @@ namespace CopyGenerator
 
 			str += "\n\t";
 
-			// inputs
-			if(inIlvd)
+			if (!(params.fft_hasPreCallback && h2c))
 			{
-				str += "lwbIn = gbIn + iOffset"; str += inF; str += ";\n\t";
-			}
-			else
-			{
-				str += "lwbInRe = gbInRe + iOffset"; str += inF; str += ";\n\t";
-				str += "lwbInIm = gbInIm + iOffset"; str += inF; str += ";\n\t";
+				// inputs
+				if(inIlvd)
+				{
+					str += "lwbIn = gbIn + iOffset"; str += inF; str += ";\n\t";
+				}
+				else
+				{
+					str += "lwbInRe = gbInRe + iOffset"; str += inF; str += ";\n\t";
+					str += "lwbInIm = gbInIm + iOffset"; str += inF; str += ";\n\t";
+				}
 			}
 
 			// outputs
@@ -331,7 +356,7 @@ namespace CopyGenerator
 					str += "R.x = lwbInRe[me + t*64];\n\t\t";
 					str += "R.y = lwbInIm[me + t*64];\n\t\t";
 				}
-
+				
 				if(outIlvd)
 				{
 					str += "lwbOut[me + t*64] = R;\n";
@@ -346,8 +371,9 @@ namespace CopyGenerator
 			}
 			else
 			{
+				str += "if(meg < "; str += SztToStr(Nt); str += ")\n\t{\n\t";
 				if(c2h)
-				{
+				{	
 					if(inIlvd)
 					{
 						str += "R = lwbIn[0];\n\t";
@@ -357,7 +383,7 @@ namespace CopyGenerator
 						str += "R.x = lwbInRe[0];\n\t";
 						str += "R.y = lwbInIm[0];\n\t";
 					}
-
+				
 					if(outIlvd)
 					{
 						str += "lwbOut[0] = R;\n\n";
@@ -370,21 +396,40 @@ namespace CopyGenerator
 				}
 				else
 				{
-					if(inIlvd)
+					if (params.fft_hasPreCallback)
 					{
-						str += "R = lwbIn[0];\n\t";
+						if(inIlvd)
+						{
+							str += "R = "; str += params.fft_preCallback.funcname; str += "( gbIn, (iOffset"; str += inF; str += "), userdata"; 
+						}
+						else
+						{
+							str += "R = "; str += params.fft_preCallback.funcname; str += "( gbInRe, gbInIm, (iOffset"; str += inF; str += "), userdata";
+						}
+						if (params.fft_preCallback.localMemSize > 0)
+						{
+							str += ", localmem";
+						}
+						str += ");\n\t\t";
 					}
 					else
 					{
-						str += "R.x = lwbInRe[0];\n\t";
-						str += "R.y = lwbInIm[0];\n\t";
+						if(inIlvd)
+						{
+							str += "R = lwbIn[0];\n\t";
+						}
+						else
+						{
+							str += "R.x = lwbInRe[0];\n\t";
+							str += "R.y = lwbInIm[0];\n\t";
+						}
 					}
 
 					if(outIlvd)
 					{
 						str += "lwbOut[0] = R;\n\t";
 						str += "R.y = -R.y;\n\t";
-						str += "lwbOut2[0] = R;\n\n";
+						str += "lwbOut2[0] = R;\n\t";
 					}
 					else
 					{
@@ -392,9 +437,10 @@ namespace CopyGenerator
 						str += "lwbOutIm[0] = R.y;\n\t";
 						str += "R.y = -R.y;\n\t";
 						str += "lwbOutRe2[0] = R.x;\n\t";
-						str += "lwbOutIm2[0] = R.y;\n\n";
+						str += "lwbOutIm2[0] = R.y;\n\t";
 					}
 				}
+				str += "}\n\n";
 			}
 
 			str += "}\n";
@@ -437,6 +483,20 @@ clfftStatus FFTGeneratedCopyAction::initParams ()
     this->signature.fft_fwdScale  = this->plan->forwardScale;
     this->signature.fft_backScale = this->plan->backwardScale;
 
+	//Set callback if specified
+	if (this->plan->hasPreCallback)
+	{
+		this->signature.fft_hasPreCallback = true;
+		this->signature.fft_preCallback = this->plan->preCallback;
+
+		//Requested local memory size by callback must not exceed the device LDS limits after factoring the LDS size required by main FFT kernel
+		if (this->plan->preCallback.localMemSize > this->plan->envelope.limit_LocalMemSize)
+		{
+			fprintf(stderr, "Requested local memory size not available\n");
+			return CLFFT_INVALID_ARG_VALUE;
+		}
+	}
+
     return CLFFT_SUCCESS;
 }
 
@@ -463,7 +523,7 @@ clfftStatus FFTGeneratedCopyAction::getWorkSizes (std::vector<size_t> & globalWS
 				}
 				else
 				{
-					count *= (1 + this->signature.fft_N[0]/2); 
+					count *= (DivRoundingUp<size_t>((1 + this->signature.fft_N[0]/2), 64) * 64); 
 				}
 			}
 			break;

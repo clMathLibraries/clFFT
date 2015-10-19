@@ -65,6 +65,17 @@ FFTTransposeGCNAction::FFTTransposeGCNAction(clfftPlanHandle plHandle, FFTPlan *
     err = CLFFT_SUCCESS;
 }
 
+FFTTransposeSquareAction::FFTTransposeSquareAction(clfftPlanHandle plHandle, FFTPlan * plan, cl_command_queue queue, clfftStatus & err)
+    : FFTAction(plan, err)
+{
+    if (err != CLFFT_SUCCESS)
+    {
+        // FFTAction() failed, exit constructor
+        return;
+    }
+
+    err = CLFFT_SUCCESS;
+}
 
 FFTStockhamAction::FFTStockhamAction(clfftPlanHandle plHandle, FFTPlan * plan, cl_command_queue queue, clfftStatus & err)
     : FFTAction(plan, err)
@@ -582,6 +593,19 @@ clfftStatus FFTAction::enqueue(clfftPlanHandle plHandle,
         OPENCL_V( clSetKernelArg( kern, uarg++, sizeof( cl_mem ), (void*)&outputBuff[o] ), _T( "clSetKernelArg failed" ) );
     }
 
+	//If pre-callback function is set for the plan, pass the appropriate aruments
+	if (this->plan->hasPreCallback)
+	{
+		OPENCL_V( clSetKernelArg( kern, uarg++, sizeof( cl_mem ), (void*)&this->plan->precallUserData ), _T( "clSetKernelArg failed" ) );
+
+		//Pass LDS size arument if set
+		if (this->plan->preCallback.localMemSize > 0)
+		{
+			//TODO: Check for available LDS beyond what FFT already uses
+			OPENCL_V( clSetKernelArg( kern, uarg++, this->plan->preCallback.localMemSize, NULL ), _T( "clSetKernelArg failed" ) );
+		}
+	}
+
     std::vector< size_t > gWorkSize;
     std::vector< size_t > lWorkSize;
     clfftStatus result = this->getWorkSizes (gWorkSize, lWorkSize);
@@ -609,7 +633,7 @@ clfftStatus FFTAction::enqueue(clfftPlanHandle plHandle,
 
     if( fftRepo.pStatTimer )
     {
-        fftRepo.pStatTimer->AddSample( plHandle, this->plan, kern, numQueuesAndEvents, outEvents, gWorkSize );
+        fftRepo.pStatTimer->AddSample( plHandle, this->plan, kern, numQueuesAndEvents, outEvents, gWorkSize, lWorkSize );
     }
 
     return CLFFT_SUCCESS;

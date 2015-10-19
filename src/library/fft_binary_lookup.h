@@ -208,10 +208,10 @@ private:
     typedef struct Header_
     {
         char magic_key[4]; // = |C|L|F|\0, useful to know that we are loading a clfft cache entry
-        int whole_file_size; // the whole file of the size to know if the current file is complete or not
-        int header_size; // = sizeof(Header)
-        int binary_size; // kernel binary size
-        int signature_size; // variant information
+        size_t whole_file_size; // the whole file of the size to know if the current file is complete or not
+        size_t header_size; // = sizeof(Header)
+        size_t binary_size; // kernel binary size
+        size_t signature_size; // variant information
     } Header;
 
     Header m_header;

@@ -48,7 +48,7 @@ if( NOT DEFINED CLFFT_VERSION_PATCH )
 endif( )
 
 set( CLFFT_VERSION "${CLFFT_VERSION_MAJOR}.${CLFFT_VERSION_MINOR}.${CLFFT_VERSION_PATCH}")
-	
+
 # This is incremented when the ABI to the library changes
 set( CLFFT_SOVERSION 2 )
 
@@ -72,6 +72,7 @@ option( BUILD_TEST "Build the library testing suite (dependency on google test, 
 option( BUILD_LOADLIBRARIES "Build the optional dynamic load libraries that the FFT runtime will search for" ON )
 option( BUILD_SHARED_LIBS "Build shared libraries." ON)
 option( BUILD_EXAMPLES "Build examples." ON)
+option( BUILD_CALLBACK_CLIENT "Build a command line clFFT client program that tests callback functionality (dependency on Boost)" ON )
 
 # If BOOST_ROOT is defined as an environment value, use that value and cache it so it's visible in the cmake-gui.
 # Otherwise, create a sensible default that the user can change
@@ -175,6 +176,13 @@ if( BUILD_TEST )
     endif( )
 endif( )
 
+# Enable building of the callback client if requested and all dependencies are found
+if( BUILD_CALLBACK_CLIENT AND Boost_FOUND AND FFTW_FOUND )
+	set( FFT_CALLBACK_CLIENT ON )
+else( )
+	set( FFT_CALLBACK_CLIENT OFF )
+endif( )
+
 # FFLAGS depend on the compiler, grab the compiler name from the path
 get_filename_component( C_COMPILER_NAME ${CMAKE_C_COMPILER} NAME_WE )
 # message( "C_COMPILER_NAME: " ${C_COMPILER_NAME} )
@@ -203,7 +211,7 @@ elseif( CMAKE_COMPILER_IS_GNUCXX )
 		# we only want c++0x if we're using gcc 4.5.2
 		set( CMAKE_CXX_FLAGS "-std=c++0x ${CMAKE_CXX_FLAGS}" )
 	endif()
-	
+
 	set( CMAKE_CXX_FLAGS "-pthread ${CMAKE_CXX_FLAGS}" )
 	set( CMAKE_C_FLAGS "-pthread ${CMAKE_C_FLAGS}" )
 
@@ -283,6 +291,13 @@ else( )
 	message( "GoogleTest unit tests will NOT be built" )
 endif( )
 
+# We only want to build the following if the user options are set
+if( FFT_CALLBACK_CLIENT AND IS_DIRECTORY "${PROJECT_SOURCE_DIR}/callback-client" )
+	add_subdirectory( callback-client )
+else( )
+	message( "FFT callback client will NOT be built" )
+endif( )
+
 if( BUILD_EXAMPLES )
     add_subdirectory( examples )
 endif()
@@ -290,7 +305,7 @@ endif()
 if(WIN32)
   set(destdir CMake)
 else()
-  set(destdir share/clFFT)
+  set(destdir lib${SUFFIX_LIB}/cmake/clFFT)
 endif()
 string(REGEX REPLACE "[^/]+" ".." reldir "${destdir}")
 configure_file(

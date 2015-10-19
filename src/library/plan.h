@@ -91,6 +91,17 @@ enum BlockComputeType
 #define CLFFT_CB_SIZE 32
 #define CLFFT_MAX_INTERNAL_DIM 16
 
+/*! @brief Data structure to store the callback function string and other metadata passed by client 
+*  @details Client sets the callback function and other required parameters through clfftSetPlanCallback() 
+*  in order to register the callback function. The library populates these values into this data structure
+*/ 
+typedef struct clfftCallbackParam_
+{
+	int localMemSize;			/*!< optional local memory size if needed by callback */
+	const char* funcname;		/*!< callback function name */
+	const char* funcstring;		/*!< callback function in string form */
+}clfftCallbackParam;
+
 struct FFTKernelGenKeyParams {
 	/*
 	 *	This structure distills a subset of the fftPlan data,
@@ -135,6 +146,8 @@ struct FFTKernelGenKeyParams {
 	size_t					 blockSIMD;
 	size_t					 blockLDS;
 
+	bool fft_hasPreCallback;
+	clfftCallbackParam fft_preCallback;
 
 	// Default constructor
 	FFTKernelGenKeyParams()
@@ -170,6 +183,8 @@ struct FFTKernelGenKeyParams {
 		blockComputeType = BCT_C2C;
 		blockSIMD = 0;
 		blockLDS = 0;
+
+		fft_hasPreCallback = false;
 	}
 };
 
@@ -423,12 +438,21 @@ public:
 	// User created plan
 	bool userPlan;
 
+
+	// Allocate no extra memory
+	bool allOpsInplace;
+
+
 	// A flag to say that blocked FFTs are going to be performed
 	// It can only be one of these: column to row, row to column or column to column
 	// row to row is just the normal case where blocking is not needed
 	bool blockCompute;
 	BlockComputeType blockComputeType;
 
+	bool hasPreCallback;
+
+	clfftCallbackParam preCallback;
+	cl_mem precallUserData;
 
     clfftPlanHandle plHandle;
 
@@ -468,6 +492,7 @@ public:
 	,	realSpecial(false)
 	,	realSpecial_Nr(0)
 	,	userPlan(false)
+	,	allOpsInplace(false)
 	,	blockCompute(false)
 	,	blockComputeType(BCT_C2C)
 	,   planTX( 0 )
@@ -479,7 +504,9 @@ public:
 	,	gen(Stockham)
     ,   action(0)
     ,   plHandle(0)
-	{};
+	,   hasPreCallback(false)
+	{
+	};
 
 
 	size_t ElementSize() const;
@@ -489,10 +516,6 @@ public:
 
 	clfftStatus GetMax1DLength (size_t *longest ) const;
 
-	void ResetBinarySizes();
-	void ResetBinaries();
-
-	clfftStatus CompressPlan();
 	clfftStatus ConstructAndEnqueueConstantBuffers( cl_command_queue* commQueueFFT );
 
 	clfftStatus GetEnvelope (const FFTEnvelope **) const;
@@ -505,6 +528,16 @@ public:
 		ReleaseBuffers ();
 	}
 };
+
+static bool Is1DPossible(size_t length, size_t large1DThreshold)
+{
+	if (length > large1DThreshold)
+		return false;
+	if ( (length%7 == 0) && (length%5 == 0) && (length%3 == 0) )
+		return false;
+
+	return true;
+}
 
 #endif // AMD_CLFFT_plan_H
 

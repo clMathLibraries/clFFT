@@ -25,8 +25,14 @@ set( clFFT.Test.Source
 	 accuracy_test_pow2.cpp
 	 accuracy_test_pow3.cpp
 	 accuracy_test_pow5.cpp
+	 accuracy_test_pow7.cpp
 	 accuracy_test_mixed_radices.cpp
 	 accuracy_test_random.cpp
+	 accuracy_test_mixed_precallback.cpp
+	 accuracy_test_pow2_precallback.cpp
+	 accuracy_test_pow3_precallback.cpp
+	 accuracy_test_pow5_precallback.cpp
+	 accuracy_test_pow7_precallback.cpp
 	 gtest_main.cpp
 	 ${PROJECT_SOURCE_DIR}/client/openCL.misc.cpp
 	 c-compliance.c
@@ -98,20 +104,3 @@ ENDIF( )
 set_target_properties( Test PROPERTIES VERSION ${CLFFT_VERSION} )
 set_target_properties( Test PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIR}/staging" )
 
-# CPack configuration; include the executable into the package
-install( TARGETS Test
-        RUNTIME DESTINATION bin${SUFFIX_BIN}
-        LIBRARY DESTINATION lib${SUFFIX_LIB}
-        ARCHIVE DESTINATION lib${SUFFIX_LIB}/import
-        )
-
-get_target_property( testLocation Test LOCATION )
-
-configure_file(
-    "${CMAKE_CURRENT_SOURCE_DIR}/copyTestDependencies.cmake.in"
-    "${CMAKE_CURRENT_BINARY_DIR}/copyTestDependencies.cmake"
-    @ONLY
-)
-
-# Register script at run at install time to analyze the executable and copy dependencies into package
-install( SCRIPT "${CMAKE_CURRENT_BINARY_DIR}/copyTestDependencies.cmake")

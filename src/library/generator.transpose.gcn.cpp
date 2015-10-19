@@ -315,6 +315,18 @@ static clfftStatus genTransposePrototype( const FFTGeneratedTransposeGCNAction::
         return CLFFT_TRANSPOSED_NOTIMPLEMENTED;
     }
 
+	if (params.fft_hasPreCallback)
+	{
+		if (params.fft_preCallback.localMemSize > 0)
+		{
+			clKernWrite( transKernel, 0 ) << ", __global void* userdata, __local void* localmem";
+		}
+		else
+		{
+			clKernWrite( transKernel, 0 ) << ", __global void* userdata";
+		}
+	}
+
     // Close the method signature
     clKernWrite( transKernel, 0 ) << " )\n{" << std::endl;
 
@@ -322,7 +334,7 @@ static clfftStatus genTransposePrototype( const FFTGeneratedTransposeGCNAction::
 }
 
 static clfftStatus genTransposeKernel( const FFTGeneratedTransposeGCNAction::Signature & params, std::string& strKernel, const tile& lwSize, const size_t reShapeFactor, 
-                                            const size_t loopCount, const tile& blockSize, const size_t outRowPadding )
+                                            const size_t loopCount, const tile& blockSize )
 {
     strKernel.reserve( 4096 );
     std::stringstream transKernel( std::stringstream::out );
@@ -383,11 +395,16 @@ static clfftStatus genTransposeKernel( const FFTGeneratedTransposeGCNAction::Sig
     clKernWrite( transKernel, 3 ) << "size_t y;" << std::endl;
     clKernWrite( transKernel, 0 ) << "} Tile;" << std::endl << std::endl;
 
-    // This detects whether the input matrix is square
-    bool notSquare = ( params.fft_N[ 0 ] == params.fft_N[ 1 ] ) ? false : true;
+    if( params.fft_placeness == CLFFT_INPLACE )
+		return CLFFT_TRANSPOSED_NOTIMPLEMENTED;
 
-    if( notSquare && (params.fft_placeness == CLFFT_INPLACE) )
-        return CLFFT_TRANSPOSED_NOTIMPLEMENTED;
+	//If pre-callback is set for the plan
+	if (params.fft_hasPreCallback)
+	{
+		//Insert callback function code at the beginning 
+		clKernWrite( transKernel, 0 ) << params.fft_preCallback.funcstring << std::endl;
+		clKernWrite( transKernel, 0 ) << std::endl;
+	}
 
 
 	for(size_t bothDir=0; bothDir<2; bothDir++)
@@ -468,17 +485,29 @@ static clfftStatus genTransposeKernel( const FFTGeneratedTransposeGCNAction::Sig
 		switch( params.fft_inputLayout )
 		{
 		case CLFFT_COMPLEX_INTERLEAVED:
-			clKernWrite( transKernel, 3 ) << "global " << dtInput << "* tileIn = " << pmComplexIn << " + iOffset;" << std::endl;
+			//No need of tileIn declaration when precallback is set as the global buffer is used directly
+			if (!params.fft_hasPreCallback)
+			{
+				clKernWrite( transKernel, 3 ) << "global " << dtInput << "* tileIn = " << pmComplexIn << " + iOffset;" << std::endl;
+			}
 			break;
 		case CLFFT_COMPLEX_PLANAR:
-			clKernWrite( transKernel, 3 ) << "global " << dtInput << "* realTileIn = " << pmRealIn << " + iOffset;" << std::endl;
-			clKernWrite( transKernel, 3 ) << "global " << dtInput << "* imagTileIn = " << pmImagIn << " + iOffset;" << std::endl;
+			//No need of tileIn declaration when precallback is set as the global buffer is used directly
+			if (!params.fft_hasPreCallback)
+			{
+				clKernWrite( transKernel, 3 ) << "global " << dtInput << "* realTileIn = " << pmRealIn << " + iOffset;" << std::endl;
+				clKernWrite( transKernel, 3 ) << "global " << dtInput << "* imagTileIn = " << pmImagIn << " + iOffset;" << std::endl;
+			}
 			break;
 		case CLFFT_HERMITIAN_INTERLEAVED:
 		case CLFFT_HERMITIAN_PLANAR:
 			return CLFFT_TRANSPOSED_NOTIMPLEMENTED;
 		case CLFFT_REAL:
-			clKernWrite( transKernel, 3 ) << "global " << dtInput << "* tileIn = " << pmRealIn << " + iOffset;" << std::endl;
+			//No need of tileIn declaration when precallback is set as the global buffer is used directly
+			if (!params.fft_hasPreCallback)
+			{
+				clKernWrite( transKernel, 3 ) << "global " << dtInput << "* tileIn = " << pmRealIn << " + iOffset;" << std::endl;
+			}
 			break;
 			
 		}
@@ -522,6 +551,11 @@ static clfftStatus genTransposeKernel( const FFTGeneratedTransposeGCNAction::Sig
 		size_t wIndexXEnd = params.transOutHorizontal ? params.fft_N[1] % blockSize.y : params.fft_N[0] % blockSize.x;
 		size_t wIndexYEnd = params.transOutHorizontal ? params.fft_N[0] % blockSize.x : params.fft_N[1] % blockSize.y;
 
+		//If precallback is set
+		if (params.fft_hasPreCallback && params.fft_inputLayout == CLFFT_COMPLEX_PLANAR)
+		{
+			clKernWrite( transKernel, 3 ) << dtComplex << " retCallback;" << std::endl;
+		}
 
 		for(size_t i = 0; i<branchBlocks; i++)
 		{
@@ -535,18 +569,24 @@ static clfftStatus genTransposeKernel( const FFTGeneratedTransposeGCNAction::Sig
 				}
 				else if(i == 1)
 				{
+					if(!cornerGroupY) continue;
+
 					clKernWrite( transKernel, 3 ) << "else if( " << gIndexX << " == " << 
 						cornerGroupX << " )" << std::endl;
 					clKernWrite( transKernel, 3 ) << "{" << std::endl;
 				}
 				else if(i == 2)
 				{
+					if(!cornerGroupX) continue;
+
 					clKernWrite( transKernel, 3 ) << "else if( " << gIndexY << " == " <<
 						cornerGroupY << " )" << std::endl;
 					clKernWrite( transKernel, 3 ) << "{" << std::endl;
 				}
 				else
 				{
+					if( (!cornerGroupX) || (!cornerGroupY) ) continue;
+
 					clKernWrite( transKernel, 3 ) << "else" << std::endl;
 					clKernWrite( transKernel, 3 ) << "{" << std::endl;
 				}
@@ -568,12 +608,13 @@ static clfftStatus genTransposeKernel( const FFTGeneratedTransposeGCNAction::Sig
 				}
 				else
 				{
+					if( (!cornerGroupX) || (!cornerGroupY) ) continue;
+
 					clKernWrite( transKernel, 3 ) << "else" << std::endl;
 					clKernWrite( transKernel, 3 ) << "{" << std::endl;
 				}
 
-
-
+			
 			clKernWrite( transKernel, 6 ) << "for( uint t=0; t < wgUnroll; t++ )" << std::endl;
 			clKernWrite( transKernel, 6 ) << "{" << std::endl;
 
@@ -631,19 +672,66 @@ static clfftStatus genTransposeKernel( const FFTGeneratedTransposeGCNAction::Sig
 			switch( params.fft_inputLayout )
 			{
 			case CLFFT_COMPLEX_INTERLEAVED:
-				clKernWrite( transKernel, 9 ) << "tmp = tileIn[ gInd ];" << std::endl;
+				{
+					if (params.fft_hasPreCallback)
+					{
+						if (params.fft_preCallback.localMemSize > 0)
+						{
+							clKernWrite( transKernel, 9 ) << "tmp = " << params.fft_preCallback.funcname << "(" << pmComplexIn << ", iOffset + gInd, userdata, localmem);" << std::endl;
+						}
+						else
+						{
+							clKernWrite( transKernel, 9 ) << "tmp = " << params.fft_preCallback.funcname << "(" << pmComplexIn << ", iOffset + gInd, userdata);" << std::endl;
+						}
+					}
+					else
+					{
+						clKernWrite( transKernel, 9 ) << "tmp = tileIn[ gInd ];" << std::endl;
+					}
+				}
 				break;
 			case CLFFT_COMPLEX_PLANAR:
-				clKernWrite( transKernel, 9 ) << "tmp.s0 = realTileIn[ gInd ];" << std::endl;
-				clKernWrite( transKernel, 9 ) << "tmp.s1 = imagTileIn[ gInd ];" << std::endl;
+				{
+					if (params.fft_hasPreCallback)
+					{
+						if (params.fft_preCallback.localMemSize > 0)
+						{
+							clKernWrite( transKernel, 9 ) << "retCallback = " << params.fft_preCallback.funcname << "(" << pmRealIn << ", " << pmImagIn << ", iOffset + gInd, userdata, localmem);" << std::endl;
+						}
+						else
+						{
+							clKernWrite( transKernel, 9 ) << "retCallback = " << params.fft_preCallback.funcname << "(" << pmRealIn << ", " << pmImagIn << ", iOffset + gInd, userdata);" << std::endl;
+						}
+						clKernWrite( transKernel, 9 ) << "tmp.s0 = retCallback.x;" << std::endl;
+						clKernWrite( transKernel, 9 ) << "tmp.s1 = retCallback.y;" << std::endl;
+					}
+					else
+					{
+						clKernWrite( transKernel, 9 ) << "tmp.s0 = realTileIn[ gInd ];" << std::endl;
+						clKernWrite( transKernel, 9 ) << "tmp.s1 = imagTileIn[ gInd ];" << std::endl;
+					}
+				}
 				break;
 			case CLFFT_HERMITIAN_INTERLEAVED:
 			case CLFFT_HERMITIAN_PLANAR:
 				return CLFFT_TRANSPOSED_NOTIMPLEMENTED;
 			case CLFFT_REAL:
-				clKernWrite( transKernel, 9 ) << "tmp = tileIn[ gInd ];" << std::endl;
+				if (params.fft_hasPreCallback)
+				{
+					if (params.fft_preCallback.localMemSize > 0)
+					{
+						clKernWrite( transKernel, 9 ) << "tmp = " << params.fft_preCallback.funcname << "(" << pmRealIn << ", iOffset + gInd, userdata, localmem);" << std::endl;
+					}
+					else
+					{
+						clKernWrite( transKernel, 9 ) << "tmp = " << params.fft_preCallback.funcname << "(" << pmRealIn << ", iOffset + gInd, userdata);" << std::endl;
+					}
+				}
+				else
+				{
+					clKernWrite( transKernel, 9 ) << "tmp = tileIn[ gInd ];" << std::endl;
+				}
 				break;
-
 			}
 
 			if(branchingInAny)
@@ -708,18 +796,24 @@ static clfftStatus genTransposeKernel( const FFTGeneratedTransposeGCNAction::Sig
 				}
 				else if(i == 1)
 				{
+					if(!cornerGroupY) continue;
+
 					clKernWrite( transKernel, 3 ) << "else if( " << gIndexX << " == " << 
 						cornerGroupX << " )" << std::endl;
 					clKernWrite( transKernel, 3 ) << "{" << std::endl;
 				}
 				else if(i == 2)
 				{
+					if(!cornerGroupX) continue;
+
 					clKernWrite( transKernel, 3 ) << "else if( " << gIndexY << " == " <<
 						cornerGroupY << " )" << std::endl;
 					clKernWrite( transKernel, 3 ) << "{" << std::endl;
 				}
 				else
 				{
+					if( (!cornerGroupX) || (!cornerGroupY) ) continue;
+
 					clKernWrite( transKernel, 3 ) << "else" << std::endl;
 					clKernWrite( transKernel, 3 ) << "{" << std::endl;
 				}
@@ -741,6 +835,8 @@ static clfftStatus genTransposeKernel( const FFTGeneratedTransposeGCNAction::Sig
 				}
 				else
 				{
+					if( (!cornerGroupX) || (!cornerGroupY) ) continue;
+
 					clKernWrite( transKernel, 3 ) << "else" << std::endl;
 					clKernWrite( transKernel, 3 ) << "{" << std::endl;
 				}
@@ -786,8 +882,16 @@ static clfftStatus genTransposeKernel( const FFTGeneratedTransposeGCNAction::Sig
 						clKernWrite( transKernel, 9 ) << std::endl;
 						if(params.fft_realSpecial)
 						{
-							clKernWrite( transKernel, 9 ) << "if( (" << wIndexY << " < " << wIndexXEnd << ") && (" <<
-								wIndexX << " < 1) )" << std::endl;
+							clKernWrite( transKernel, 9 ) << "if( ((" << wIndexY << " == " << wIndexXEnd - 1 << ") && (" <<
+								wIndexX << " < 1)) ";
+							if(wIndexXEnd > 1)
+							{
+								clKernWrite( transKernel, 0 ) << "|| (" << wIndexY << " < " << wIndexXEnd - 1 << ") )" << std::endl;
+							}
+							else
+							{
+								clKernWrite( transKernel, 0 ) << ")" << std::endl;
+							}
 						}
 						else
 						{
@@ -800,8 +904,16 @@ static clfftStatus genTransposeKernel( const FFTGeneratedTransposeGCNAction::Sig
 						clKernWrite( transKernel, 9 ) << std::endl;
 						if(params.fft_realSpecial)
 						{
-							clKernWrite( transKernel, 9 ) << "if( (" << wIndexX << " < " << wIndexYEnd << ") && (" <<
-								wIndexY << " < 1) )" << std::endl;
+							clKernWrite( transKernel, 9 ) << "if( ((" << wIndexX << " == " << wIndexYEnd - 1 << ") && (" <<
+								wIndexY << " < 1)) ";
+							if(wIndexYEnd > 1)
+							{
+								clKernWrite( transKernel, 0 ) << "|| (" << wIndexX << " < " << wIndexYEnd - 1 << ") )" << std::endl;
+							}
+							else
+							{
+								clKernWrite( transKernel, 0 ) << ")" << std::endl;
+							}
 						}
 						else
 						{
@@ -918,25 +1030,24 @@ clfftStatus FFTGeneratedTransposeGCNAction::initParams ()
     this->signature.fft_R = 1; // Dont think i'll use
     this->signature.fft_SIMD = pEnvelope->limit_WorkGroupSize; // Use devices maximum workgroup size
 
+	//Set callback if specified
+	if (this->plan->hasPreCallback)
+	{
+		this->signature.fft_hasPreCallback = true;
+		this->signature.fft_preCallback = this->plan->preCallback;
+	}
+
     return CLFFT_SUCCESS;
 }
 
 // Constants that specify the bounding sizes of the block that each workgroup will transpose
-const tile lwSize = { 16, 16 };
-const size_t reShapeFactor = 4;   // wgTileSize = { lwSize.x * reShapeFactor, lwSize.y / reShapeFactor }
-const size_t outRowPadding = 0;
-
-// This is global, but should consider to be part of FFTPlan
-size_t loopCount = 0;
-tile blockSize = {0, 0};
+static const tile lwSize = { 16, 16 };
+static const size_t reShapeFactor = 4;   // wgTileSize = { lwSize.x * reShapeFactor, lwSize.y / reShapeFactor }
 
 
-//	OpenCL does not take unicode strings as input, so this routine returns only ASCII strings
-//	Feed this generator the FFTPlan, and it returns the generated program as a string
-clfftStatus FFTGeneratedTransposeGCNAction::generateKernel ( FFTRepo& fftRepo, const cl_command_queue commQueueFFT )
+static clfftStatus CalculateBlockSize(const clfftPrecision precision, size_t &loopCount, tile &blockSize)
 {
-	
-    switch( this->signature.fft_precision )
+    switch( precision )
     {
     case CLFFT_SINGLE:
     case CLFFT_SINGLE_FAST:
@@ -955,9 +1066,39 @@ clfftStatus FFTGeneratedTransposeGCNAction::generateKernel ( FFTRepo& fftRepo, c
 	blockSize.x = lwSize.x * reShapeFactor;
 	blockSize.y = lwSize.y / reShapeFactor * loopCount;
 
+	return CLFFT_SUCCESS;
+}
+
+
+
+
+//	OpenCL does not take unicode strings as input, so this routine returns only ASCII strings
+//	Feed this generator the FFTPlan, and it returns the generated program as a string
+clfftStatus FFTGeneratedTransposeGCNAction::generateKernel ( FFTRepo& fftRepo, const cl_command_queue commQueueFFT )
+{
+	
+	size_t loopCount = 0;
+	tile blockSize = {0, 0};
+	OPENCL_V( CalculateBlockSize(this->signature.fft_precision, loopCount, blockSize), _T("CalculateBlockSize() failed!") );
+
+	//Requested local memory size by callback must not exceed the device LDS limits after factoring the LDS size required by main FFT kernel
+	if (this->signature.fft_hasPreCallback && this->signature.fft_preCallback.localMemSize > 0)
+	{
+		bool validLDSSize = false;
+		size_t length = blockSize.x * blockSize.y;
+		
+		validLDSSize = ((length * this->plan->ElementSize()) + this->signature.fft_preCallback.localMemSize) < this->plan->envelope.limit_LocalMemSize;
+		
+		if(!validLDSSize)
+		{
+			fprintf(stderr, "Requested local memory size not available\n");
+			return CLFFT_INVALID_ARG_VALUE;
+		}
+	}
+
 
     std::string programCode;
-    OPENCL_V( genTransposeKernel( this->signature, programCode, lwSize, reShapeFactor, loopCount, blockSize, outRowPadding ), _T( "GenerateTransposeKernel() failed!" ) );
+    OPENCL_V( genTransposeKernel( this->signature, programCode, lwSize, reShapeFactor, loopCount, blockSize ), _T( "GenerateTransposeKernel() failed!" ) );
 
     cl_int status = CL_SUCCESS;
     cl_device_id Device = NULL;
@@ -987,6 +1128,10 @@ clfftStatus FFTGeneratedTransposeGCNAction::generateKernel ( FFTRepo& fftRepo, c
 
 clfftStatus FFTGeneratedTransposeGCNAction::getWorkSizes( std::vector< size_t >& globalWS, std::vector< size_t >& localWS )
 {
+	size_t loopCount = 0;
+	tile blockSize = {0, 0};
+	OPENCL_V( CalculateBlockSize(this->signature.fft_precision, loopCount, blockSize), _T("CalculateBlockSize() failed!") );
+
 
     // We need to make sure that the global work size is evenly divisible by the local work size
     // Our transpose works in tiles, so divide tiles in each dimension to get count of blocks, rounding up for remainder items

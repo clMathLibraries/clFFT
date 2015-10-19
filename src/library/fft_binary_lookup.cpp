@@ -25,7 +25,7 @@
 #include <fcntl.h>
 #include <sys/types.h>
 #include <sys/stat.h>
-
+#include <stdlib.h>
 
 #ifdef _WIN32
 #include <windows.h>
@@ -49,7 +49,7 @@ extern "C"
 
 #include <string.h>
 
-char * sep()
+static char * sep()
 {
 #ifdef __WIN32
     return (char*)"\\";
@@ -60,6 +60,20 @@ char * sep()
 
 static std::string cache_path;
 static bool cache_enabled(false);
+static bool request_nomemalloc(false);
+
+void clfftInitRequestLibNoMemAlloc()
+{
+	const char * val = getenv("CLFFT_REQUEST_LIB_NOMEMALLOC");
+
+	if (val)
+		request_nomemalloc = true;
+}
+
+bool clfftGetRequestLibNoMemAlloc()
+{
+	return request_nomemalloc;
+}
 
 void clfftInitBinaryCache()
 {
@@ -163,7 +177,8 @@ FFTBinaryLookup::Variant::Variant(VariantKind kind, char * data, size_t size)
 
 FFTBinaryLookup::Variant::~Variant()
 {
-    // delete this->m_data;
+	// if(this->m_data)
+	// 	delete [] this->m_data;
 }
 
 void FFTBinaryLookup::variantInt(int num)
@@ -193,7 +208,7 @@ enum BinaryRepresentation
     UNKNOWN
 };
 
-enum BinaryRepresentation getStorageMode(char * data)
+static enum BinaryRepresentation getStorageMode(char * data)
 {
     if (data[0] == 'C' && 
         data[1] == 'L' && 
@@ -253,7 +268,7 @@ void FFTBinaryLookup::finalizeVariant()
     if (whole_variant_size_in_bytes != 0)
     {
         char md5_sum[33];
-        md5sum(this->m_signature, this->m_header.signature_size, md5_sum);
+        md5sum(this->m_signature, (unsigned long)this->m_header.signature_size, md5_sum);
         this->m_cache_entry_name = md5_sum;
     }
     else
@@ -297,7 +312,7 @@ bool FFTBinaryLookup::loadBinaryAndSignature(std::ifstream &file)
         this->m_variants.clear();
 
         char * current = this->m_signature;
-        for (int i=0 ; i<this->m_header.signature_size ; ++i)
+        for (size_t i=0 ; i<this->m_header.signature_size ; ++i)
         {
             Variant v;
             v.m_kind = *(VariantKind*) current;
@@ -407,6 +422,7 @@ static cl_int getSingleBinaryFromProgram(cl_program program,
 
     if (err != CL_SUCCESS)
     {
+		delete[] binary[0];
 #if CAPS_DEBUG
         std::cerr << "Error querying for program binaries" << std::endl;
 #endif
@@ -481,6 +497,7 @@ cl_int FFTBinaryLookup::populateCache()
     writeCacheFile(data); // ignore return code, because it does nothing if
                           // the file could not be written (i.e the current
                           // thread did not create the file
+    delete [] data[0];
 
     return CL_SUCCESS;
 }

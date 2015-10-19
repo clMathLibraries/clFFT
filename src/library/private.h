@@ -90,6 +90,9 @@
 	}
 #endif
 
+void clfftInitRequestLibNoMemAlloc();
+bool clfftGetRequestLibNoMemAlloc();
+
 void clfftInitBinaryCache();
 
 //	This header file is not visible to clients, and contains internal structures and functions for use
@@ -150,6 +153,8 @@ inline bool IsASupportedLength( size_t length )
 			length /= 3;
 		else if( length % 5 == 0 )
 			length /= 5;
+		else if( length % 7 == 0 )
+			length /= 7;
 		else
 			return false;
 	}

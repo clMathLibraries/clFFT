@@ -15,19 +15,11 @@
  * ************************************************************************/
 
 
-#pragma once
-#if !defined( AMD_CLFFT_generator_H )
-#define AMD_CLFFT_generator_H
+// stdafx.cpp : source file that includes just the standard includes
+// clFFT.pch will be the pre-compiled header
+// stdafx.obj will contain the pre-compiled type information
 
-//	Enum to help provide descriptive names to array indices, when indexing into our various vectors
-enum clfftGenerators
-{
-    Stockham, // Using the Stockham autosort frameworks
-    Transpose_VLIW,
-    Transpose_GCN,
-    Transpose_SQUARE,
-    Copy,
-    ENDGENERATORS			///< This value will always be last, and marks the length of clfftGenerators
-};
+#include "stdafx.h"
 
-#endif
+// TODO: reference any additional headers you need in STDAFX.H
+// and not in this file

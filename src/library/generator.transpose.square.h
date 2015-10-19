@@ -14,20 +14,12 @@
  * limitations under the License.
  * ************************************************************************/
 
-
 #pragma once
-#if !defined( AMD_CLFFT_generator_H )
-#define AMD_CLFFT_generator_H
-
-//	Enum to help provide descriptive names to array indices, when indexing into our various vectors
-enum clfftGenerators
-{
-    Stockham, // Using the Stockham autosort frameworks
-    Transpose_VLIW,
-    Transpose_GCN,
-    Transpose_SQUARE,
-    Copy,
-    ENDGENERATORS			///< This value will always be last, and marks the length of clfftGenerators
-};
+#if !defined( AMD_CLFFT_generator_transpose_H )
+#define AMD_CLFFT_generator_transpose_H
+#include "private.h"
+#include "repo.h"
+#include "plan.h"
 
 #endif
+

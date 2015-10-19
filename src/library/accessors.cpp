@@ -766,3 +766,50 @@ clfftStatus clfftLocalMemSize( const clfftPlanHandle plHandle, cl_ulong* local_m
 	*local_mem_size = plan->envelope.limit_LocalMemSize;
 	return CLFFT_SUCCESS;
 }
+
+clfftStatus clfftSetPlanCallback(clfftPlanHandle plHandle, const char* funcName, 
+								 const char* funcString, int localMemSize, 
+								 clfftCallbackType callbackType, cl_mem *userdata, int numUserdataBuffers)
+{
+	FFTRepo& fftRepo	= FFTRepo::getInstance( );
+	FFTPlan* fftPlan	= NULL;
+	lockRAII* planLock	= NULL;
+
+	OPENCL_V( fftRepo.getPlan( plHandle, fftPlan, planLock ), _T( "fftRepo.getPlan failed" ) );
+	scopedLock sLock( *planLock, _T( "clfftSetPlanCallback" ) );
+
+	switch (callbackType)
+	{
+	case PRECALLBACK:
+		{
+			ARG_CHECK(funcName != NULL);
+			ARG_CHECK(funcString != NULL);
+			ARG_CHECK(numUserdataBuffers >= 0);
+
+			//	We do not currently support multiple user data buffers
+			if( numUserdataBuffers > 1 )
+				return CLFFT_NOTIMPLEMENTED;
+
+			fftPlan->hasPreCallback = true;
+
+			fftPlan->preCallback.funcname = funcName;
+			fftPlan->preCallback.funcstring = funcString;
+			fftPlan->preCallback.localMemSize = (localMemSize > 0) ? localMemSize : 0;
+
+			cl_mem userdataBuf = NULL;
+			
+			if (userdata)
+				userdataBuf = userdata[0];
+
+			fftPlan->precallUserData = userdataBuf;
+		}
+
+		break;
+	case POSTCALLBACK:
+		return CLFFT_NOTIMPLEMENTED;
+	default:
+		ARG_CHECK (false);
+	}
+
+	return	CLFFT_SUCCESS;
+}
