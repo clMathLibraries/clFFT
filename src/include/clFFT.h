@@ -555,12 +555,12 @@ extern "C" {
 	 *  clFFT library incorporates the callback function string into the main FFT kernel. This function is used
 	 *  by client to set the necessary parameters for callback
 	 *  @param[in] plHandle Handle to a previously created plan
-	 *  @param[funcName] Callback function name
-	 *  @param[funcString] Callback function in string form
-	 *  @param[localMemSize] Optional - Size (bytes) of the local memory used by callback function; pass 0 if no local memory is used
-	 *  @param[callbackType] Type of callback - Pre-Callback or Post-Callback
-	 *  @param[userdata] Supplementary data if any used by callback function
-	 *  @param[numUserdataBuffers] Number of userdata buffers
+	 *  @param[in] funcName Callback function name
+	 *  @param[in] funcString Callback function in string form
+	 *  @param[in] localMemSize Optional - Size (bytes) of the local memory used by callback function; pass 0 if no local memory is used
+	 *  @param[in] callbackType Type of callback - Pre-Callback or Post-Callback
+	 *  @param[in] userdata Supplementary data if any used by callback function
+	 *  @param[in] numUserdataBuffers Number of userdata buffers
 	 */
 	CLFFTAPI clfftStatus clfftSetPlanCallback(clfftPlanHandle plHandle, const char* funcName, const char* funcString,
 										int localMemSize, clfftCallbackType callbackType, cl_mem *userdata, int numUserdataBuffers);
