@@ -127,6 +127,18 @@ explicitly flush the command queues that are passed by reference to it. It pushe
 command queues and returns the modified queues to the client. The client is free to issue its own blocking
 logic using OpenCL synchronization mechanisms or push further work onto the queue to continue processing.
 
+@subsection Environment variables
+The clFFT library looks for the definition of 2 environment varibles. One is CLFFT_CACHE_PATH. If this
+variable is defined, then the library caches OpenCL binaries. This will enable a subsequent application run
+of the same type of transforms to avoid going through the expensive compile step. Instead, the stored
+binaries are loaded and executed. The CLFFT_CACHE_PATH must point to a folder location where the
+library can store binaries. The other environment variable is CLFFT_REQUEST_LIB_NOMEMALLOC. This
+variable when defined asks the library to do all computations in-place and avoid allocating extra
+device memory whenever possible. This feature is experimental and currently works only for certain types
+of transforms, and where the input can be decomposed into square matrices by the library. Currently it
+works for 1D complex transforms of size of even powers of 2,3,5 and 7.
+
+
 @section clFFTPlans clFFT plans
 
 A plan is the collection of (almost) all the parameters needed to specify an FFT computation.

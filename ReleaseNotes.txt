@@ -8,17 +8,18 @@ implementation of discrete Fast Fourier Transforms. It:
   discrete FFTs
 * Supports 1D, 2D, and 3D transforms with a batch size
   that can be greater than 1
+* Supports complex and real transforms
 * Supports planar (real and complex components in
   separate arrays) and interleaved (real and complex
   components as a pair contiguous in memory) formats
 * Supports dimension lengths that can be any mix of
-  powers of 2, 3, and 5
+  powers of 2, 3, 5 and 7
 * Supports single and double precision floating-point
   formats
 * Supports in-place or out-of-place transforms
 
 
-clFFT - Release Notes - version 2.7
+clFFT - Release Notes - version 2.8.0
 --------------------------------------
 
 New features of this release:
