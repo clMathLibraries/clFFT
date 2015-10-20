@@ -127,7 +127,7 @@ explicitly flush the command queues that are passed by reference to it. It pushe
 command queues and returns the modified queues to the client. The client is free to issue its own blocking
 logic using OpenCL synchronization mechanisms or push further work onto the queue to continue processing.
 
-@subsection Environment variables
+@subsection EnvVariables Environment variables
 The clFFT library looks for the definition of 2 environment varibles. One is CLFFT_CACHE_PATH. If this
 variable is defined, then the library caches OpenCL binaries. This will enable a subsequent application run
 of the same type of transforms to avoid going through the expensive compile step. Instead, the stored
