@@ -11,7 +11,7 @@ var NAVTREE =
         [ "Row major formats", "index.html#MajorFormat", null ],
         [ "OpenCL object creation", "index.html#Object", null ],
         [ "Flushing of command queues", "index.html#FlushQueue", null ],
-        [ "variables", "index.html#Environment", null ]
+        [ "Environment variables", "index.html#EnvVariables", null ]
       ] ],
       [ "clFFT plans", "index.html#clFFTPlans", [
         [ "Default plan values", "index.html#Default", null ],

@@ -109,7 +109,7 @@ var NAVTREEINDEX0 =
 "index.html#EnumLayout":[0,1,1],
 "index.html#EnumPrecision":[0,1,2],
 "index.html#EnumResultLocation":[0,1,4],
-"index.html#Environment":[0,0,8],
+"index.html#EnvVariables":[0,0,8],
 "index.html#ExplicitStrides":[0,3,1],
 "index.html#FftDirection":[0,1,3],
 "index.html#FlushQueue":[0,0,7],
