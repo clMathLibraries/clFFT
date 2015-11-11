@@ -570,15 +570,13 @@ namespace StockhamGenerator
 
 			// Stringize the table
 			std::stringstream ss;
+			ss.imbue(std::locale("C"));
+			ss.precision(34);
 			for(size_t i = 0; i < (N-1); i++)
 			{
 				ss << "("; ss << RegBaseType<PR>(2); ss << ")(";
-
-				char cv[64], sv[64];
-				sprintf(cv, "%036.34lf", wc[i]);
-				sprintf(sv, "%036.34lf", ws[i]);
-				ss << cv; ss << sfx; ss << ", ";
-				ss << sv; ss << sfx; ss << "),\n";
+				ss << std::scientific << wc[i] << sfx << ", ";
+				ss << std::scientific << ws[i] << sfx << "),\n";
 			}
 			twStr += ss.str();
 		}
