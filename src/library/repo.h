@@ -43,9 +43,10 @@ class	FFTRepo
         const FFTKernelSignatureHeader * data;
         cl_context context;
 		cl_device_id device;
+		bool dataIsPrivate;
 
         FFTRepoKey(clfftGenerators gen_, const FFTKernelSignatureHeader * data_, cl_context context_, cl_device_id device_)
-            : gen(gen_), data(data_), context(context_), device(device_)
+            : gen(gen_), data(data_), context(context_), device(device_), dataIsPrivate(false)
         {
 
         }
@@ -55,16 +56,17 @@ class	FFTRepo
             char * tmp = new char[data->datasize];
             ::memcpy(tmp, data, data->datasize);
             this->data = (FFTKernelSignatureHeader*) tmp;
+			dataIsPrivate = true;
         }
 
         void deleteData()
         {
-            if (this->data)
+            if ( dataIsPrivate && (this->data != NULL) )
             {
-                delete this->data;
-            }
-
-            this->data = NULL;
+				char *tmp = (char *)(this->data);
+                delete[] tmp;
+				this->data = 0;
+            }            
         }
 
         bool operator<(const FFTRepoKey & b) const

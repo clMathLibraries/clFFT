@@ -238,6 +238,9 @@ private:
     {
         Variant();
         Variant(VariantKind kind, char * data, size_t size);
+		Variant(const Variant &obj);
+		Variant &operator=(const Variant &obj);
+
 
         ~Variant();
 
@@ -245,8 +248,6 @@ private:
         size_t      m_size;
         char *      m_data;
         
-        static char * serialize(VariantKind kind, char * data, size_t size);
-        static Variant unserialize(char * data);
     };
 
     // Cache entry, useful to abstract Windows and linux 

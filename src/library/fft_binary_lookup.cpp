@@ -159,8 +159,17 @@ FFTBinaryLookup::FFTBinaryLookup(const clfftGenerators gen, const clfftPlanHandl
 
 FFTBinaryLookup::~FFTBinaryLookup()
 {
-    delete [] this->m_binary;
-    delete [] this->m_signature;
+	if (this->m_binary != NULL)
+	{
+		delete[] this->m_binary;
+		this->m_binary = 0;
+	}
+
+	if (this->m_signature != NULL)
+	{
+		delete[] this->m_signature;
+		this->m_signature = 0;
+	}
 }
 
 FFTBinaryLookup::Variant::Variant()
@@ -175,10 +184,37 @@ FFTBinaryLookup::Variant::Variant(VariantKind kind, char * data, size_t size)
     memcpy(this->m_data, data, size);
 }
 
+FFTBinaryLookup::Variant::Variant(const Variant &obj)
+	: m_kind(obj.m_kind), m_size(obj.m_size)
+{
+	this->m_data = new char[this->m_size];
+	memcpy(this->m_data, obj.m_data, m_size);
+}
+
+FFTBinaryLookup::Variant &FFTBinaryLookup::Variant::operator=(const Variant &obj)
+{
+	if (this->m_data != NULL)
+	{
+		delete[] this->m_data;
+		this->m_data = 0;
+	}
+
+	m_kind = obj.m_kind;
+	m_size = obj.m_size;
+
+	this->m_data = new char[this->m_size];
+	memcpy(this->m_data, obj.m_data, m_size);
+
+	return *this;
+}
+
 FFTBinaryLookup::Variant::~Variant()
 {
-	// if(this->m_data)
-	// 	delete [] this->m_data;
+	if (this->m_data != NULL)
+	{
+		delete[] this->m_data;
+		this->m_data = 0;
+	}
 }
 
 void FFTBinaryLookup::variantInt(int num)
@@ -245,6 +281,12 @@ void FFTBinaryLookup::finalizeVariant()
 
     this->m_header.signature_size = whole_variant_size_in_bytes;
 
+	if (this->m_signature != NULL)
+	{
+		delete[] this->m_signature;
+		this->m_signature = 0;
+	}
+
     this->m_signature = new char[whole_variant_size_in_bytes];
     char * current_address = this->m_signature;
     for(size_t i=0 ; i<this->m_variants.size() ; ++i)
@@ -303,6 +345,12 @@ bool FFTBinaryLookup::loadBinaryAndSignature(std::ifstream &file)
     }
 
     {
+		if (this->m_signature != NULL)
+		{
+			delete[] this->m_signature;
+			this->m_signature = 0;
+		}
+
         this->m_signature = new char [this->m_header.signature_size];
         const std::istream& res = file.read((char*)this->m_signature, this->m_header.signature_size);
 

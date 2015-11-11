@@ -526,6 +526,12 @@ public:
 	~FFTPlan ()
 	{
 		ReleaseBuffers ();
+
+		if (action != NULL)
+		{
+			delete action;
+			action = 0;
+		}
 	}
 };
 
