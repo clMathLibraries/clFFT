@@ -27,6 +27,9 @@ Pre-built binaries are available [here][binary_release].
 -   Binary caching feature
 -   Several minor fixes and improvements
 
+## Note
+
+-   clFFT requires platform/runtime that supports OpenCL 1.2
 
 ## Introduction to clFFT
 
