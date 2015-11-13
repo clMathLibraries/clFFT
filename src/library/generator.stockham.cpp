@@ -2384,9 +2384,7 @@ namespace StockhamGenerator
 			}
 
 
-			if( (position != 0) && (!linearRegs) && (nextPass != NULL) )
-				passStr += "\n\n\tbarrier(CLK_LOCAL_MEM_FENCE);\n";
-
+			passStr += "\n\n\tbarrier(CLK_LOCAL_MEM_FENCE);\n";
 			passStr += "\n\n";
 
 			// 3-step twiddle multiplies
@@ -3925,6 +3923,7 @@ namespace StockhamGenerator
 							str += ldsArgs; str += ", ";
 							str += outBuf;
 							str += IterRegs("&"); str += ");\n";
+							if (!halfLds) { str += exTab; str += "\tbarrier(CLK_LOCAL_MEM_FENCE);\n"; }
 						}
 						else // intermediate pass
 						{
