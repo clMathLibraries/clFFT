@@ -112,7 +112,7 @@ class FFTTransposeNonSquareAction : public FFTAction
 public:
     FFTTransposeNonSquareAction(clfftPlanHandle plHandle, FFTPlan * plan, cl_command_queue queue, clfftStatus & err);
 
-    clfftGenerators getGenerator() { return Transpose_SQUARE; }
+    clfftGenerators getGenerator() { return Transpose_NONSQUARE; }
 };
 
 //

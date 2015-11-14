@@ -291,7 +291,7 @@ static clfftStatus genTransposeKernel(const FFTGeneratedTransposeNonSquareAction
 
 
     // This detects whether the input matrix is rectangle of ratio 1:2
-    bool not_1x2_nonSquare;
+    
     if ((params.fft_N[0] != 2 * params.fft_N[1]) && (params.fft_N[1] != 2 * params.fft_N[0]))
     {
         return CLFFT_TRANSPOSED_NOTIMPLEMENTED;
@@ -889,7 +889,8 @@ clfftStatus FFTGeneratedTransposeNonSquareAction::initParams()
         ARG_CHECK(this->signature.fft_N[0] != 0)
             ARG_CHECK((this->plan->large1D % this->signature.fft_N[0]) == 0)
             this->signature.fft_3StepTwiddle = true;
-        ARG_CHECK(this->plan->large1D == (this->signature.fft_N[1] * this->signature.fft_N[0]));
+        //ToDo:ENABLE ASSERT
+       // ARG_CHECK(this->plan->large1D == (this->signature.fft_N[1] * this->signature.fft_N[0]));
     }
 
     //	Query the devices in this context for their local memory sizes
@@ -939,16 +940,16 @@ clfftStatus FFTGeneratedTransposeNonSquareAction::generateKernel(FFTRepo& fftRep
     OPENCL_V(status, _T("clGetCommandQueueInfo failed"));
 
 
-    OPENCL_V(fftRepo.setProgramCode(Transpose_SQUARE, this->getSignatureData(), programCode, Device, QueueContext), _T("fftRepo.setclString() failed!"));
+    OPENCL_V(fftRepo.setProgramCode(Transpose_NONSQUARE, this->getSignatureData(), programCode, Device, QueueContext), _T("fftRepo.setclString() failed!"));
 
     // Note:  See genFunctionPrototype( )
     if (this->signature.fft_3StepTwiddle)
     {
-        OPENCL_V(fftRepo.setProgramEntryPoints(Transpose_SQUARE, this->getSignatureData(), "transpose_nonsquare_tw_fwd", "transpose_nonsquare_tw_back", Device, QueueContext), _T("fftRepo.setProgramEntryPoint() failed!"));
+        OPENCL_V(fftRepo.setProgramEntryPoints(Transpose_NONSQUARE, this->getSignatureData(), "transpose_nonsquare_tw_fwd", "transpose_nonsquare_tw_back", Device, QueueContext), _T("fftRepo.setProgramEntryPoint() failed!"));
     }
     else
     {
-        OPENCL_V(fftRepo.setProgramEntryPoints(Transpose_SQUARE, this->getSignatureData(), "transpose_nonsquare", "transpose_nonsquare", Device, QueueContext), _T("fftRepo.setProgramEntryPoint() failed!"));
+        OPENCL_V(fftRepo.setProgramEntryPoints(Transpose_NONSQUARE, this->getSignatureData(), "transpose_nonsquare", "transpose_nonsquare", Device, QueueContext), _T("fftRepo.setProgramEntryPoint() failed!"));
     }
 
     return CLFFT_SUCCESS;
