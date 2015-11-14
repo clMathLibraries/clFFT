@@ -77,6 +77,18 @@ FFTTransposeSquareAction::FFTTransposeSquareAction(clfftPlanHandle plHandle, FFT
     err = CLFFT_SUCCESS;
 }
 
+FFTTransposeNonSquareAction::FFTTransposeNonSquareAction(clfftPlanHandle plHandle, FFTPlan * plan, cl_command_queue queue, clfftStatus & err)
+    : FFTAction(plan, err)
+{
+    if (err != CLFFT_SUCCESS)
+    {
+        // FFTAction() failed, exit constructor
+        return;
+    }
+
+    err = CLFFT_SUCCESS;
+}
+
 FFTStockhamAction::FFTStockhamAction(clfftPlanHandle plHandle, FFTPlan * plan, cl_command_queue queue, clfftStatus & err)
     : FFTAction(plan, err)
 {

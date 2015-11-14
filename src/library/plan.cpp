@@ -259,6 +259,16 @@ clfftStatus selectAction(FFTPlan * fftPlan, FFTAction *& action, cl_command_queu
 {
     // set the action we are baking a leaf
     clfftStatus err;
+    
+    /*Temproary code just for testing*/
+    static int test_performed = 1;
+    if (!test_performed)
+    {
+        test_performed = 1;
+        action = new FFTGeneratedTransposeNonSquareAction(fftPlan->plHandle, fftPlan, *commQueueFFT, err);
+        OPENCL_V(err, "FFTGeneratedTransposeNonSquareAction() failed");
+
+    }
     switch (fftPlan->gen)
     {
     case Stockham:  
@@ -1876,8 +1886,22 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
                 clfftStatus err;
 				if(fftPlan->gen == Transpose_GCN)
 					fftPlan->action = new FFTGeneratedTransposeGCNAction(plHandle, fftPlan, *commQueueFFT, err);
-				else if(fftPlan->gen == Transpose_SQUARE)
-					fftPlan->action = new FFTGeneratedTransposeSquareAction(plHandle, fftPlan, *commQueueFFT, err);
+                else if (fftPlan->gen == Transpose_SQUARE)
+                {
+                    static int test_performed = 0;
+                    size_t backup = fftPlan->length[1];
+                    if (!test_performed)
+                    {
+                        test_performed = 1;
+                        fftPlan->length[1] = fftPlan->length[0] * 2;
+                        fftPlan->action = new FFTGeneratedTransposeNonSquareAction(plHandle, fftPlan, *commQueueFFT, err);
+                        OPENCL_V(err, "FFTGeneratedTransposeNonSquareAction() failed");
+
+                    }
+
+                    fftPlan->length[1] = backup;
+                    fftPlan->action = new FFTGeneratedTransposeSquareAction(plHandle, fftPlan, *commQueueFFT, err);
+                }
 				else
 					fftPlan->action = new FFTGeneratedTransposeVLIWAction(plHandle, fftPlan, *commQueueFFT, err);
                 OPENCL_V( err, "FFTGeneratedTransposeVLIWAction failed");
