@@ -1886,6 +1886,7 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
                     if (!test_performed)
                     {
                         //test_performed = 1;
+                        fftPlan->length[0] = 64;// fftPlan->length[1];
                         fftPlan->length[1] = fftPlan->length[0] * 2;
                         fftPlan->action = new FFTGeneratedTransposeNonSquareAction(plHandle, fftPlan, *commQueueFFT, err);
                         OPENCL_V(err, "FFTGeneratedTransposeNonSquareAction() failed");
