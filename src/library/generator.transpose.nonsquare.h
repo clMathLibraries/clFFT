@@ -21,6 +21,7 @@
 #include "repo.h"
 #include "plan.h"
 
+#define AVAIL_MEM_SIZE 32768 
 #endif
 
 #pragma once

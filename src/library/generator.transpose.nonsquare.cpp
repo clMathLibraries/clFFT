@@ -740,93 +740,93 @@ static clfftStatus genTransposeKernel(const FFTGeneratedTransposeNonSquareAction
             }
 
 
-            // If requested, generate the Twiddle math to multiply constant values
-            if (params.fft_3StepTwiddle)
-                genTwiddleMath(params, transKernel, dtComplex, fwd);
+// If requested, generate the Twiddle math to multiply constant values
+if (params.fft_3StepTwiddle)
+genTwiddleMath(params, transKernel, dtComplex, fwd);
 
-            clKernWrite(transKernel, 9) << "xy_s[index] = tmpm;" << std::endl;
-            clKernWrite(transKernel, 9) << "yx_s[index] = tmpt;" << std::endl;
+clKernWrite(transKernel, 9) << "xy_s[index] = tmpm;" << std::endl;
+clKernWrite(transKernel, 9) << "yx_s[index] = tmpt;" << std::endl;
 
-            clKernWrite(transKernel, 9) << "}" << std::endl;
-            clKernWrite(transKernel, 3) << "}" << std::endl;
+clKernWrite(transKernel, 9) << "}" << std::endl;
+clKernWrite(transKernel, 3) << "}" << std::endl;
 
-            clKernWrite(transKernel, 3) << "" << std::endl;
-            clKernWrite(transKernel, 3) << "barrier(CLK_LOCAL_MEM_FENCE);" << std::endl;
-            clKernWrite(transKernel, 3) << "" << std::endl;
+clKernWrite(transKernel, 3) << "" << std::endl;
+clKernWrite(transKernel, 3) << "barrier(CLK_LOCAL_MEM_FENCE);" << std::endl;
+clKernWrite(transKernel, 3) << "" << std::endl;
 
-            // Step2: Write from shared to global
+// Step2: Write from shared to global
 
-            clKernWrite(transKernel, 3) << "if (" << smaller_dim << " - (t_gx_p + 1) *" << 16 * reShapeFactor << ">0){" << std::endl;
-            clKernWrite(transKernel, 6) << "for (int loop = 0; loop<" << reShapeFactor*reShapeFactor << "; ++loop){" << std::endl;
-            clKernWrite(transKernel, 9) << "index = lidx*" << 16 * reShapeFactor << " + lidy + " << 16 / reShapeFactor << "*loop ;" << std::endl;
+clKernWrite(transKernel, 3) << "if (" << smaller_dim << " - (t_gx_p + 1) *" << 16 * reShapeFactor << ">0){" << std::endl;
+clKernWrite(transKernel, 6) << "for (int loop = 0; loop<" << reShapeFactor*reShapeFactor << "; ++loop){" << std::endl;
+clKernWrite(transKernel, 9) << "index = lidx*" << 16 * reShapeFactor << " + lidy + " << 16 / reShapeFactor << "*loop ;" << std::endl;
 
-            // Handle planar and interleaved right here
-            switch (params.fft_outputLayout)
-            {
-            case CLFFT_COMPLEX_INTERLEAVED:
-                clKernWrite(transKernel, 9) << "outputA[(idy + loop*" << 16 / reShapeFactor << ")*" << params.fft_N[0] << " + idx] = yx_s[index];" << std::endl;
-                clKernWrite(transKernel, 9) << "outputA[(lidy + loop*" << 16 / reShapeFactor << ")*" << params.fft_N[0] << " + lidx + starting_index_yx] = xy_s[index]; " << std::endl;
+// Handle planar and interleaved right here
+switch (params.fft_outputLayout)
+{
+case CLFFT_COMPLEX_INTERLEAVED:
+    clKernWrite(transKernel, 9) << "outputA[(idy + loop*" << 16 / reShapeFactor << ")*" << params.fft_N[0] << " + idx] = yx_s[index];" << std::endl;
+    clKernWrite(transKernel, 9) << "outputA[(lidy + loop*" << 16 / reShapeFactor << ")*" << params.fft_N[0] << " + lidx + starting_index_yx] = xy_s[index]; " << std::endl;
 
-                break;
-            case CLFFT_COMPLEX_PLANAR:
-                clKernWrite(transKernel, 9) << "outputA_R[(idy + loop*" << 16 / reShapeFactor << ")*" << params.fft_N[0] << " + idx] = yx_s[index].x;" << std::endl;
-                clKernWrite(transKernel, 9) << "outputA_I[(idy + loop*" << 16 / reShapeFactor << ")*" << params.fft_N[0] << " + idx] = yx_s[index].y;" << std::endl;
-                clKernWrite(transKernel, 9) << "outputA_R[(lidy + loop*" << 16 / reShapeFactor << ")*" << params.fft_N[0] << " + lidx + starting_index_yx] = xy_s[index].x; " << std::endl;
-                clKernWrite(transKernel, 9) << "outputA_I[(lidy + loop*" << 16 / reShapeFactor << ")*" << params.fft_N[0] << " + lidx + starting_index_yx] = xy_s[index].y; " << std::endl;
-
-
-
-                break;
-            case CLFFT_HERMITIAN_INTERLEAVED:
-            case CLFFT_HERMITIAN_PLANAR:
-                return CLFFT_TRANSPOSED_NOTIMPLEMENTED;
-            case CLFFT_REAL:
-                break;
-            default:
-                return CLFFT_TRANSPOSED_NOTIMPLEMENTED;
-            }
+    break;
+case CLFFT_COMPLEX_PLANAR:
+    clKernWrite(transKernel, 9) << "outputA_R[(idy + loop*" << 16 / reShapeFactor << ")*" << params.fft_N[0] << " + idx] = yx_s[index].x;" << std::endl;
+    clKernWrite(transKernel, 9) << "outputA_I[(idy + loop*" << 16 / reShapeFactor << ")*" << params.fft_N[0] << " + idx] = yx_s[index].y;" << std::endl;
+    clKernWrite(transKernel, 9) << "outputA_R[(lidy + loop*" << 16 / reShapeFactor << ")*" << params.fft_N[0] << " + lidx + starting_index_yx] = xy_s[index].x; " << std::endl;
+    clKernWrite(transKernel, 9) << "outputA_I[(lidy + loop*" << 16 / reShapeFactor << ")*" << params.fft_N[0] << " + lidx + starting_index_yx] = xy_s[index].y; " << std::endl;
 
 
-            clKernWrite(transKernel, 6) << "}" << std::endl;
-            clKernWrite(transKernel, 3) << "}" << std::endl;
 
-            clKernWrite(transKernel, 3) << "else{" << std::endl;
-            clKernWrite(transKernel, 6) << "for (int loop = 0; loop<" << reShapeFactor*reShapeFactor << "; ++loop){" << std::endl;
-
-            clKernWrite(transKernel, 9) << "index = lidx*" << 16 * reShapeFactor << " + lidy + " << 16 / reShapeFactor << "*loop;" << std::endl;
-
-            // Handle planar and interleaved right here
-            switch (params.fft_outputLayout)
-            {
-            case CLFFT_COMPLEX_INTERLEAVED:
-                clKernWrite(transKernel, 9) << "if ((idy + loop*" << 16 / reShapeFactor << ")<" << params.fft_N[0] << " && idx<" << params.fft_N[0] << ")" << std::endl;
-                clKernWrite(transKernel, 12) << "outputA[(idy + loop*" << 16 / reShapeFactor << ")*" << params.fft_N[0] << " + idx] = yx_s[index]; " << std::endl;
-                clKernWrite(transKernel, 9) << "if ((t_gy_p * " << 16 * reShapeFactor << " + lidx)<" << params.fft_N[0] << " && (t_gx_p * " << 16 * reShapeFactor << " + lidy + loop*" << 16 / reShapeFactor << ")<" << params.fft_N[0] << ")" << std::endl;
-                clKernWrite(transKernel, 12) << "outputA[(lidy + loop*" << 16 / reShapeFactor << ")*" << params.fft_N[0] << " + lidx + starting_index_yx] = xy_s[index];" << std::endl;
-
-                break;
-            case CLFFT_COMPLEX_PLANAR:
-                clKernWrite(transKernel, 9) << "if ((idy + loop*" << 16 / reShapeFactor << ")<" << params.fft_N[0] << " && idx<" << params.fft_N[0] << ") {" << std::endl;
-                clKernWrite(transKernel, 12) << "outputA_R[(idy + loop*" << 16 / reShapeFactor << ")*" << params.fft_N[0] << " + idx] = yx_s[index].x; " << std::endl;
-                clKernWrite(transKernel, 12) << "outputA_I[(idy + loop*" << 16 / reShapeFactor << ")*" << params.fft_N[0] << " + idx] = yx_s[index].y; }" << std::endl;
-                clKernWrite(transKernel, 9) << "if ((t_gy_p * " << 16 * reShapeFactor << " + lidx)<" << params.fft_N[0] << " && (t_gx_p * " << 16 * reShapeFactor << " + lidy + loop*" << 16 / reShapeFactor << ")<" << params.fft_N[0] << ") {" << std::endl;
-                clKernWrite(transKernel, 12) << "outputA_R[(lidy + loop*" << 16 / reShapeFactor << ")*" << params.fft_N[0] << " + lidx + starting_index_yx] = xy_s[index].x;" << std::endl;
-                clKernWrite(transKernel, 12) << "outputA_I[(lidy + loop*" << 16 / reShapeFactor << ")*" << params.fft_N[0] << " + lidx + starting_index_yx] = xy_s[index].y; }" << std::endl;
+    break;
+case CLFFT_HERMITIAN_INTERLEAVED:
+case CLFFT_HERMITIAN_PLANAR:
+    return CLFFT_TRANSPOSED_NOTIMPLEMENTED;
+case CLFFT_REAL:
+    break;
+default:
+    return CLFFT_TRANSPOSED_NOTIMPLEMENTED;
+}
 
 
-                break;
-            case CLFFT_HERMITIAN_INTERLEAVED:
-            case CLFFT_HERMITIAN_PLANAR:
-                return CLFFT_TRANSPOSED_NOTIMPLEMENTED;
-            case CLFFT_REAL:
-                break;
-            default:
-                return CLFFT_TRANSPOSED_NOTIMPLEMENTED;
-            }
+clKernWrite(transKernel, 6) << "}" << std::endl;
+clKernWrite(transKernel, 3) << "}" << std::endl;
+
+clKernWrite(transKernel, 3) << "else{" << std::endl;
+clKernWrite(transKernel, 6) << "for (int loop = 0; loop<" << reShapeFactor*reShapeFactor << "; ++loop){" << std::endl;
+
+clKernWrite(transKernel, 9) << "index = lidx*" << 16 * reShapeFactor << " + lidy + " << 16 / reShapeFactor << "*loop;" << std::endl;
+
+// Handle planar and interleaved right here
+switch (params.fft_outputLayout)
+{
+case CLFFT_COMPLEX_INTERLEAVED:
+    clKernWrite(transKernel, 9) << "if ((idy + loop*" << 16 / reShapeFactor << ")<" << params.fft_N[0] << " && idx<" << params.fft_N[0] << ")" << std::endl;
+    clKernWrite(transKernel, 12) << "outputA[(idy + loop*" << 16 / reShapeFactor << ")*" << params.fft_N[0] << " + idx] = yx_s[index]; " << std::endl;
+    clKernWrite(transKernel, 9) << "if ((t_gy_p * " << 16 * reShapeFactor << " + lidx)<" << params.fft_N[0] << " && (t_gx_p * " << 16 * reShapeFactor << " + lidy + loop*" << 16 / reShapeFactor << ")<" << params.fft_N[0] << ")" << std::endl;
+    clKernWrite(transKernel, 12) << "outputA[(lidy + loop*" << 16 / reShapeFactor << ")*" << params.fft_N[0] << " + lidx + starting_index_yx] = xy_s[index];" << std::endl;
+
+    break;
+case CLFFT_COMPLEX_PLANAR:
+    clKernWrite(transKernel, 9) << "if ((idy + loop*" << 16 / reShapeFactor << ")<" << params.fft_N[0] << " && idx<" << params.fft_N[0] << ") {" << std::endl;
+    clKernWrite(transKernel, 12) << "outputA_R[(idy + loop*" << 16 / reShapeFactor << ")*" << params.fft_N[0] << " + idx] = yx_s[index].x; " << std::endl;
+    clKernWrite(transKernel, 12) << "outputA_I[(idy + loop*" << 16 / reShapeFactor << ")*" << params.fft_N[0] << " + idx] = yx_s[index].y; }" << std::endl;
+    clKernWrite(transKernel, 9) << "if ((t_gy_p * " << 16 * reShapeFactor << " + lidx)<" << params.fft_N[0] << " && (t_gx_p * " << 16 * reShapeFactor << " + lidy + loop*" << 16 / reShapeFactor << ")<" << params.fft_N[0] << ") {" << std::endl;
+    clKernWrite(transKernel, 12) << "outputA_R[(lidy + loop*" << 16 / reShapeFactor << ")*" << params.fft_N[0] << " + lidx + starting_index_yx] = xy_s[index].x;" << std::endl;
+    clKernWrite(transKernel, 12) << "outputA_I[(lidy + loop*" << 16 / reShapeFactor << ")*" << params.fft_N[0] << " + lidx + starting_index_yx] = xy_s[index].y; }" << std::endl;
 
 
-            clKernWrite(transKernel, 6) << "}" << std::endl; // end for
-            clKernWrite(transKernel, 3) << "}" << std::endl; // end else
+    break;
+case CLFFT_HERMITIAN_INTERLEAVED:
+case CLFFT_HERMITIAN_PLANAR:
+    return CLFFT_TRANSPOSED_NOTIMPLEMENTED;
+case CLFFT_REAL:
+    break;
+default:
+    return CLFFT_TRANSPOSED_NOTIMPLEMENTED;
+}
+
+
+clKernWrite(transKernel, 6) << "}" << std::endl; // end for
+clKernWrite(transKernel, 3) << "}" << std::endl; // end else
 
 
         }
@@ -838,6 +838,10 @@ static clfftStatus genTransposeKernel(const FFTGeneratedTransposeNonSquareAction
             break;
     }
 
+    /*Generating the  swapping logic*/
+    {
+
+    }
     return CLFFT_SUCCESS;
 }
 
