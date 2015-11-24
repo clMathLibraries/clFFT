@@ -1220,7 +1220,7 @@ clKernWrite(transKernel, 3) << "}" << std::endl; // end else
                 {
                 case CLFFT_COMPLEX_INTERLEAVED:
                     clKernWrite(transKernel, 12) << "inputA[loop * " << smaller_dim << " +  p * " << smaller_dim << " + j] = loc_tot_mem[p * " << smaller_dim << " + j];" << std::endl;
-                    clKernWrite(transKernel, 12) << "inputA[" << smaller_dim  * smaller_dim << "+ loop * " << smaller_dim << " +  p * " << smaller_dim << " + j] = loc_tot_mem[(" << num_lines_loaded << " + p)* " << smaller_dim << " + j] = ;" << std::endl;
+                    clKernWrite(transKernel, 12) << "inputA[" << smaller_dim  * smaller_dim << "+ loop * " << smaller_dim << " +  p * " << smaller_dim << " + j] = loc_tot_mem[(" << num_lines_loaded << " + p)* " << smaller_dim << " + j];" << std::endl;
                     break;
                 case CLFFT_COMPLEX_PLANAR:
                     clKernWrite(transKernel, 12) << "inputA_R[loop * " << smaller_dim << " +  p * " << smaller_dim << " + j] = loc_tot_mem[p * " << smaller_dim << " + j].x;" << std::endl;
@@ -1241,17 +1241,17 @@ clKernWrite(transKernel, 3) << "}" << std::endl; // end else
         clKernWrite(transKernel, 3) << "loc_swap_ptr[0] = te;" << std::endl;
         clKernWrite(transKernel, 3) << "loc_swap_ptr[1] = to;" << std::endl;
 
-        clKernWrite(transKernel, 3) << "int swap_inx;" << std::endl;
+        clKernWrite(transKernel, 3) << "int swap_inx = 0;" << std::endl;
         clKernWrite(transKernel, 3) << "for (int loop = 0; loop < " << num_swaps << "; loop ++){" << std::endl;
         clKernWrite(transKernel, 6) << "swap_inx = 1 - swap_inx;" << std::endl;
         switch (params.fft_inputLayout)
         {
         case CLFFT_COMPLEX_INTERLEAVED:
         case CLFFT_REAL:   
-            clKernWrite(transKernel, 6) << "swap(inputA, loc_swap_ptr[swap_inx], loc_swap_ptr[1 - swap_inx], swap_table[0], swap_table[1], swap_table[2]);" << std::endl;
+            clKernWrite(transKernel, 6) << "swap(inputA, loc_swap_ptr[swap_inx], loc_swap_ptr[1 - swap_inx], swap_table[loop][0], swap_table[loop][1], swap_table[loop][2]);" << std::endl;
             break;
         case CLFFT_COMPLEX_PLANAR:
-            clKernWrite(transKernel, 6) << "swap(inputA_R, inputA_I, loc_swap_ptr[swap_inx], loc_swap_ptr[1 - swap_inx], swap_table[0], swap_table[1], swap_table[2]);" << std::endl;
+            clKernWrite(transKernel, 6) << "swap(inputA_R, inputA_I, loc_swap_ptr[swap_inx], loc_swap_ptr[1 - swap_inx], swap_table[loop][0], swap_table[loop][1], swap_table[loop][2]);" << std::endl;
             break;
         
         }
