@@ -1886,6 +1886,7 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
                     
                     clfftLayout  inputLayout_bckup = fftPlan->inputLayout;
                     clfftLayout  outputLayout_bckup = fftPlan->outputLayout;
+                    clfftPrecision precision_bckup = fftPlan->precision;
 
                     if (!test_performed)
                     {
@@ -1895,6 +1896,7 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
                         if(fftPlan->inputLayout == CLFFT_REAL)
                             test_performed = 1;
 
+                        fftPlan->precision = CLFFT_DOUBLE;
                         fftPlan->length[1] = 64;// fftPlan->length[1];
                         fftPlan->length[0] = fftPlan->length[1] * 2;
                         fftPlan->action = new FFTGeneratedTransposeNonSquareAction(plHandle, fftPlan, *commQueueFFT, err);
@@ -1902,6 +1904,7 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 
                     }
 
+                    fftPlan->precision = precision_bckup;
                     fftPlan->inputLayout = inputLayout_bckup;
                     fftPlan->outputLayout = outputLayout_bckup;
                     fftPlan->length[0] = backup_0;
