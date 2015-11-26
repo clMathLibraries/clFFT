@@ -305,6 +305,7 @@ static void get_cycles(size_t *cycle_map, int num_reduced_row, int num_reduced_c
         }
     }
     cycle_map[0] = num_cycles;
+    delete[] is_swapped;
 }
 
 
@@ -765,7 +766,7 @@ static clfftStatus genTransposeKernel(const FFTGeneratedTransposeNonSquareAction
             {
             case CLFFT_COMPLEX_INTERLEAVED:
             case CLFFT_REAL:
-                clKernWrite(transKernel, 9) << "if ((idy + loop*" << 16 / reShapeFactor << ")<" << params.fft_N[0] << "&& idx<" << params.fft_N[0] << ")" << std::endl;
+                clKernWrite(transKernel, 9) << "if ((idy + loop*" << 16 / reShapeFactor << ")<" << smaller_dim << "&& idx<" << smaller_dim << ")" << std::endl;
                 if (params.fft_hasPreCallback)
                 {
                     if (params.fft_preCallback.localMemSize > 0)
@@ -884,17 +885,17 @@ static clfftStatus genTransposeKernel(const FFTGeneratedTransposeNonSquareAction
             {
             case CLFFT_COMPLEX_INTERLEAVED:
             case CLFFT_REAL:
-                clKernWrite(transKernel, 9) << "if ((idy + loop*" << 16 / reShapeFactor << ")<" << params.fft_N[0] << " && idx<" << params.fft_N[0] << ")" << std::endl;
+                clKernWrite(transKernel, 9) << "if ((idy + loop*" << 16 / reShapeFactor << ")<" << smaller_dim << " && idx<" << smaller_dim << ")" << std::endl;
                 clKernWrite(transKernel, 12) << "outputA[(idy + loop*" << 16 / reShapeFactor << ")*" << params.fft_N[0] << " + idx] = yx_s[index]; " << std::endl;
-                clKernWrite(transKernel, 9) << "if ((t_gy_p * " << 16 * reShapeFactor << " + lidx)<" << params.fft_N[0] << " && (t_gx_p * " << 16 * reShapeFactor << " + lidy + loop*" << 16 / reShapeFactor << ")<" << params.fft_N[0] << ")" << std::endl;
+                clKernWrite(transKernel, 9) << "if ((t_gy_p * " << 16 * reShapeFactor << " + lidx)<" << smaller_dim << " && (t_gx_p * " << 16 * reShapeFactor << " + lidy + loop*" << 16 / reShapeFactor << ")<" << smaller_dim << ")" << std::endl;
                 clKernWrite(transKernel, 12) << "outputA[(lidy + loop*" << 16 / reShapeFactor << ")*" << params.fft_N[0] << " + lidx + starting_index_yx] = xy_s[index];" << std::endl;
 
                 break;
             case CLFFT_COMPLEX_PLANAR:
-                clKernWrite(transKernel, 9) << "if ((idy + loop*" << 16 / reShapeFactor << ")<" << params.fft_N[0] << " && idx<" << params.fft_N[0] << ") {" << std::endl;
+                clKernWrite(transKernel, 9) << "if ((idy + loop*" << 16 / reShapeFactor << ")<" << smaller_dim << " && idx<" << smaller_dim << ") {" << std::endl;
                 clKernWrite(transKernel, 12) << "outputA_R[(idy + loop*" << 16 / reShapeFactor << ")*" << params.fft_N[0] << " + idx] = yx_s[index].x; " << std::endl;
                 clKernWrite(transKernel, 12) << "outputA_I[(idy + loop*" << 16 / reShapeFactor << ")*" << params.fft_N[0] << " + idx] = yx_s[index].y; }" << std::endl;
-                clKernWrite(transKernel, 9) << "if ((t_gy_p * " << 16 * reShapeFactor << " + lidx)<" << params.fft_N[0] << " && (t_gx_p * " << 16 * reShapeFactor << " + lidy + loop*" << 16 / reShapeFactor << ")<" << params.fft_N[0] << ") {" << std::endl;
+                clKernWrite(transKernel, 9) << "if ((t_gy_p * " << 16 * reShapeFactor << " + lidx)<" << smaller_dim << " && (t_gx_p * " << 16 * reShapeFactor << " + lidy + loop*" << 16 / reShapeFactor << ")<" << smaller_dim << ") {" << std::endl;
                 clKernWrite(transKernel, 12) << "outputA_R[(lidy + loop*" << 16 / reShapeFactor << ")*" << params.fft_N[0] << " + lidx + starting_index_yx] = xy_s[index].x;" << std::endl;
                 clKernWrite(transKernel, 12) << "outputA_I[(lidy + loop*" << 16 / reShapeFactor << ")*" << params.fft_N[0] << " + lidx + starting_index_yx] = xy_s[index].y; }" << std::endl;
 
@@ -953,7 +954,7 @@ static clfftStatus genTransposeKernel(const FFTGeneratedTransposeNonSquareAction
         if (max_capacity <= 0)
         {
             std::cout << "\nIn-place transpose cannot be performed within specified memory constraints.\n";
-            exit(1);
+            return CLFFT_TRANSPOSED_NOTIMPLEMENTED;
         }
         int num_lines_loaded = get_num_lines_to_be_loaded(max_capacity, smaller_dim);
         int num_reduced_row;
@@ -985,27 +986,24 @@ static clfftStatus genTransposeKernel(const FFTGeneratedTransposeNonSquareAction
 
         clKernWrite(transKernel, 0) << std::endl;
 
-        //"<< cycle_map[0] <<"
         clKernWrite(transKernel, 0) << "__constant int swap_table[][3] = {" << std::endl;
 
         int inx = 0, start_inx, swap_inx = 0, num_swaps = 0;
         for (int i = 0; i < cycle_map[0]; i++)
         {
             start_inx = cycle_map[++inx];
-
             clKernWrite(transKernel, 0) << "{  " << start_inx << ",  " << cycle_map[inx + 1] << ",  0}," << std::endl;
             num_swaps++;
-          //  std::cout << "\nCycle:" << (i + 1) << ">\t" << "(" << start_inx << "," << cycle_map[inx + 1] << ")";
 
             while (start_inx != cycle_map[++inx])
-            {
-                        
-              //  std::cout << "\t" << "(" << cycle_map[inx] << "," << cycle_map[inx + 1] << ")";
+            {            
                 int action_var = (cycle_map[inx + 1] == start_inx) ? 2 : 1;
                 clKernWrite(transKernel, 0) << "{  " << cycle_map[inx] << ",  " << cycle_map[inx + 1] << ",  " << action_var << "}," << std::endl;
                 num_swaps++;
             }
         }
+
+        delete[] cycle_map;
         clKernWrite(transKernel, 0) << "};" << std::endl;
 
         clKernWrite(transKernel, 0) << std::endl;
@@ -1027,27 +1025,6 @@ static clfftStatus genTransposeKernel(const FFTGeneratedTransposeNonSquareAction
         default:
             return CLFFT_TRANSPOSED_NOTIMPLEMENTED;
         }
-      /*  for (int p = 0; p < num_lines_loaded; p++)
-        {
-            for (int j = 0; j < small_dim; j++)
-            {
-                if (pos == 0)
-                {
-                    ts[p*small_dim + j] = z[is*num_lines_loaded*small_dim + p*small_dim + j];
-                    td[p*small_dim + j] = z[id*num_lines_loaded*small_dim + p*small_dim + j];
-                    z[id*num_lines_loaded*small_dim + p*small_dim + j] = ts[p*small_dim + j];
-                }
-                else if (pos == 1)
-                {
-                    td[p*small_dim + j] = z[id*num_lines_loaded*small_dim + p*small_dim + j];
-                    z[id*num_lines_loaded*small_dim + p*small_dim + j] = ts[p*small_dim + j];
-                }
-                else
-                {
-                    z[id*num_lines_loaded*small_dim + p*small_dim + j] = ts[p*small_dim + j];
-                }
-            }
-        }*/
 
         clKernWrite(transKernel, 3) << "for (int p = get_local_id(0) / 16; p < " << num_lines_loaded << "; p += " << local_work_size / 16 << "){" << std::endl;
         clKernWrite(transKernel, 6) << "for (int j = get_local_id(0) % 16; j < " << smaller_dim << "; j += " << 16 << "){" << std::endl;
@@ -1316,7 +1293,8 @@ clfftStatus FFTGeneratedTransposeNonSquareAction::initParams()
 
     if (this->plan->large1D != 0) {
         ARG_CHECK(this->signature.fft_N[0] != 0)
-            ARG_CHECK((this->plan->large1D % this->signature.fft_N[0]) == 0)
+            //ToDo:ENABLE ASSERT
+       //     ARG_CHECK((this->plan->large1D % this->signature.fft_N[0]) == 0)
             this->signature.fft_3StepTwiddle = true;
         //ToDo:ENABLE ASSERT
        // ARG_CHECK(this->plan->large1D == (this->signature.fft_N[1] * this->signature.fft_N[0]));
