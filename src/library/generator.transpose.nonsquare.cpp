@@ -245,15 +245,15 @@ static clfftStatus genTransposePrototype(const FFTGeneratedTransposeNonSquareAct
 
 /* This function factorizes smaller dim and it finds a maximum of
 the 'factors less than max_capacity'*/
-static int get_num_lines_to_be_loaded(int max_capacity, int smaller_dim)
+static size_t get_num_lines_to_be_loaded(size_t max_capacity, size_t smaller_dim)
 {
     if (smaller_dim < max_capacity)
     {
         return smaller_dim;
     }
 
-    int square_root = (int)sqrt(smaller_dim) + 1;
-    int max_factor = 1;
+    size_t square_root = (size_t)sqrt(smaller_dim) + 1;
+    size_t max_factor = 1;
     for (int i = 1; i < square_root; i++)
     {
         if (smaller_dim % i == 0)
@@ -382,6 +382,39 @@ static clfftStatus genTransposeKernel(const FFTGeneratedTransposeNonSquareAction
 
     size_t smaller_dim = (params.fft_N[0] < params.fft_N[1]) ? params.fft_N[0] : params.fft_N[1];
 
+    size_t input_elm_size_in_bytes;
+    switch (params.fft_precision)
+    {
+    case CLFFT_SINGLE:
+    case CLFFT_SINGLE_FAST:
+        input_elm_size_in_bytes = 4;
+        break;
+    case CLFFT_DOUBLE:
+    case CLFFT_DOUBLE_FAST:
+        input_elm_size_in_bytes = 8;
+        break;
+    default:
+        return CLFFT_TRANSPOSED_NOTIMPLEMENTED;
+    }
+
+    switch (params.fft_outputLayout)
+    {
+    case CLFFT_COMPLEX_INTERLEAVED:
+    case CLFFT_COMPLEX_PLANAR:
+        input_elm_size_in_bytes *= 2;
+        break;
+    case CLFFT_REAL:
+        break;
+    default:
+        return CLFFT_TRANSPOSED_NOTIMPLEMENTED;
+    }
+    size_t avail_mem = AVAIL_MEM_SIZE / input_elm_size_in_bytes;
+    size_t max_capacity = (avail_mem >> 1) / smaller_dim;
+    if (max_capacity <= 0)
+    {
+        std::cout << "\nIn-place transpose cannot be performed within specified memory constraints.\n";
+        return CLFFT_TRANSPOSED_NOTIMPLEMENTED;
+    }
     // This detects whether the input matrix is a multiple of 16*reshapefactor or not
 
     bool mult_of_16 = (smaller_dim % (reShapeFactor * 16) == 0) ? true : false;
@@ -923,59 +956,26 @@ static clfftStatus genTransposeKernel(const FFTGeneratedTransposeNonSquareAction
 
     /*Generating the  swapping logic*/
     {
-        size_t input_elm_size_in_bytes;
-        switch (params.fft_precision)
-        {
-        case CLFFT_SINGLE:
-        case CLFFT_SINGLE_FAST:
-            input_elm_size_in_bytes = 4;
-            break;
-        case CLFFT_DOUBLE:
-        case CLFFT_DOUBLE_FAST:
-            input_elm_size_in_bytes = 8;
-            break;
-        default:
-            return CLFFT_TRANSPOSED_NOTIMPLEMENTED;
-        }
-
-        switch (params.fft_outputLayout)
-        {
-        case CLFFT_COMPLEX_INTERLEAVED:
-        case CLFFT_COMPLEX_PLANAR:
-            input_elm_size_in_bytes *= 2;
-            break;
-        case CLFFT_REAL:
-            break;
-        default:
-            return CLFFT_TRANSPOSED_NOTIMPLEMENTED;
-        }
-        size_t avail_mem = AVAIL_MEM_SIZE / input_elm_size_in_bytes;
-        int max_capacity = (avail_mem >> 1) / smaller_dim;
-        if (max_capacity <= 0)
-        {
-            std::cout << "\nIn-place transpose cannot be performed within specified memory constraints.\n";
-            return CLFFT_TRANSPOSED_NOTIMPLEMENTED;
-        }
-        int num_lines_loaded = get_num_lines_to_be_loaded(max_capacity, smaller_dim);
+        size_t num_lines_loaded = get_num_lines_to_be_loaded(max_capacity, smaller_dim);
         int num_reduced_row;
         int num_reduced_col;
 
         if (params.fft_N[1] == smaller_dim)
         {
-            num_reduced_row = std::ceil((float)smaller_dim / (float)(num_lines_loaded));
+            num_reduced_row = (int)std::ceil((float)smaller_dim / (float)(num_lines_loaded));
             num_reduced_col = 2;
         }
         else
         {
             num_reduced_row = 2;
-            num_reduced_col = std::ceil((float)smaller_dim / (float)(num_lines_loaded));
+            num_reduced_col = (int)std::ceil((float)smaller_dim / (float)(num_lines_loaded));
         }
 
         std::string funcName;
 
 
-        size_t local_work_size = num_lines_loaded << 4;
-        local_work_size = (local_work_size > 256) ? 256 : local_work_size;
+        size_t local_work_size_swap = num_lines_loaded << 4;
+        local_work_size_swap = (local_work_size_swap > 256) ? 256 : local_work_size_swap;
 
         clKernWrite(transKernel, 0) << std::endl;
 
@@ -988,7 +988,7 @@ static clfftStatus genTransposeKernel(const FFTGeneratedTransposeNonSquareAction
 
         clKernWrite(transKernel, 0) << "__constant int swap_table[][3] = {" << std::endl;
 
-        int inx = 0, start_inx, swap_inx = 0, num_swaps = 0;
+        size_t inx = 0, start_inx, swap_inx = 0, num_swaps = 0;
         for (int i = 0; i < cycle_map[0]; i++)
         {
             start_inx = cycle_map[++inx];
@@ -1026,7 +1026,7 @@ static clfftStatus genTransposeKernel(const FFTGeneratedTransposeNonSquareAction
             return CLFFT_TRANSPOSED_NOTIMPLEMENTED;
         }
 
-        clKernWrite(transKernel, 3) << "for (int p = get_local_id(0) / 16; p < " << num_lines_loaded << "; p += " << local_work_size / 16 << "){" << std::endl;
+        clKernWrite(transKernel, 3) << "for (int p = get_local_id(0) / 16; p < " << num_lines_loaded << "; p += " << local_work_size_swap / 16 << "){" << std::endl;
         clKernWrite(transKernel, 6) << "for (int j = get_local_id(0) % 16; j < " << smaller_dim << "; j += " << 16 << "){" << std::endl;
 
         switch (params.fft_inputLayout)
@@ -1084,7 +1084,7 @@ static clfftStatus genTransposeKernel(const FFTGeneratedTransposeNonSquareAction
 
         funcName = "swap_nonsquare";
         // Generate kernel API
-        genTransposePrototype(params, local_work_size, dtPlanar, dtComplex, funcName, transKernel, dtInput, dtOutput);
+        genTransposePrototype(params, local_work_size_swap, dtPlanar, dtComplex, funcName, transKernel, dtInput, dtOutput);
 
  //       clKernWrite(transKernel, 0) << "/*" << std::endl;
  //       clKernWrite(transKernel, 0) << "*/" << std::endl;
@@ -1129,7 +1129,7 @@ static clfftStatus genTransposeKernel(const FFTGeneratedTransposeNonSquareAction
             if (params.fft_N[1] == smaller_dim)
             {
                 clKernWrite(transKernel, 3) << "for (int loop = 0; loop < " << params.fft_N[0] << "; loop += "<< 2* num_lines_loaded <<"){" << std::endl;
-                clKernWrite(transKernel, 6) << "for (int p = get_local_id(0) / 16; p < " << num_lines_loaded << "; p += " << local_work_size/16 << "){" << std::endl;
+                clKernWrite(transKernel, 6) << "for (int p = get_local_id(0) / 16; p < " << num_lines_loaded << "; p += " << local_work_size_swap/16 << "){" << std::endl;
                 clKernWrite(transKernel, 9) << "for (int j = get_local_id(0) % 16; j < " << smaller_dim << "; j += " << 16 << "){" << std::endl;
                 switch (params.fft_inputLayout)
                 {
@@ -1150,7 +1150,7 @@ static clfftStatus genTransposeKernel(const FFTGeneratedTransposeNonSquareAction
 
                 clKernWrite(transKernel, 6) << "barrier(CLK_LOCAL_MEM_FENCE);" << std::endl;
 
-                clKernWrite(transKernel, 6) << "for (int p = get_local_id(0) / 16; p < " << num_lines_loaded << "; p += " << local_work_size / 16 << "){" << std::endl;
+                clKernWrite(transKernel, 6) << "for (int p = get_local_id(0) / 16; p < " << num_lines_loaded << "; p += " << local_work_size_swap / 16 << "){" << std::endl;
                 clKernWrite(transKernel, 9) << "for (int j = get_local_id(0) % 16; j < " << smaller_dim << "; j += " << 16 << "){" << std::endl;
                 switch (params.fft_inputLayout)
                 {
@@ -1175,7 +1175,7 @@ static clfftStatus genTransposeKernel(const FFTGeneratedTransposeNonSquareAction
             else
             {
                 clKernWrite(transKernel, 3) << "for (int loop = 0; loop < " << smaller_dim << "; loop += " <<  num_lines_loaded << "){" << std::endl;
-                clKernWrite(transKernel, 6) << "for (int p = get_local_id(0) / 16; p < " << num_lines_loaded << "; p += " << local_work_size / 16 << "){" << std::endl;
+                clKernWrite(transKernel, 6) << "for (int p = get_local_id(0) / 16; p < " << num_lines_loaded << "; p += " << local_work_size_swap / 16 << "){" << std::endl;
                 clKernWrite(transKernel, 9) << "for (int j = get_local_id(0) % 16; j < " << smaller_dim << "; j += " << 16 << "){" << std::endl;
                 switch (params.fft_inputLayout)
                 {
@@ -1196,7 +1196,7 @@ static clfftStatus genTransposeKernel(const FFTGeneratedTransposeNonSquareAction
 
                 clKernWrite(transKernel, 6) << "barrier(CLK_LOCAL_MEM_FENCE);" << std::endl;
 
-                clKernWrite(transKernel, 6) << "for (int p = get_local_id(0) / 16; p < " << num_lines_loaded << "; p += " << local_work_size / 16 << "){" << std::endl;
+                clKernWrite(transKernel, 6) << "for (int p = get_local_id(0) / 16; p < " << num_lines_loaded << "; p += " << local_work_size_swap / 16 << "){" << std::endl;
                 clKernWrite(transKernel, 9) << "for (int j = get_local_id(0) % 16; j < " << smaller_dim << "; j += " << 16 << "){" << std::endl;
                 switch (params.fft_inputLayout)
                 {
@@ -1367,10 +1367,11 @@ clfftStatus FFTGeneratedTransposeNonSquareAction::getWorkSizes(std::vector< size
 {
 
     size_t wg_slice;
-    if (this->signature.fft_N[0] % (16 * reShapeFactor) == 0)
-        wg_slice = this->signature.fft_N[0] / 16 / reShapeFactor;
+    size_t smaller_dim = (this->signature.fft_N[0] < this->signature.fft_N[1]) ? this->signature.fft_N[0] : this->signature.fft_N[1];
+    if (smaller_dim % (16 * reShapeFactor) == 0)
+        wg_slice = smaller_dim / 16 / reShapeFactor;
     else
-        wg_slice = (this->signature.fft_N[0] / (16 * reShapeFactor)) + 1;
+        wg_slice = (smaller_dim / (16 * reShapeFactor)) + 1;
 
     size_t global_item_size = wg_slice*(wg_slice + 1) / 2 * 16 * 16 * this->plan->batchsize;
 
@@ -1379,11 +1380,58 @@ clfftStatus FFTGeneratedTransposeNonSquareAction::getWorkSizes(std::vector< size
         global_item_size *= this->signature.fft_N[i];
     }
 
+    /*Push the data required for the transpose kernels*/
     globalWS.clear();
-    globalWS.push_back(global_item_size);
+    globalWS.push_back(global_item_size * 2);
 
     localWS.clear();
     localWS.push_back(lwSize);
 
     return CLFFT_SUCCESS;
+
+    /*Now calculate the data for the swap kernels */
+
+    size_t input_elm_size_in_bytes;
+    switch (this->signature.fft_precision)
+    {
+    case CLFFT_SINGLE:
+    case CLFFT_SINGLE_FAST:
+    input_elm_size_in_bytes = 4;
+    break;
+    case CLFFT_DOUBLE:
+    case CLFFT_DOUBLE_FAST:
+    input_elm_size_in_bytes = 8;
+    break;
+    default:
+    return CLFFT_TRANSPOSED_NOTIMPLEMENTED;
+    }
+
+    switch (this->signature.fft_outputLayout)
+    {
+    case CLFFT_COMPLEX_INTERLEAVED:
+    case CLFFT_COMPLEX_PLANAR:
+    input_elm_size_in_bytes *= 2;
+    break;
+    case CLFFT_REAL:
+    break;
+    default:
+    return CLFFT_TRANSPOSED_NOTIMPLEMENTED;
+    }
+    size_t avail_mem = AVAIL_MEM_SIZE / input_elm_size_in_bytes;
+    size_t max_capacity = (avail_mem >> 1) / smaller_dim;
+    size_t num_lines_loaded = get_num_lines_to_be_loaded(max_capacity, smaller_dim);
+
+    size_t local_work_size_swap = num_lines_loaded << 4;
+    local_work_size_swap = (local_work_size_swap > 256) ? 256 : local_work_size_swap;
+
+    global_item_size = local_work_size_swap * this->plan->batchsize;
+
+    for (int i = 2; i < this->signature.fft_DataDim - 1; i++)
+    {
+        global_item_size *= this->signature.fft_N[i];
+    }
+
+    globalWS.push_back(global_item_size);
+    localWS.push_back(local_work_size_swap);
+
 }

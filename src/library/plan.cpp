@@ -1891,13 +1891,13 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
                     if (!test_performed)
                     {
                         //CLFFT_COMPLEX_PLANAR
-             /*           fftPlan->inputLayout = CLFFT_COMPLEX_PLANAR;
-                        fftPlan->outputLayout = CLFFT_COMPLEX_PLANAR;
+                        fftPlan->inputLayout = CLFFT_REAL;
+                        fftPlan->outputLayout = CLFFT_REAL;
                         if(fftPlan->inputLayout == CLFFT_REAL)
                             test_performed = 1;
 
-                        fftPlan->precision = CLFFT_DOUBLE;*/
-                        //fftPlan->length[1] = 49;// fftPlan->length[1];
+                        fftPlan->precision = CLFFT_DOUBLE;
+                        fftPlan->length[1] = 2048;// fftPlan->length[1];
                         fftPlan->length[0] = fftPlan->length[1] * 2;
                         fftPlan->action = new FFTGeneratedTransposeNonSquareAction(plHandle, fftPlan, *commQueueFFT, err);
                         OPENCL_V(err, "FFTGeneratedTransposeNonSquareAction() failed");
