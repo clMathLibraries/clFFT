@@ -976,6 +976,11 @@ static clfftStatus genTransposeKernel(const FFTGeneratedTransposeNonSquareAction
 
         size_t local_work_size_swap = num_lines_loaded << 4;
         local_work_size_swap = (local_work_size_swap > 256) ? 256 : local_work_size_swap;
+        //number of threads processing each line is assumed to be 16 until this point,
+        //if the work group size is less than 256, then the following logic tries to make
+        // more threads process each row.
+        size_t num_threads_processing_row = (256 / local_work_size_swap) * 16;
+        local_work_size_swap = num_lines_loaded * num_threads_processing_row;
 
         clKernWrite(transKernel, 0) << std::endl;
 
@@ -1026,8 +1031,8 @@ static clfftStatus genTransposeKernel(const FFTGeneratedTransposeNonSquareAction
             return CLFFT_TRANSPOSED_NOTIMPLEMENTED;
         }
 
-        clKernWrite(transKernel, 3) << "for (int p = get_local_id(0) / 16; p < " << num_lines_loaded << "; p += " << local_work_size_swap / 16 << "){" << std::endl;
-        clKernWrite(transKernel, 6) << "for (int j = get_local_id(0) % 16; j < " << smaller_dim << "; j += " << 16 << "){" << std::endl;
+        clKernWrite(transKernel, 3) << "for (int p = get_local_id(0) / "<< num_threads_processing_row <<"; p < " << num_lines_loaded << "; p += " << local_work_size_swap / num_threads_processing_row << "){" << std::endl;
+        clKernWrite(transKernel, 6) << "for (int j = get_local_id(0) % "<< num_threads_processing_row <<"; j < " << smaller_dim << "; j += " << num_threads_processing_row << "){" << std::endl;
 
         switch (params.fft_inputLayout)
         {
