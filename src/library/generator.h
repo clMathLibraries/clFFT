@@ -23,7 +23,6 @@
 enum clfftGenerators
 {
     Stockham, // Using the Stockham autosort frameworks
-    Transpose_VLIW,
     Transpose_GCN,
     Transpose_SQUARE,
     Copy,

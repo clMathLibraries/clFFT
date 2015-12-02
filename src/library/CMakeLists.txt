@@ -1,12 +1,12 @@
 # ########################################################################
 # Copyright 2013 Advanced Micro Devices, Inc.
-# 
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# 
+#
 # http://www.apache.org/licenses/LICENSE-2.0
-# 
+#
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -15,16 +15,15 @@
 # ########################################################################
 
 # List the names of common files to compile across all platforms
-set( clFFT.Source	transform.cpp 
-								accessors.cpp 
-								plan.cpp 
-								repo.cpp 
-								generator.stockham.cpp 
-								generator.transpose.vliw.cpp 
+set( clFFT.Source	transform.cpp
+								accessors.cpp
+								plan.cpp
+								repo.cpp
+								generator.stockham.cpp
 								generator.transpose.gcn.cpp 
-								generator.transpose.square.cpp 
+								generator.transpose.square.cpp
 								generator.copy.cpp
-								lifetime.cpp 
+								lifetime.cpp
 								fft_binary_lookup.cpp
 								md5sum.c
 								action.cpp
@@ -35,23 +34,22 @@ if( MSVC )
 	set( clFFT.Source ${clFFT.Source} dllmain.cpp )
 endif( )
 
-set( clFFT.Headers	private.h 
+set( clFFT.Headers	private.h
 					action.h
-					repo.h 
-					plan.h 
-					lock.h 
-					mainpage.h  
-					generator.h 
-					generator.stockham.h 
-					generator.transpose.vliw.h 
-					generator.transpose.gcn.h 
-					generator.transpose.square.h 
+					repo.h
+					plan.h
+					lock.h
+					mainpage.h
+					generator.h
+					generator.stockham.h
+					generator.transpose.gcn.h
+					generator.transpose.square.h
 					fft_binary_lookup.h
 					md5sum.h
-					../include/stdafx.h 
-					../include/unicode.compatibility.h 
-					../include/targetver.h 
-					../include/clAmdFft.h 
+					../include/stdafx.h
+					../include/unicode.compatibility.h
+					../include/targetver.h
+					../include/clAmdFft.h
 					../include/clFFT.h )
 
 set( clFFT.Files ${clFFT.Source} ${clFFT.Headers} )
@@ -59,7 +57,7 @@ set( clFFT.Files ${clFFT.Source} ${clFFT.Headers} )
 # For a rainy day, add pre-compiled header support
 #if( MSVC )
 #	if (USE_MSVC_PCH)
-	
+
 #		set_source_files_properties(LungAnalysisPCH.cxx
 #			PROPERTIES
 #			COMPILE_FLAGS "/YcLungAnalysisPCH.h"
@@ -71,13 +69,13 @@ set( clFFT.Files ${clFFT.Source} ${clFFT.Headers} )
 #				COMPILE_FLAGS "/YuLungAnalysisPCH.h"
 #				)
 #		endforeach( src_file ${UPMC_LA_SRCS} )
-		
+
 #		list(APPEND UPMC_LA_SRCS LungAnalysisPCH.cxx)
 #		list(APPEND UPMC_LA_HDRS LungAnalysisPCH.h)
 
 #	endif(USE_MSVC_PCH)
 #endif (MSVC)
-  
+
 #	add_definitions( ${Boost_LIB_DIAGNOSTIC_DEFINITIONS} )
 add_definitions( "/DCLFFT_EXPORTS" )
 
@@ -106,4 +104,3 @@ install( TARGETS clFFT
         LIBRARY DESTINATION lib${SUFFIX_LIB}
         ARCHIVE DESTINATION lib${SUFFIX_LIB}/import
         )
-        
