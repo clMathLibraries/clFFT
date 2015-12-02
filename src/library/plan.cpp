@@ -1895,7 +1895,7 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
                         fftPlan->outputLayout = CLFFT_REAL;
                         if(fftPlan->inputLayout == CLFFT_REAL)
                             test_performed = 1;
-
+                       // fftPlan->nonSquareKernelType = NON_SQUARE_SWAP;
                         fftPlan->precision = CLFFT_DOUBLE;
                         fftPlan->length[1] = 2048;// fftPlan->length[1];
                         fftPlan->length[0] = fftPlan->length[1] * 2;
