@@ -460,7 +460,7 @@ static clfftStatus genSwapKernel(const FFTGeneratedTransposeNonSquareAction::Sig
         use_global_memory = 1;
         tmpBuffType = "global";
         /*Todo: add the appropriate logic for passing the required global memory*/
-        //size_t global_mem_requirement_in_bytes = GLOBAL_MEM_FACTOR * (smaller_dim * 2) * input_elm_size_in_bytes;
+        size_t global_mem_requirement_in_bytes = GLOBAL_MEM_FACTOR * (smaller_dim * 2) * input_elm_size_in_bytes;
 
     }
     
