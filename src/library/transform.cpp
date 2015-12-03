@@ -671,7 +671,8 @@ clfftStatus clfftEnqueueTransform(
 
 				cl_event transXOutEvents = NULL;
 				cl_event colOutEvents = NULL;
-				bool xyflag = (fftPlan->length[0] == fftPlan->length[1]) ? false : true;
+				//bool xyflag = (fftPlan->length[0] == fftPlan->length[1]) ? false : true;
+				bool xyflag = true;
 
 				if (xyflag)
 				{

@@ -237,12 +237,13 @@ std::string getKernelName(const clfftGenerators gen, const clfftPlanHandle plHan
 
     switch( gen )
     {
+
     case Stockham:			    generatorName = "Stockham"; break;
 	case Transpose_GCN:		    generatorName = "Transpose"; break;
 	case Transpose_SQUARE:	    generatorName = "Transpose"; break;
     case Transpose_NONSQUARE:	generatorName = "TransposeNonSquare"; break;
-    case Transpose_VLIW:	    generatorName = "Transpose"; break;
 	case Copy:				    generatorName = "Copy"; break;
+
     }
 
     kernelPath << kernelPrefix << generatorName ;
@@ -278,12 +279,6 @@ clfftStatus selectAction(FFTPlan * fftPlan, FFTAction *& action, cl_command_queu
 		}
 		break;
 
-    case Transpose_VLIW: 
-		{
-			action = new FFTGeneratedTransposeVLIWAction(fftPlan->plHandle, fftPlan, *commQueueFFT, err);
-			OPENCL_V( err, "FFTGeneratedTransposeVLIWAction() failed");
-		}
-		break;
 
     case Copy:
 		{
@@ -1913,8 +1908,9 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
                     fftPlan->action = new FFTGeneratedTransposeSquareAction(plHandle, fftPlan, *commQueueFFT, err);
                 }
 				else
-					fftPlan->action = new FFTGeneratedTransposeVLIWAction(plHandle, fftPlan, *commQueueFFT, err);
-                OPENCL_V( err, "FFTGeneratedTransposeVLIWAction failed");
+					fftPlan->action = new FFTGeneratedTransposeGCNAction(plHandle, fftPlan, *commQueueFFT, err);
+
+                OPENCL_V( err, "FFTGeneratedTransposeXXXAction failed");
 
 				fftPlan->baked		= true;
 				return	CLFFT_SUCCESS;
@@ -1922,28 +1918,6 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 
 			size_t length0 = fftPlan->length[0];
 			size_t length1 = fftPlan->length[1];
-
-
-			if (fftPlan->length[0]==256 && fftPlan->length[1]==256)
-			{
-				length0 += 8;
-				length1 += 1;
-			}
-			else if (fftPlan->length[0]==512 && fftPlan->length[1]==512)
-			{
-				length0 += 1;
-				length1 += 1;//length1 += 0;
-			}
-			else if (fftPlan->length[0]==1024 && fftPlan->length[1]==512)
-			{
-				length0 += 2;
-				length1 += 2;//length1 += 0;
-			}
-			else if (fftPlan->length[0]==1024 && fftPlan->length[1]==1024)
-			{
-				length0 += 1;
-				length1 += 1;//length1 += 0;
-			}
 
 
 			if (fftPlan->length[0] > Large1DThreshold ||
@@ -2037,7 +2011,8 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 				clLengths[0] = fftPlan->length[0];
 				clLengths[1] = fftPlan->length[1];
 
-				bool xyflag = (clLengths[0]==clLengths[1]) ? false : true;
+				// bool xyflag = (clLengths[0]==clLengths[1]) ? false : true;
+				bool xyflag = true;
 				if (xyflag && fftPlan->tmpBufSize==0 && fftPlan->length.size()<=2)
 				{
 					// we need tmp buffer for x!=y case
@@ -2056,7 +2031,7 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 				transPlanX->inputLayout     = fftPlan->outputLayout;
 				transPlanX->precision       = fftPlan->precision;
 				transPlanX->tmpBufSize      = 0;
-				transPlanX->gen			    = Transpose_VLIW;
+				transPlanX->gen = Transpose_GCN;
 				transPlanX->envelope		= fftPlan->envelope;
 				transPlanX->batchsize       = fftPlan->batchsize;
 				transPlanX->inStride[0]     = fftPlan->outStride[0];
@@ -2069,7 +2044,7 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 					transPlanX->outputLayout    = CLFFT_COMPLEX_INTERLEAVED;
 					transPlanX->placeness       = CLFFT_OUTOFPLACE;
 					transPlanX->outStride[0]    = 1;
-					transPlanX->outStride[1]    = clLengths[0];
+					transPlanX->outStride[1]    = clLengths[1];
 					transPlanX->oDist           = clLengths[0] * clLengths[1];
 				}
 				else
@@ -2183,7 +2158,7 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 				transPlanY->oDist           = fftPlan->oDist;
 				transPlanY->precision       = fftPlan->precision;
 				transPlanY->tmpBufSize      = 0;
-				transPlanY->gen			    = Transpose_VLIW;
+				transPlanY->gen = Transpose_GCN;
 				transPlanY->envelope		= fftPlan->envelope;
 				transPlanY->batchsize       = fftPlan->batchsize;
 				transPlanY->transflag       = true;
@@ -4192,8 +4167,6 @@ clfftStatus FFTPlan::GetMax1DLength (size_t *longest ) const
 	switch(gen)
 	{
 	case Stockham:		return GetMax1DLengthStockham(longest);
-	//No restriction for Transpose_VLIW kernel
-	case Transpose_VLIW:		*longest = 4096; return CLFFT_SUCCESS;
     case Transpose_GCN:			*longest = 4096; return CLFFT_SUCCESS;
     case Transpose_SQUARE:     *longest = 4096; return CLFFT_SUCCESS;
     case Copy:					*longest = 4096; return CLFFT_SUCCESS;

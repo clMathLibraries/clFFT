@@ -41,18 +41,6 @@ FFTCopyAction::FFTCopyAction(clfftPlanHandle plHandle, FFTPlan * plan, cl_comman
     err = CLFFT_SUCCESS;
 }
 
-FFTTransposeVLIWAction::FFTTransposeVLIWAction(clfftPlanHandle plHandle, FFTPlan * plan, cl_command_queue queue, clfftStatus & err)
-    : FFTAction(plan, err)
-{
-    if (err != CLFFT_SUCCESS)
-    {
-        // FFTAction() failed, exit constructor
-        return;
-    }
-
-    err = CLFFT_SUCCESS;
-}
-
 FFTTransposeGCNAction::FFTTransposeGCNAction(clfftPlanHandle plHandle, FFTPlan * plan, cl_command_queue queue, clfftStatus & err)
     : FFTAction(plan, err)
 {

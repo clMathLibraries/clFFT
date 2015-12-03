@@ -54,20 +54,6 @@ public:
 };
 
 
-//
-// FFTTransposeVLIWAction
-//
-// Base class for every TransposeVLIW action for the FFT.
-// Currently do nothing special. The kernel generation and compilation occurs
-// by the subclass FFTGeneratedTransposeVLIWAction
-// 
-class FFTTransposeVLIWAction : public FFTAction
-{
-public:
-    FFTTransposeVLIWAction(clfftPlanHandle plHandle, FFTPlan * plan, cl_command_queue queue, clfftStatus & err);
-
-    clfftGenerators getGenerator() { return Transpose_VLIW; }
-};
 
 
 //
@@ -199,47 +185,6 @@ public:
     }
 };
 
-//
-// FFTGeneratedTransposeVLIWAction
-//
-// Implements a TransposeVLIW action for the FFT
-// Its signature is represented by FFTKernelGenKeyParams structure
-// 
-// This class implements:
-//  - the generation of the kernel string
-//  - the build of the kernel
-// 
-// The structure FFTKernelGenKeyParams is used to characterize and generate
-// the appropriate transpose kernel. That structure is used for the signature of
-// this action. It is common to Stockham, copy and transpose methods. For
-// convenience, this structure is used for every FFTGenerated*Action class,
-// but in practice the transpose action only use a few information of that
-// structure, so a proper structure should be used instead.
-//
-class FFTGeneratedTransposeVLIWAction : public FFTTransposeVLIWAction
-{
-public:
-    FFTGeneratedTransposeVLIWAction(clfftPlanHandle plHandle, FFTPlan * plan, cl_command_queue queue, clfftStatus & err);
-
-    typedef FFTKernelSignature<FFTKernelGenKeyParams, FFT_DEFAULT_TRANSPOSE_ACTION> Signature;
-
-private:
-    Signature signature;
-
-    clfftStatus generateKernel  (FFTRepo& fftRepo, const cl_command_queue commQueueFFT );
-    clfftStatus getWorkSizes    (std::vector<size_t> & globalws, std::vector<size_t> & localws);
-    clfftStatus initParams      ();
-
-    bool buildForwardKernel();
-    bool buildBackwardKernel();
-
-public:
-
-    virtual const Signature * getSignatureData()
-    {
-        return &this->signature;
-    }
-};
 
 
 
