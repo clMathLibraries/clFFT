@@ -243,6 +243,61 @@ static clfftStatus genTransposePrototype(const FFTGeneratedTransposeNonSquareAct
     return CLFFT_SUCCESS;
 }
 
+static clfftStatus genTransposePrototypeSwapGlobal(const FFTGeneratedTransposeNonSquareAction::Signature & params, const size_t& lwSize, const std::string& dtPlanar, const std::string& dtComplex,
+    const std::string &funcName, std::stringstream& transKernel, std::string& dtInput, std::string& dtOutput)
+{
+
+    // Declare and define the function
+    clKernWrite(transKernel, 0) << "__attribute__(( reqd_work_group_size( " << lwSize << ", 1, 1 ) ))" << std::endl;
+    clKernWrite(transKernel, 0) << "kernel void" << std::endl;
+
+    clKernWrite(transKernel, 0) << funcName << "( ";
+
+    switch (params.fft_inputLayout)
+    {
+    case CLFFT_COMPLEX_INTERLEAVED:
+        dtInput = dtComplex;
+        dtOutput = dtComplex;
+        clKernWrite(transKernel, 0) << "global " << dtInput << "* restrict inputA";
+        clKernWrite(transKernel, 0) << ", global " << dtInput << "* restrict tmp_tot_mem";
+        break;
+    case CLFFT_COMPLEX_PLANAR:
+        dtInput = dtPlanar;
+        dtOutput = dtPlanar;
+        clKernWrite(transKernel, 0) << "global " << dtInput << "* restrict inputA_R" << ", global " << dtInput << "* restrict inputA_I";
+        clKernWrite(transKernel, 0) << ", global " << dtComplex << "* restrict tmp_tot_mem";
+        break;
+    case CLFFT_HERMITIAN_INTERLEAVED:
+    case CLFFT_HERMITIAN_PLANAR:
+        return CLFFT_TRANSPOSED_NOTIMPLEMENTED;
+    case CLFFT_REAL:
+        dtInput = dtPlanar;
+        dtOutput = dtPlanar;
+
+        clKernWrite(transKernel, 0) << "global " << dtInput << "* restrict inputA";
+        clKernWrite(transKernel, 0) << ", global " << dtInput << "* restrict tmp_tot_mem";
+        break;
+    default:
+        return CLFFT_TRANSPOSED_NOTIMPLEMENTED;
+    }
+
+    if (params.fft_hasPreCallback)
+    {
+        if (params.fft_preCallback.localMemSize > 0)
+        {
+            clKernWrite(transKernel, 0) << ", __global void* userdata, __local void* localmem";
+        }
+        else
+        {
+            clKernWrite(transKernel, 0) << ", __global void* userdata";
+        }
+    }
+
+
+    // Close the method signature
+    clKernWrite(transKernel, 0) << " )\n{" << std::endl;
+    return CLFFT_SUCCESS;
+}
 /* This function factorizes smaller dim and it finds a maximum of
 the 'factors less than max_capacity'*/
 static size_t get_num_lines_to_be_loaded(size_t max_capacity, size_t smaller_dim)
@@ -308,6 +363,7 @@ static void get_cycles(size_t *cycle_map, int num_reduced_row, int num_reduced_c
     delete[] is_swapped;
 }
 
+#define GLOBAL_MEM_FACTOR 2 //The amount of gloabl memory allocated for mtarix is(GLOBAL_MEM_FACTOR * Largest_dimension * size_of_elements)
 static clfftStatus genSwapKernel(const FFTGeneratedTransposeNonSquareAction::Signature & params, std::string& strKernel, const size_t& lwSize, const size_t reShapeFactor)
 {
     strKernel.reserve(4096);
@@ -318,6 +374,7 @@ static clfftStatus genSwapKernel(const FFTGeneratedTransposeNonSquareAction::Sig
     std::string dtInput;        // The type read as input into kernel
     std::string dtOutput;       // The type written as output from kernel
     std::string dtPlanar;       // Fundamental type for planar arrays
+    std::string tmpBuffType;
     std::string dtComplex;      // Fundamental type for complex arrays
 
                                 // NOTE:  Enable only for debug
@@ -393,10 +450,18 @@ static clfftStatus genSwapKernel(const FFTGeneratedTransposeNonSquareAction::Sig
     }
     size_t avail_mem = AVAIL_MEM_SIZE / input_elm_size_in_bytes;
     size_t max_capacity = (avail_mem >> 1) / smaller_dim;
-    if (max_capacity <= 0)
+    bool   use_global_memory = 0;
+    tmpBuffType = "__local";
+    if (max_capacity <= 1)
     {
-        std::cout << "\nIn-place transpose cannot be performed within specified memory constraints.\n";
-        return CLFFT_TRANSPOSED_NOTIMPLEMENTED;
+        /*In-place transpose cannot be performed within specified memory constraints in LDS.*/
+        max_capacity = GLOBAL_MEM_FACTOR;
+        avail_mem = max_capacity * smaller_dim * 2;
+        use_global_memory = 1;
+        tmpBuffType = "global";
+        /*Todo: add the appropriate logic for passing the required global memory*/
+        //size_t global_mem_requirement_in_bytes = GLOBAL_MEM_FACTOR * (smaller_dim * 2) * input_elm_size_in_bytes;
+
     }
     
     /*Generating the  swapping logic*/
@@ -461,16 +526,16 @@ static clfftStatus genSwapKernel(const FFTGeneratedTransposeNonSquareAction::Sig
         switch (params.fft_inputLayout)
         {
         case CLFFT_COMPLEX_INTERLEAVED:
-            clKernWrite(transKernel, 0) << "void swap(global " << dtComplex << "* inputA, " << "__local " << dtComplex << "* Ls, __local " << dtComplex << "* Ld, int is, int id, int pos){" << std::endl;
+            clKernWrite(transKernel, 0) << "void swap(global " << dtComplex << "* inputA, " << tmpBuffType << " " << dtComplex << "* Ls, "<< tmpBuffType << " " << dtComplex << " * Ld, int is, int id, int pos){" << std::endl;
             break;
         case CLFFT_COMPLEX_PLANAR:
-            clKernWrite(transKernel, 0) << "void swap(global " << dtPlanar << "* inputA_R, global " << dtPlanar << "* inputA_I, " << "__local " << dtComplex << "* Ls, __local " << dtComplex << "* Ld, int is, int id, int pos){" << std::endl;
+            clKernWrite(transKernel, 0) << "void swap(global " << dtPlanar << "* inputA_R, global " << dtPlanar << "* inputA_I, " << tmpBuffType << " " <<dtComplex << "* Ls, "<< tmpBuffType << " " << dtComplex << "* Ld, int is, int id, int pos){" << std::endl;
             break;
         case CLFFT_HERMITIAN_INTERLEAVED:
         case CLFFT_HERMITIAN_PLANAR:
             return CLFFT_TRANSPOSED_NOTIMPLEMENTED;
         case CLFFT_REAL:
-            clKernWrite(transKernel, 0) << "void swap(global " << dtPlanar << "* inputA, " << "__local " << dtPlanar << "* Ls, __local " << dtPlanar << "* Ld, int is, int id, int pos){" << std::endl;
+            clKernWrite(transKernel, 0) << "void swap(global " << dtPlanar << "* inputA, " << tmpBuffType <<" " << dtPlanar << "* Ls, "<< tmpBuffType <<" " << dtPlanar << "* Ld, int is, int id, int pos){" << std::endl;
             break;
         default:
             return CLFFT_TRANSPOSED_NOTIMPLEMENTED;
@@ -534,10 +599,17 @@ static clfftStatus genSwapKernel(const FFTGeneratedTransposeNonSquareAction::Sig
 
         funcName = "swap_nonsquare";
         // Generate kernel API
-        genTransposePrototype(params, local_work_size_swap, dtPlanar, dtComplex, funcName, transKernel, dtInput, dtOutput);
 
-        //       clKernWrite(transKernel, 0) << "/*" << std::endl;
-        //       clKernWrite(transKernel, 0) << "*/" << std::endl;
+        if (use_global_memory)
+        {
+            genTransposePrototypeSwapGlobal(params, local_work_size_swap, dtPlanar, dtComplex, funcName, transKernel, dtInput, dtOutput);
+        }
+        else
+        {
+            /*when swap can be performed in LDS itself then, same prototype of transpose can be used for swap function too*/
+            genTransposePrototype(params, local_work_size_swap, dtPlanar, dtComplex, funcName, transKernel, dtInput, dtOutput);
+        }
+
         clKernWrite(transKernel, 3) << "size_t g_index;" << std::endl;
         Swap_OffsetCalc(transKernel, params);
 
@@ -546,9 +618,12 @@ static clfftStatus genSwapKernel(const FFTGeneratedTransposeNonSquareAction::Sig
         {
         case CLFFT_COMPLEX_INTERLEAVED:
         case CLFFT_REAL:
-            clKernWrite(transKernel, 3) << "__local " << dtInput << " loc_tot_mem[" << avail_mem << "];" << std::endl;
-            clKernWrite(transKernel, 3) << "__local " << dtInput << " *te = loc_tot_mem;" << std::endl;
-            clKernWrite(transKernel, 3) << "__local " << dtInput << " *to = (loc_tot_mem + " << (avail_mem >> 1) << ");" << std::endl;
+
+            if (!use_global_memory) {
+                clKernWrite(transKernel, 3) << "__local " << dtInput << " tmp_tot_mem[" << avail_mem << "];" << std::endl;
+            }
+            clKernWrite(transKernel, 3) << tmpBuffType <<" " << dtInput << " *te = tmp_tot_mem;" << std::endl;
+            clKernWrite(transKernel, 3) << tmpBuffType <<" " << dtInput << " *to = (tmp_tot_mem + " << (avail_mem >> 1) << ");" << std::endl;
             //Do not advance offset when precallback is set as the starting address of global buffer is needed
             if (!params.fft_hasPreCallback)
             {
@@ -556,9 +631,11 @@ static clfftStatus genSwapKernel(const FFTGeneratedTransposeNonSquareAction::Sig
             }
             break;
         case CLFFT_COMPLEX_PLANAR:
-            clKernWrite(transKernel, 3) << "__local " << dtComplex << " loc_tot_mem[" << avail_mem << "];" << std::endl;
-            clKernWrite(transKernel, 3) << "__local " << dtComplex << " *te = loc_tot_mem;" << std::endl;
-            clKernWrite(transKernel, 3) << "__local " << dtComplex << " *to = (loc_tot_mem + " << (avail_mem >> 1) << ");" << std::endl;
+            if (!use_global_memory) {
+                clKernWrite(transKernel, 3) << "__local " << dtComplex << " tmp_tot_mem[" << avail_mem << "];" << std::endl;
+            }
+            clKernWrite(transKernel, 3) << tmpBuffType << " " << dtComplex << " *te = tmp_tot_mem;" << std::endl;
+            clKernWrite(transKernel, 3) << tmpBuffType << " " << dtComplex << " *to = (tmp_tot_mem + " << (avail_mem >> 1) << ");" << std::endl;
             //Do not advance offset when precallback is set as the starting address of global buffer is needed
             if (!params.fft_hasPreCallback)
             {
@@ -579,8 +656,10 @@ static clfftStatus genSwapKernel(const FFTGeneratedTransposeNonSquareAction::Sig
             if (params.fft_N[1] == smaller_dim)
             {
                 clKernWrite(transKernel, 3) << "for (int loop = 0; loop < " << params.fft_N[0] << "; loop += " << 2 * num_lines_loaded << "){" << std::endl;
-                clKernWrite(transKernel, 6) << "for (int p = get_local_id(0) / 16; p < " << num_lines_loaded << "; p += " << local_work_size_swap / 16 << "){" << std::endl;
-                clKernWrite(transKernel, 9) << "for (int j = get_local_id(0) % 16; j < " << smaller_dim << "; j += " << 16 << "){" << std::endl;
+                
+                clKernWrite(transKernel, 6) << "for (int p = get_local_id(0) / " << num_threads_processing_row << "; p < " << num_lines_loaded << "; p += " << local_work_size_swap / num_threads_processing_row << "){" << std::endl;
+                clKernWrite(transKernel, 9) << "for (int j = get_local_id(0) % " << num_threads_processing_row << "; j < " << smaller_dim << "; j += " << num_threads_processing_row << "){" << std::endl;
+
                 switch (params.fft_inputLayout)
                 {
                 case CLFFT_COMPLEX_INTERLEAVED:
@@ -600,8 +679,9 @@ static clfftStatus genSwapKernel(const FFTGeneratedTransposeNonSquareAction::Sig
 
                 clKernWrite(transKernel, 6) << "barrier(CLK_LOCAL_MEM_FENCE);" << std::endl;
 
-                clKernWrite(transKernel, 6) << "for (int p = get_local_id(0) / 16; p < " << num_lines_loaded << "; p += " << local_work_size_swap / 16 << "){" << std::endl;
-                clKernWrite(transKernel, 9) << "for (int j = get_local_id(0) % 16; j < " << smaller_dim << "; j += " << 16 << "){" << std::endl;
+                clKernWrite(transKernel, 6) << "for (int p = get_local_id(0) / " << num_threads_processing_row << "; p < " << num_lines_loaded << "; p += " << local_work_size_swap / num_threads_processing_row << "){" << std::endl;
+                clKernWrite(transKernel, 9) << "for (int j = get_local_id(0) % " << num_threads_processing_row << "; j < " << smaller_dim << "; j += " << num_threads_processing_row << "){" << std::endl;
+
                 switch (params.fft_inputLayout)
                 {
                 case CLFFT_COMPLEX_INTERLEAVED:
@@ -625,20 +705,22 @@ static clfftStatus genSwapKernel(const FFTGeneratedTransposeNonSquareAction::Sig
             else
             {
                 clKernWrite(transKernel, 3) << "for (int loop = 0; loop < " << smaller_dim << "; loop += " << num_lines_loaded << "){" << std::endl;
-                clKernWrite(transKernel, 6) << "for (int p = get_local_id(0) / 16; p < " << num_lines_loaded << "; p += " << local_work_size_swap / 16 << "){" << std::endl;
-                clKernWrite(transKernel, 9) << "for (int j = get_local_id(0) % 16; j < " << smaller_dim << "; j += " << 16 << "){" << std::endl;
+
+                clKernWrite(transKernel, 6) << "for (int p = get_local_id(0) / " << num_threads_processing_row << "; p < " << num_lines_loaded << "; p += " << local_work_size_swap / num_threads_processing_row << "){" << std::endl;
+                clKernWrite(transKernel, 9) << "for (int j = get_local_id(0) % " << num_threads_processing_row << "; j < " << smaller_dim << "; j += " << num_threads_processing_row << "){" << std::endl;
+
                 switch (params.fft_inputLayout)
                 {
                 case CLFFT_COMPLEX_INTERLEAVED:
                 case CLFFT_REAL:
-                    clKernWrite(transKernel, 12) << "loc_tot_mem[2 * p * " << smaller_dim << " + j] = inputA[loop * " << smaller_dim << " +  p * " << smaller_dim << " + j];" << std::endl;
-                    clKernWrite(transKernel, 12) << "loc_tot_mem[(2 * p  + 1)* " << smaller_dim << " + j] = inputA[" << smaller_dim  * smaller_dim << "+ loop * " << smaller_dim << " +  p * " << smaller_dim << " + j];" << std::endl;
+                    clKernWrite(transKernel, 12) << "tmp_tot_mem[2 * p * " << smaller_dim << " + j] = inputA[loop * " << smaller_dim << " +  p * " << smaller_dim << " + j];" << std::endl;
+                    clKernWrite(transKernel, 12) << "tmp_tot_mem[(2 * p  + 1)* " << smaller_dim << " + j] = inputA[" << smaller_dim  * smaller_dim << "+ loop * " << smaller_dim << " +  p * " << smaller_dim << " + j];" << std::endl;
                     break;
                 case CLFFT_COMPLEX_PLANAR:
-                    clKernWrite(transKernel, 12) << "loc_tot_mem[2 * p * " << smaller_dim << " + j].x = inputA_R[loop * " << smaller_dim << " +  p * " << smaller_dim << " + j];" << std::endl;
-                    clKernWrite(transKernel, 12) << "loc_tot_mem[2 * p * " << smaller_dim << " + j].y = inputA_I[loop * " << smaller_dim << " +  p * " << smaller_dim << " + j];" << std::endl;
-                    clKernWrite(transKernel, 12) << "loc_tot_mem[(2 * p  + 1)* " << smaller_dim << " + j].x = inputA_R[" << smaller_dim  * smaller_dim << "+ loop * " << smaller_dim << " +  p * " << smaller_dim << " + j];" << std::endl;
-                    clKernWrite(transKernel, 12) << "loc_tot_mem[(2 * p  + 1)* " << smaller_dim << " + j].y = inputA_I[" << smaller_dim  * smaller_dim << "+ loop * " << smaller_dim << " +  p * " << smaller_dim << " + j];" << std::endl;
+                    clKernWrite(transKernel, 12) << "tmp_tot_mem[2 * p * " << smaller_dim << " + j].x = inputA_R[loop * " << smaller_dim << " +  p * " << smaller_dim << " + j];" << std::endl;
+                    clKernWrite(transKernel, 12) << "tmp_tot_mem[2 * p * " << smaller_dim << " + j].y = inputA_I[loop * " << smaller_dim << " +  p * " << smaller_dim << " + j];" << std::endl;
+                    clKernWrite(transKernel, 12) << "tmp_tot_mem[(2 * p  + 1)* " << smaller_dim << " + j].x = inputA_R[" << smaller_dim  * smaller_dim << "+ loop * " << smaller_dim << " +  p * " << smaller_dim << " + j];" << std::endl;
+                    clKernWrite(transKernel, 12) << "tmp_tot_mem[(2 * p  + 1)* " << smaller_dim << " + j].y = inputA_I[" << smaller_dim  * smaller_dim << "+ loop * " << smaller_dim << " +  p * " << smaller_dim << " + j];" << std::endl;
                     break;
                 }
                 clKernWrite(transKernel, 9) << "}" << std::endl;
@@ -646,20 +728,21 @@ static clfftStatus genSwapKernel(const FFTGeneratedTransposeNonSquareAction::Sig
 
                 clKernWrite(transKernel, 6) << "barrier(CLK_LOCAL_MEM_FENCE);" << std::endl;
 
-                clKernWrite(transKernel, 6) << "for (int p = get_local_id(0) / 16; p < " << num_lines_loaded << "; p += " << local_work_size_swap / 16 << "){" << std::endl;
-                clKernWrite(transKernel, 9) << "for (int j = get_local_id(0) % 16; j < " << smaller_dim << "; j += " << 16 << "){" << std::endl;
+                clKernWrite(transKernel, 6) << "for (int p = get_local_id(0) / " << num_threads_processing_row << "; p < " << num_lines_loaded << "; p += " << local_work_size_swap / num_threads_processing_row << "){" << std::endl;
+                clKernWrite(transKernel, 9) << "for (int j = get_local_id(0) % " << num_threads_processing_row << "; j < " << smaller_dim << "; j += " << num_threads_processing_row << "){" << std::endl;
+
                 switch (params.fft_inputLayout)
                 {
                 case CLFFT_COMPLEX_INTERLEAVED:
                 case CLFFT_REAL:
-                    clKernWrite(transKernel, 12) << "inputA[loop * " << smaller_dim << " +  p * " << smaller_dim << " + j] = loc_tot_mem[p * " << smaller_dim << " + j];" << std::endl;
-                    clKernWrite(transKernel, 12) << "inputA[" << smaller_dim  * smaller_dim << "+ loop * " << smaller_dim << " +  p * " << smaller_dim << " + j] = loc_tot_mem[(" << num_lines_loaded << " + p)* " << smaller_dim << " + j];" << std::endl;
+                    clKernWrite(transKernel, 12) << "inputA[loop * " << smaller_dim << " +  p * " << smaller_dim << " + j] = tmp_tot_mem[p * " << smaller_dim << " + j];" << std::endl;
+                    clKernWrite(transKernel, 12) << "inputA[" << smaller_dim  * smaller_dim << "+ loop * " << smaller_dim << " +  p * " << smaller_dim << " + j] = tmp_tot_mem[(" << num_lines_loaded << " + p)* " << smaller_dim << " + j];" << std::endl;
                     break;
                 case CLFFT_COMPLEX_PLANAR:
-                    clKernWrite(transKernel, 12) << "inputA_R[loop * " << smaller_dim << " +  p * " << smaller_dim << " + j] = loc_tot_mem[p * " << smaller_dim << " + j].x;" << std::endl;
-                    clKernWrite(transKernel, 12) << "inputA_I[loop * " << smaller_dim << " +  p * " << smaller_dim << " + j] = loc_tot_mem[p * " << smaller_dim << " + j].y;" << std::endl;
-                    clKernWrite(transKernel, 12) << "inputA_R[" << smaller_dim  * smaller_dim << "+ loop * " << smaller_dim << " +  p * " << smaller_dim << " + j] = loc_tot_mem[(" << num_lines_loaded << " + p)* " << smaller_dim << " + j].x;" << std::endl;
-                    clKernWrite(transKernel, 12) << "inputA_I[" << smaller_dim  * smaller_dim << "+ loop * " << smaller_dim << " +  p * " << smaller_dim << " + j] = loc_tot_mem[(" << num_lines_loaded << " + p)* " << smaller_dim << " + j].y;" << std::endl;
+                    clKernWrite(transKernel, 12) << "inputA_R[loop * " << smaller_dim << " +  p * " << smaller_dim << " + j] = tmp_tot_mem[p * " << smaller_dim << " + j].x;" << std::endl;
+                    clKernWrite(transKernel, 12) << "inputA_I[loop * " << smaller_dim << " +  p * " << smaller_dim << " + j] = tmp_tot_mem[p * " << smaller_dim << " + j].y;" << std::endl;
+                    clKernWrite(transKernel, 12) << "inputA_R[" << smaller_dim  * smaller_dim << "+ loop * " << smaller_dim << " +  p * " << smaller_dim << " + j] = tmp_tot_mem[(" << num_lines_loaded << " + p)* " << smaller_dim << " + j].x;" << std::endl;
+                    clKernWrite(transKernel, 12) << "inputA_I[" << smaller_dim  * smaller_dim << "+ loop * " << smaller_dim << " +  p * " << smaller_dim << " + j] = tmp_tot_mem[(" << num_lines_loaded << " + p)* " << smaller_dim << " + j].y;" << std::endl;
                     break;
                 }
 
@@ -670,9 +753,17 @@ static clfftStatus genSwapKernel(const FFTGeneratedTransposeNonSquareAction::Sig
             }
         }
 
-        clKernWrite(transKernel, 3) << "__local " << dtComplex << " *loc_swap_ptr[2];" << std::endl;
-        clKernWrite(transKernel, 3) << "loc_swap_ptr[0] = te;" << std::endl;
-        clKernWrite(transKernel, 3) << "loc_swap_ptr[1] = to;" << std::endl;
+        switch (params.fft_inputLayout)
+        {
+        case CLFFT_COMPLEX_INTERLEAVED:
+        case CLFFT_COMPLEX_PLANAR:
+            clKernWrite(transKernel, 3) << tmpBuffType << " " << dtComplex << " *tmp_swap_ptr[2];" << std::endl;
+            break;
+        case CLFFT_REAL:
+            clKernWrite(transKernel, 3) << tmpBuffType << " " << dtPlanar << " *tmp_swap_ptr[2];" << std::endl;
+        }
+        clKernWrite(transKernel, 3) << "tmp_swap_ptr[0] = te;" << std::endl;
+        clKernWrite(transKernel, 3) << "tmp_swap_ptr[1] = to;" << std::endl;
 
         clKernWrite(transKernel, 3) << "int swap_inx = 0;" << std::endl;
         clKernWrite(transKernel, 3) << "for (int loop = 0; loop < " << num_swaps << "; loop ++){" << std::endl;
@@ -681,10 +772,10 @@ static clfftStatus genSwapKernel(const FFTGeneratedTransposeNonSquareAction::Sig
         {
         case CLFFT_COMPLEX_INTERLEAVED:
         case CLFFT_REAL:
-            clKernWrite(transKernel, 6) << "swap(inputA, loc_swap_ptr[swap_inx], loc_swap_ptr[1 - swap_inx], swap_table[loop][0], swap_table[loop][1], swap_table[loop][2]);" << std::endl;
+            clKernWrite(transKernel, 6) << "swap(inputA, tmp_swap_ptr[swap_inx], tmp_swap_ptr[1 - swap_inx], swap_table[loop][0], swap_table[loop][1], swap_table[loop][2]);" << std::endl;
             break;
         case CLFFT_COMPLEX_PLANAR:
-            clKernWrite(transKernel, 6) << "swap(inputA_R, inputA_I, loc_swap_ptr[swap_inx], loc_swap_ptr[1 - swap_inx], swap_table[loop][0], swap_table[loop][1], swap_table[loop][2]);" << std::endl;
+            clKernWrite(transKernel, 6) << "swap(inputA_R, inputA_I, tmp_swap_ptr[swap_inx], tmp_swap_ptr[1 - swap_inx], swap_table[loop][0], swap_table[loop][1], swap_table[loop][2]);" << std::endl;
             break;
 
         }
@@ -755,7 +846,6 @@ static clfftStatus genTransposeKernel(const FFTGeneratedTransposeNonSquareAction
     }
 
 
-
     // This detects whether the input matrix is rectangle of ratio 1:2
     
     if ((params.fft_N[0] != 2 * params.fft_N[1]) && (params.fft_N[1] != 2 * params.fft_N[0]))
@@ -770,39 +860,6 @@ static clfftStatus genTransposeKernel(const FFTGeneratedTransposeNonSquareAction
 
     size_t smaller_dim = (params.fft_N[0] < params.fft_N[1]) ? params.fft_N[0] : params.fft_N[1];
 
-    size_t input_elm_size_in_bytes;
-    switch (params.fft_precision)
-    {
-    case CLFFT_SINGLE:
-    case CLFFT_SINGLE_FAST:
-        input_elm_size_in_bytes = 4;
-        break;
-    case CLFFT_DOUBLE:
-    case CLFFT_DOUBLE_FAST:
-        input_elm_size_in_bytes = 8;
-        break;
-    default:
-        return CLFFT_TRANSPOSED_NOTIMPLEMENTED;
-    }
-
-    switch (params.fft_outputLayout)
-    {
-    case CLFFT_COMPLEX_INTERLEAVED:
-    case CLFFT_COMPLEX_PLANAR:
-        input_elm_size_in_bytes *= 2;
-        break;
-    case CLFFT_REAL:
-        break;
-    default:
-        return CLFFT_TRANSPOSED_NOTIMPLEMENTED;
-    }
-    size_t avail_mem = AVAIL_MEM_SIZE / input_elm_size_in_bytes;
-    size_t max_capacity = (avail_mem >> 1) / smaller_dim;
-    if (max_capacity <= 0)
-    {
-        std::cout << "\nIn-place transpose cannot be performed within specified memory constraints.\n";
-        return CLFFT_TRANSPOSED_NOTIMPLEMENTED;
-    }
     // This detects whether the input matrix is a multiple of 16*reshapefactor or not
 
     bool mult_of_16 = (smaller_dim % (reShapeFactor * 16) == 0) ? true : false;
