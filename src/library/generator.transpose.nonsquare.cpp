@@ -363,7 +363,7 @@ static void get_cycles(size_t *cycle_map, int num_reduced_row, int num_reduced_c
     delete[] is_swapped;
 }
 
-#define GLOBAL_MEM_FACTOR 2 //The amount of gloabl memory allocated for mtarix is(GLOBAL_MEM_FACTOR * Largest_dimension * size_of_elements)
+#define GLOBAL_MEM_FACTOR 2 //The amount of global memory allocated for matrix is(GLOBAL_MEM_FACTOR * Largest_dimension * size_of_elements)
 static clfftStatus genSwapKernel(const FFTGeneratedTransposeNonSquareAction::Signature & params, std::string& strKernel, const size_t& lwSize, const size_t reShapeFactor)
 {
     strKernel.reserve(4096);
@@ -460,7 +460,7 @@ static clfftStatus genSwapKernel(const FFTGeneratedTransposeNonSquareAction::Sig
         use_global_memory = 1;
         tmpBuffType = "global";
         /*Todo: add the appropriate logic for passing the required global memory*/
-        size_t global_mem_requirement_in_bytes = GLOBAL_MEM_FACTOR * (smaller_dim * 2) * input_elm_size_in_bytes;
+        size_t global_mem_requirement_in_bytes = avail_mem * input_elm_size_in_bytes;
 
     }
     
@@ -621,6 +621,10 @@ static clfftStatus genSwapKernel(const FFTGeneratedTransposeNonSquareAction::Sig
 
             if (!use_global_memory) {
                 clKernWrite(transKernel, 3) << "__local " << dtInput << " tmp_tot_mem[" << avail_mem << "];" << std::endl;
+            }
+            else
+            {
+                clKernWrite(transKernel, 3) << "tmp_tot_mem += " << avail_mem << " * g_index;" << std::endl; 
             }
             clKernWrite(transKernel, 3) << tmpBuffType <<" " << dtInput << " *te = tmp_tot_mem;" << std::endl;
             clKernWrite(transKernel, 3) << tmpBuffType <<" " << dtInput << " *to = (tmp_tot_mem + " << (avail_mem >> 1) << ");" << std::endl;
