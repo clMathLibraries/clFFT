@@ -503,7 +503,8 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 				{
 					// Enable block compute under these conditions
 					if( (fftPlan->inStride[0] == 1) && (fftPlan->outStride[0] == 1) && !rc
-						&& (fftPlan->length[0] <= 262144/PrecisionWidth(fftPlan->precision)) && (fftPlan->length.size() <= 1) )
+						&& (fftPlan->length[0] <= 262144/PrecisionWidth(fftPlan->precision)) && (fftPlan->length.size() <= 1)
+						&& (!clfftGetRequestLibNoMemAlloc()) )
 					{
 						fftPlan->blockCompute = true;
 
@@ -540,7 +541,13 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 					}
 					else
 					{
-						if(fftPlan->length[0] > (Large1DThreshold * Large1DThreshold) )
+						if( clfftGetRequestLibNoMemAlloc() )
+						{
+							in_x = BitScanF(fftPlan->length[0]);
+							in_x /= 2;
+							clLengths[1] = (size_t)1 << in_x;
+						}
+						else if( fftPlan->length[0] > (Large1DThreshold * Large1DThreshold) )
 						{
 							clLengths[1] = fftPlan->length[0] / Large1DThreshold;
 						}
@@ -611,8 +618,9 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 
 					if (fftPlan->inStride[0] != 1 || fftPlan->outStride[0] != 1) break;
 
-					if ( IsPo2(fftPlan->length[0])
-						&& (fftPlan->length[0] <= 262144/PrecisionWidth(fftPlan->precision)) ) break;
+					if ( IsPo2(fftPlan->length[0]) &&
+						 (fftPlan->length[0] <= 262144/PrecisionWidth(fftPlan->precision)) &&
+						 (!clfftGetRequestLibNoMemAlloc()) ) break;
 
 					if ( clLengths[0]<=32 && clLengths[1]<=32) break;
 
@@ -625,10 +633,17 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 
 					clfftGenerators transGen = Transpose_GCN;
 
+					if (clfftGetRequestLibNoMemAlloc() &&
+						(clLengths[0] == 2*clLengths[1]) &&
+						fftPlan->placeness == CLFFT_INPLACE)
+					{
+						padding = 0;
+						fftPlan->allOpsInplace = true;
+						transGen = Transpose_NONSQUARE;
+					}
+
 					if( clfftGetRequestLibNoMemAlloc() &&
 						(clLengths[0] == clLengths[1]) &&
-						(fftPlan->iDist == fftPlan->length[0]) &&
-						(fftPlan->oDist == fftPlan->length[0]) &&
 						fftPlan->placeness == CLFFT_INPLACE )
 					{
 						padding = 0;
@@ -1873,40 +1888,93 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
                 clfftStatus err;
 				if(fftPlan->gen == Transpose_GCN)
 					fftPlan->action = new FFTGeneratedTransposeGCNAction(plHandle, fftPlan, *commQueueFFT, err);
-                else if (fftPlan->gen == Transpose_SQUARE)
+				else if (fftPlan->gen == Transpose_SQUARE)
+					fftPlan->action = new FFTGeneratedTransposeSquareAction(plHandle, fftPlan, *commQueueFFT, err);
+                else if (fftPlan->gen == Transpose_NONSQUARE)
                 {
-                    static int test_performed = 0;
-                    size_t backup_0 = fftPlan->length[0];
-                    size_t backup_1 = fftPlan->length[1];
-                    
-                    clfftLayout  inputLayout_bckup = fftPlan->inputLayout;
-                    clfftLayout  outputLayout_bckup = fftPlan->outputLayout;
-                    clfftPrecision precision_bckup = fftPlan->precision;
+					if(fftPlan->nonSquareKernelType == NON_SQUARE_TRANS_TRANSPOSE)
+						fftPlan->action = new FFTGeneratedTransposeNonSquareAction(plHandle, fftPlan, *commQueueFFT, err);
+					else if (fftPlan->nonSquareKernelType == NON_SQUARE_TRANS_SWAP)
+						fftPlan->action = new FFTGeneratedTransposeNonSquareAction(plHandle, fftPlan, *commQueueFFT, err);
+					else
+					{
+						size_t clLengths[] = { 1, 1, 0 };
+						clLengths[0] = fftPlan->length[0];
+						clLengths[1] = fftPlan->length[1];
 
-                    if (!test_performed)
-                    {
-                        //CLFFT_COMPLEX_PLANAR
-                        //CLFFT_COMPLEX_INTERLEAVED
-                        fftPlan->inputLayout = CLFFT_COMPLEX_INTERLEAVED;
-                        fftPlan->outputLayout = CLFFT_COMPLEX_INTERLEAVED;
-                        if(fftPlan->inputLayout == CLFFT_REAL)
-                            test_performed = 1;
-                        fftPlan->nonSquareKernelType = NON_SQUARE_SWAP;
-                        fftPlan->precision = CLFFT_SINGLE;
-                        fftPlan->length[0] = 4096;// fftPlan->length[1];
-                        fftPlan->length[1] = fftPlan->length[0] * 2;
-                        fftPlan->action = new FFTGeneratedTransposeNonSquareAction(plHandle, fftPlan, *commQueueFFT, err);
-                        OPENCL_V(err, "FFTGeneratedTransposeNonSquareAction() failed");
+						//Transpose stage 1
+						OPENCL_V(clfftCreateDefaultPlanInternal(&fftPlan->planTX, fftPlan->context, CLFFT_2D, clLengths),
+							_T("CreateDefaultPlan transpose_nsq_stage1 plan failed"));
 
-                    }
+						FFTPlan* trans1Plan = NULL;
+						lockRAII* trans1Lock = NULL;
+						OPENCL_V(fftRepo.getPlan(fftPlan->planTX, trans1Plan, trans1Lock), _T("fftRepo.getPlan failed"));
 
-                    fftPlan->precision = precision_bckup;
-                    fftPlan->inputLayout = inputLayout_bckup;
-                    fftPlan->outputLayout = outputLayout_bckup;
-                    fftPlan->length[0] = backup_0;
-                    fftPlan->length[1] = backup_1;
+						trans1Plan->placeness = CLFFT_INPLACE;
+						trans1Plan->precision = fftPlan->precision;
+						trans1Plan->tmpBufSize = 0;
+						trans1Plan->batchsize = fftPlan->batchsize;
+						trans1Plan->envelope = fftPlan->envelope;
+						trans1Plan->inputLayout = fftPlan->inputLayout;
+						trans1Plan->outputLayout = fftPlan->outputLayout;
+						trans1Plan->inStride[0] = fftPlan->inStride[0];
+						trans1Plan->outStride[0] = fftPlan->outStride[0];
+						trans1Plan->inStride[1] = fftPlan->inStride[1];
+						trans1Plan->outStride[1] = fftPlan->outStride[1];
+						trans1Plan->iDist = fftPlan->iDist;
+						trans1Plan->oDist = fftPlan->oDist;
+						trans1Plan->gen = Transpose_NONSQUARE;
+						trans1Plan->nonSquareKernelType = NON_SQUARE_TRANS_TRANSPOSE;
+						trans1Plan->transflag = true;
 
-                    fftPlan->action = new FFTGeneratedTransposeSquareAction(plHandle, fftPlan, *commQueueFFT, err);
+						for (size_t index = 2; index < fftPlan->length.size(); index++)
+						{
+							trans1Plan->length.push_back(fftPlan->length[index]);
+							trans1Plan->inStride.push_back(fftPlan->inStride[index]);
+							trans1Plan->outStride.push_back(fftPlan->outStride[index]);
+						}
+
+
+						OPENCL_V(clfftBakePlan(fftPlan->planTX, numQueues, commQueueFFT, NULL, NULL),
+							_T("BakePlan transpose_nsq_stage1 plan failed"));
+
+
+						//Transpose stage 2
+						OPENCL_V(clfftCreateDefaultPlanInternal(&fftPlan->planTY, fftPlan->context, CLFFT_2D, clLengths),
+							_T("CreateDefaultPlan transpose_nsq_stage1 plan failed"));
+
+						FFTPlan* trans2Plan = NULL;
+						lockRAII* trans2Lock = NULL;
+						OPENCL_V(fftRepo.getPlan(fftPlan->planTY, trans2Plan, trans2Lock), _T("fftRepo.getPlan failed"));
+
+						trans2Plan->placeness = CLFFT_INPLACE;
+						trans2Plan->precision = fftPlan->precision;
+						trans2Plan->tmpBufSize = 0;
+						trans2Plan->batchsize = fftPlan->batchsize;
+						trans2Plan->envelope = fftPlan->envelope;
+						trans2Plan->inputLayout = fftPlan->inputLayout;
+						trans2Plan->outputLayout = fftPlan->outputLayout;
+						trans2Plan->inStride[0] = fftPlan->inStride[0];
+						trans2Plan->outStride[0] = fftPlan->outStride[0];
+						trans2Plan->inStride[1] = fftPlan->inStride[1];
+						trans2Plan->outStride[1] = fftPlan->outStride[1];
+						trans2Plan->iDist = fftPlan->iDist;
+						trans2Plan->oDist = fftPlan->oDist;
+						trans2Plan->gen = Transpose_NONSQUARE;
+						trans2Plan->nonSquareKernelType = NON_SQUARE_TRANS_SWAP;
+						trans2Plan->transflag = true;
+
+						for (size_t index = 2; index < fftPlan->length.size(); index++)
+						{
+							trans2Plan->length.push_back(fftPlan->length[index]);
+							trans2Plan->inStride.push_back(fftPlan->inStride[index]);
+							trans2Plan->outStride.push_back(fftPlan->outStride[index]);
+						}
+
+
+						OPENCL_V(clfftBakePlan(fftPlan->planTY, numQueues, commQueueFFT, NULL, NULL),
+							_T("BakePlan transpose_nsq_stage2 plan failed"));
+					}
                 }
 				else
 					fftPlan->action = new FFTGeneratedTransposeGCNAction(plHandle, fftPlan, *commQueueFFT, err);
@@ -4169,7 +4237,8 @@ clfftStatus FFTPlan::GetMax1DLength (size_t *longest ) const
 	{
 	case Stockham:		return GetMax1DLengthStockham(longest);
     case Transpose_GCN:			*longest = 4096; return CLFFT_SUCCESS;
-    case Transpose_SQUARE:     *longest = 4096; return CLFFT_SUCCESS;
+    case Transpose_SQUARE:		*longest = 4096; return CLFFT_SUCCESS;
+	case Transpose_NONSQUARE:	*longest = 4096; return CLFFT_SUCCESS;
     case Copy:					*longest = 4096; return CLFFT_SUCCESS;
 	default:			assert(false); return CLFFT_NOTIMPLEMENTED;
 	}

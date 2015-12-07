@@ -1424,15 +1424,15 @@ clfftStatus FFTGeneratedTransposeNonSquareAction::initParams()
     if (CLFFT_INPLACE == this->signature.fft_placeness)
     {
         //	If this is an in-place transform the
-        //	input and output layout, dimensions and strides
+        //	input and output layout
         //	*MUST* be the same.
         //
         ARG_CHECK(this->signature.fft_inputLayout == this->signature.fft_outputLayout)
 
-            for (size_t u = this->plan->inStride.size(); u-- > 0; )
+    /*        for (size_t u = this->plan->inStride.size(); u-- > 0; )
             {
                 ARG_CHECK(this->plan->inStride[u] == this->plan->outStride[u]);
-            }
+            }*/
     }
 
     this->signature.fft_DataDim = this->plan->length.size() + 1;
@@ -1491,7 +1491,7 @@ clfftStatus FFTGeneratedTransposeNonSquareAction::generateKernel(FFTRepo& fftRep
 
 
     std::string programCode;
-    if (this->signature.nonSquareKernelType == NON_SQUARE_TRANSPOSE)
+    if (this->signature.nonSquareKernelType == NON_SQUARE_TRANS_TRANSPOSE)
     {
         OPENCL_V(genTransposeKernel(this->signature, programCode, lwSize, reShapeFactor), _T("GenerateTransposeKernel() failed!"));
     }
@@ -1511,7 +1511,7 @@ clfftStatus FFTGeneratedTransposeNonSquareAction::generateKernel(FFTRepo& fftRep
 
 
     OPENCL_V(fftRepo.setProgramCode(Transpose_NONSQUARE, this->getSignatureData(), programCode, Device, QueueContext), _T("fftRepo.setclString() failed!"));
-    if (this->signature.nonSquareKernelType == NON_SQUARE_TRANSPOSE)
+    if (this->signature.nonSquareKernelType == NON_SQUARE_TRANS_TRANSPOSE)
     {
         // Note:  See genFunctionPrototype( )
         if (this->signature.fft_3StepTwiddle)
@@ -1538,7 +1538,7 @@ clfftStatus FFTGeneratedTransposeNonSquareAction::getWorkSizes(std::vector< size
     size_t smaller_dim = (this->signature.fft_N[0] < this->signature.fft_N[1]) ? this->signature.fft_N[0] : this->signature.fft_N[1];
     size_t global_item_size;
 
-    if (this->signature.nonSquareKernelType == NON_SQUARE_TRANSPOSE)
+    if (this->signature.nonSquareKernelType == NON_SQUARE_TRANS_TRANSPOSE)
     {
         if (smaller_dim % (16 * reShapeFactor) == 0)
             wg_slice = smaller_dim / 16 / reShapeFactor;
