@@ -774,7 +774,10 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 					trans2Plan->iDist         = fftPlan->oDist;
 					trans2Plan->oDist         = clLengths[1] * trans2Plan->outStride[1];
                     trans2Plan->gen           = transGen;
-					trans2Plan->large1D		  = fftPlan->length[0];
+
+					if(transGen != Transpose_NONSQUARE)
+						trans2Plan->large1D		  = fftPlan->length[0];
+
 					trans2Plan->transflag     = true;
 
 					for (size_t index = 1; index < fftPlan->length.size(); index++)
@@ -826,6 +829,12 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 						row2Plan->outStride.push_back(row2Plan->oDist);
 						row2Plan->iDist *= fftPlan->length[index];
 						row2Plan->oDist *= fftPlan->length[index];
+					}
+
+					if (transGen == Transpose_NONSQUARE)
+					{
+						row2Plan->large1D = fftPlan->length[0];
+						row2Plan->twiddleFront = true;
 					}
 
 					OPENCL_V(clfftBakePlan(fftPlan->planY, numQueues, commQueueFFT, NULL, NULL ),
