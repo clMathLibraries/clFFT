@@ -491,6 +491,7 @@ static clfftStatus genSwapKernel(const FFTGeneratedTransposeNonSquareAction::Sig
         // more threads process each row.
         size_t num_threads_processing_row = (256 / local_work_size_swap) * 16;
         local_work_size_swap = num_lines_loaded * num_threads_processing_row;
+        local_work_size_swap = (local_work_size_swap > 256) ? 256 : local_work_size_swap;
 
         clKernWrite(transKernel, 0) << std::endl;
 
@@ -1604,6 +1605,7 @@ clfftStatus FFTGeneratedTransposeNonSquareAction::getWorkSizes(std::vector< size
         // more threads process each row.
         size_t num_threads_processing_row = (256 / local_work_size_swap) * 16;
         local_work_size_swap = num_lines_loaded * num_threads_processing_row;
+        local_work_size_swap = (local_work_size_swap > 256) ? 256 : local_work_size_swap;
 
         global_item_size = local_work_size_swap * this->plan->batchsize;
 
