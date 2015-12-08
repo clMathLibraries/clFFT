@@ -1885,7 +1885,7 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 
 			if (fftPlan->transflag) //Transpose for 2D
 			{
-                clfftStatus err;
+                clfftStatus err = CLFFT_SUCCESS;
 				if(fftPlan->gen == Transpose_GCN)
 					fftPlan->action = new FFTGeneratedTransposeGCNAction(plHandle, fftPlan, *commQueueFFT, err);
 				else if (fftPlan->gen == Transpose_SQUARE)
