@@ -148,12 +148,12 @@ static clfftStatus genTwiddleMath(const FFTKernelGenKeyParams& params, std::stri
     if (params.fft_N[0] > params.fft_N[1])
     {
         clKernWrite(transKernel, 9) << dtComplex << " Wm = TW3step( ("<< params.fft_N[1] <<" * square_matrix_index + t_gx_p*32 + lidx) * (t_gy_p*32 + lidy + loop*8) );" << std::endl;
-        clKernWrite(transKernel, 9) << dtComplex << " Wt = TW3step( (t_gy_p*32 + lidx) * ("<< params.fft_N[1] <<" * square_matrix_index + t_gx_p*32 + lidy + loop*8) );" << std::endl;
+        clKernWrite(transKernel, 9) << dtComplex << " Wt = TW3step( ("<< params.fft_N[1] <<" * square_matrix_index + t_gy_p*32 + lidx) * (t_gx_p*32 + lidy + loop*8) );" << std::endl;
     }
     else
     {
         clKernWrite(transKernel, 9) << dtComplex << " Wm = TW3step( (t_gx_p*32 + lidx) * (" << params.fft_N[0] << " * square_matrix_index + t_gy_p*32 + lidy + loop*8) );" << std::endl;
-        clKernWrite(transKernel, 9) << dtComplex << " Wt = TW3step( (" << params.fft_N[0] << " * square_matrix_index + t_gy_p*32 + lidx) * (t_gx_p*32 + lidy + loop*8) );" << std::endl;
+        clKernWrite(transKernel, 9) << dtComplex << " Wt = TW3step( (t_gy_p*32 + lidx) * (" << params.fft_N[0] << " * square_matrix_index + t_gx_p*32 + lidy + loop*8) );" << std::endl;
     }
     clKernWrite(transKernel, 9) << dtComplex << " Tm, Tt;" << std::endl;
 

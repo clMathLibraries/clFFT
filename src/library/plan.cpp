@@ -775,7 +775,7 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 					trans2Plan->oDist         = clLengths[1] * trans2Plan->outStride[1];
                     trans2Plan->gen           = transGen;
 
-					if(transGen != Transpose_NONSQUARE)
+				//	if(transGen != Transpose_NONSQUARE)
 						trans2Plan->large1D		  = fftPlan->length[0];
 
 					trans2Plan->transflag     = true;
@@ -831,11 +831,11 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 						row2Plan->oDist *= fftPlan->length[index];
 					}
 
-					if (transGen == Transpose_NONSQUARE)
-					{
-						row2Plan->large1D = fftPlan->length[0];
-						row2Plan->twiddleFront = true;
-					}
+//					if (transGen == Transpose_NONSQUARE)
+//					{
+//						row2Plan->large1D = fftPlan->length[0];
+//						row2Plan->twiddleFront = true;
+//					}
 
 					OPENCL_V(clfftBakePlan(fftPlan->planY, numQueues, commQueueFFT, NULL, NULL ),
 						_T( "BakePlan large1d second row plan failed" ) );
@@ -1935,7 +1935,7 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 						trans1Plan->gen = Transpose_NONSQUARE;
 						trans1Plan->nonSquareKernelType = NON_SQUARE_TRANS_TRANSPOSE;
 						trans1Plan->transflag = true;
-
+                        trans1Plan->large1D = fftPlan->large1D;
 						for (size_t index = 2; index < fftPlan->length.size(); index++)
 						{
 							trans1Plan->length.push_back(fftPlan->length[index]);
