@@ -133,7 +133,8 @@ static void Swap_OffsetCalc(std::stringstream& transKernel, const FFTKernelGenKe
 
     for (size_t i = params.fft_DataDim - 2; i > 0; i--)
     {
-        clKernWrite(transKernel, 3) << offset << " += (g_index)*" << stride[i + 1] << ";" << std::endl;
+        clKernWrite(transKernel, 3) << offset << " += (g_index/numGroupsY_" << i << ")*" << stride[i + 1] << ";" << std::endl;
+        clKernWrite(transKernel, 3) << "g_index = g_index % numGroupsY_" << i << ";" << std::endl;
     }
 
     clKernWrite(transKernel, 3) << std::endl;
@@ -609,6 +610,12 @@ static clfftStatus genSwapKernel(const FFTGeneratedTransposeNonSquareAction::Sig
         {
             /*when swap can be performed in LDS itself then, same prototype of transpose can be used for swap function too*/
             genTransposePrototype(params, local_work_size_swap, dtPlanar, dtComplex, funcName, transKernel, dtInput, dtOutput);
+        }
+
+        clKernWrite(transKernel, 3) << "const size_t numGroupsY_1 = 1;" << std::endl;
+        for (int i = 2; i < params.fft_DataDim - 1; i++)
+        {
+            clKernWrite(transKernel, 3) << "const size_t numGroupsY_" << i << " = numGroupsY_" << i - 1 << " * " << params.fft_N[i] << ";" << std::endl;
         }
 
         clKernWrite(transKernel, 3) << "size_t g_index;" << std::endl;
