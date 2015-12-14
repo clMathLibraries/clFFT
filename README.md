@@ -81,7 +81,7 @@ Two mailing lists exist for the clMath projects:
 
 ### API semantic versioning
 Good software is typically the result of the loop of feedback and iteration; software 
-interfaces no less so. clFFT follows the [semantic_versioning] guidelines. The version
+interfaces no less so. clFFT follows the [semantic versioning] guidelines. The version
 number used is of the form MAJOR.MINOR.PATCH.
 
 ## clFFT Wiki
