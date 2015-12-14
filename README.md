@@ -79,6 +79,11 @@ Two mailing lists exist for the clMath projects:
 -   [clmath-developers@googlegroups.com][] - group whose focus is for
     developers interested in contributing to the library code
 
+### API semantic versioning
+Good software is typically the result of the loop of feedback and iteration; software 
+interfaces no less so. clFFT follows the [semantic_versioning] guidelines. The version
+number used is of the form MAJOR.MINOR.PATCH.
+
 ## clFFT Wiki
 
 The [project wiki][clmath@googlegroups.com] contains helpful
@@ -230,3 +235,4 @@ To measure the performance of the clFFT library code, ensure that the Python pac
   [Contributing]: CONTRIBUTING.md
   [Apache License, Version 2.0]: http://www.apache.org/licenses/LICENSE-2.0
   [binary_release]: https://github.com/clMathLibraries/clFFT/releases
+  [semantic versioning]: http://semver.org/
