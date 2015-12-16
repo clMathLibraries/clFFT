@@ -428,13 +428,25 @@ static clfftStatus genSwapKernel(const FFTGeneratedTransposeNonSquareAction::Sig
                 num_swaps++;
             }
         }
-        clKernWrite(transKernel, 0) << "};" << std::endl;
+        /*Appending swap table for touching corner elements for post call back*/
+        size_t last_datablk_idx = num_reduced_row * num_reduced_col - 1;
+        clKernWrite(transKernel, 0) << "{  0,  0,  0}," << std::endl;
+        clKernWrite(transKernel, 0) << "{  "<< last_datablk_idx <<",  " << last_datablk_idx << ",  0}," << std::endl;
 
-        clKernWrite(transKernel, 0) << "__constant int cycle_stat["<< cycle_map[0] <<"][2] = {" << std::endl;
+        clKernWrite(transKernel, 0) << "};" << std::endl;
+        /*cycle_map[0] + 2, + 2 is added for post callback table appending*/
+        clKernWrite(transKernel, 0) << "__constant int cycle_stat["<< cycle_map[0] + 2 <<"][2] = {" << std::endl;
         for (int i = 0; i < cycle_map[0]; i++)
         {
             clKernWrite(transKernel, 0) << "{  " << cycle_stat[i * 2] << ",  " << cycle_stat[i * 2 + 1] << "}," << std::endl;
         }
+
+        /*Appending cycle_stat table for touching corner elements for post call back*/
+        size_t num_cycles_minus_1 = cycle_map[0] - 1;
+        size_t lenght_of_swap_table = cycle_stat[num_cycles_minus_1 * 2 + 1];
+        clKernWrite(transKernel, 0) << "{  " << lenght_of_swap_table + 1 << ",  " << lenght_of_swap_table + 1 << "}," << std::endl;
+        clKernWrite(transKernel, 0) << "{  " << lenght_of_swap_table + 2 << ",  " << lenght_of_swap_table + 2 << "}," << std::endl;
+
         clKernWrite(transKernel, 0) << "};" << std::endl;
 
         clKernWrite(transKernel, 0) << std::endl;
@@ -519,7 +531,8 @@ static clfftStatus genSwapKernel(const FFTGeneratedTransposeNonSquareAction::Sig
 
         clKernWrite(transKernel, 3) << "size_t g_index = get_group_id(0);" << std::endl;
 
-        clKernWrite(transKernel, 3) << "const size_t numGroupsY_1 = "<<cycle_map[0] * num_grps_pro_row<<" ;" << std::endl;
+        /*cycle_map[0] + 2, + 2 is added for post callback table appending*/
+        clKernWrite(transKernel, 3) << "const size_t numGroupsY_1 = "<<(cycle_map[0] + 2)* num_grps_pro_row<<" ;" << std::endl;
         for (int i = 2; i < params.fft_DataDim - 1; i++)
         {
             clKernWrite(transKernel, 3) << "const size_t numGroupsY_" << i << " = numGroupsY_" << i - 1 << " * " << params.fft_N[i] << ";" << std::endl;
@@ -1446,7 +1459,8 @@ clfftStatus FFTGeneratedTransposeNonSquareAction::getWorkSizes(std::vector< size
         /* The memory required by cycle_map cannot exceed 2 times row*col by design*/
         get_cycles(cycle_map, num_reduced_row, num_reduced_col);
 
-        global_item_size = local_work_size_swap * num_grps_pro_row * cycle_map[0] * this->plan->batchsize;
+        /*cycle_map[0] + 2, + 2 is added for post callback table appending*/
+        global_item_size = local_work_size_swap * num_grps_pro_row * (cycle_map[0] + 2) * this->plan->batchsize;
 
         for (int i = 2; i < this->signature.fft_DataDim - 1; i++)
         {
