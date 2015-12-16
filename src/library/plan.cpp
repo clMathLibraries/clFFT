@@ -541,7 +541,7 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 					}
 					else
 					{
-						if( clfftGetRequestLibNoMemAlloc() )
+						if( clfftGetRequestLibNoMemAlloc() && !rc && (fftPlan->placeness == CLFFT_INPLACE) )
 						{
 							in_x = BitScanF(fftPlan->length[0]);
 							in_x /= 2;
@@ -620,7 +620,7 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 
 					if ( IsPo2(fftPlan->length[0]) &&
 						 (fftPlan->length[0] <= 262144/PrecisionWidth(fftPlan->precision)) &&
-						 (!clfftGetRequestLibNoMemAlloc()) ) break;
+						 (!clfftGetRequestLibNoMemAlloc() || (fftPlan->placeness == CLFFT_OUTOFPLACE)) ) break;
 
 					if ( clLengths[0]<=32 && clLengths[1]<=32) break;
 
