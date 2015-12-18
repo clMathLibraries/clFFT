@@ -158,6 +158,11 @@ struct FFTKernelGenKeyParams {
 	bool fft_hasPreCallback;
 	clfftCallbackParam fft_preCallback;
 
+	bool fft_hasPostCallback;
+	clfftCallbackParam fft_postCallback;
+
+	cl_ulong   limit_LocalMemSize;
+
 	// Default constructor
 	FFTKernelGenKeyParams()
 	{
@@ -194,6 +199,8 @@ struct FFTKernelGenKeyParams {
 		blockLDS = 0;
         nonSquareKernelType = NON_SQUARE_TRANS_PARENT;
 		fft_hasPreCallback = false;
+		fft_hasPostCallback = false;
+		limit_LocalMemSize = 0;
 	}
 };
 
@@ -460,9 +467,13 @@ public:
 	BlockComputeType blockComputeType;
 
 	bool hasPreCallback;
+	bool hasPostCallback;
 
 	clfftCallbackParam preCallback;
+	clfftCallbackParam postCallbackParam;
+
 	cl_mem precallUserData;
+	cl_mem postcallUserData;
 
     clfftPlanHandle plHandle;
 
@@ -517,6 +528,7 @@ public:
     ,   nonSquareKernelType(NON_SQUARE_TRANS_PARENT)
     ,   plHandle(0)
 	,   hasPreCallback(false)
+	,   hasPostCallback(false)
 	{
 	};
 

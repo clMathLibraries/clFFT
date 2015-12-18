@@ -317,13 +317,29 @@ static clfftStatus genTransposePrototype( const FFTGeneratedTransposeGCNAction::
 
 	if (params.fft_hasPreCallback)
 	{
+		assert(!params.fft_hasPostCallback);
+
 		if (params.fft_preCallback.localMemSize > 0)
 		{
-			clKernWrite( transKernel, 0 ) << ", __global void* userdata, __local void* localmem";
+			clKernWrite( transKernel, 0 ) << ", __global void* pre_userdata, __local void* localmem";
 		}
 		else
 		{
-			clKernWrite( transKernel, 0 ) << ", __global void* userdata";
+			clKernWrite( transKernel, 0 ) << ", __global void* pre_userdata";
+		}
+	}
+
+	if (params.fft_hasPostCallback)
+	{
+		assert(!params.fft_hasPreCallback);
+
+		if (params.fft_postCallback.localMemSize > 0)
+		{
+			clKernWrite( transKernel, 0 ) << ", __global void* post_userdata, __local void* localmem";
+		}
+		else
+		{
+			clKernWrite( transKernel, 0 ) << ", __global void* post_userdata";
 		}
 	}
 
@@ -406,6 +422,13 @@ static clfftStatus genTransposeKernel( const FFTGeneratedTransposeGCNAction::Sig
 		clKernWrite( transKernel, 0 ) << std::endl;
 	}
 
+	//If post-callback is set for the plan
+	if (params.fft_hasPostCallback)
+	{
+		//Insert callback function code at the beginning 
+		clKernWrite( transKernel, 0 ) << params.fft_postCallback.funcstring << std::endl;
+		clKernWrite( transKernel, 0 ) << std::endl;
+	}
 
 	for(size_t bothDir=0; bothDir<2; bothDir++)
 	{
@@ -677,11 +700,11 @@ static clfftStatus genTransposeKernel( const FFTGeneratedTransposeGCNAction::Sig
 					{
 						if (params.fft_preCallback.localMemSize > 0)
 						{
-							clKernWrite( transKernel, 9 ) << "tmp = " << params.fft_preCallback.funcname << "(" << pmComplexIn << ", iOffset + gInd, userdata, localmem);" << std::endl;
+							clKernWrite( transKernel, 9 ) << "tmp = " << params.fft_preCallback.funcname << "(" << pmComplexIn << ", iOffset + gInd, pre_userdata, localmem);" << std::endl;
 						}
 						else
 						{
-							clKernWrite( transKernel, 9 ) << "tmp = " << params.fft_preCallback.funcname << "(" << pmComplexIn << ", iOffset + gInd, userdata);" << std::endl;
+							clKernWrite( transKernel, 9 ) << "tmp = " << params.fft_preCallback.funcname << "(" << pmComplexIn << ", iOffset + gInd, pre_userdata);" << std::endl;
 						}
 					}
 					else
@@ -696,11 +719,11 @@ static clfftStatus genTransposeKernel( const FFTGeneratedTransposeGCNAction::Sig
 					{
 						if (params.fft_preCallback.localMemSize > 0)
 						{
-							clKernWrite( transKernel, 9 ) << "retCallback = " << params.fft_preCallback.funcname << "(" << pmRealIn << ", " << pmImagIn << ", iOffset + gInd, userdata, localmem);" << std::endl;
+							clKernWrite( transKernel, 9 ) << "retCallback = " << params.fft_preCallback.funcname << "(" << pmRealIn << ", " << pmImagIn << ", iOffset + gInd, pre_userdata, localmem);" << std::endl;
 						}
 						else
 						{
-							clKernWrite( transKernel, 9 ) << "retCallback = " << params.fft_preCallback.funcname << "(" << pmRealIn << ", " << pmImagIn << ", iOffset + gInd, userdata);" << std::endl;
+							clKernWrite( transKernel, 9 ) << "retCallback = " << params.fft_preCallback.funcname << "(" << pmRealIn << ", " << pmImagIn << ", iOffset + gInd, pre_userdata);" << std::endl;
 						}
 						clKernWrite( transKernel, 9 ) << "tmp.s0 = retCallback.x;" << std::endl;
 						clKernWrite( transKernel, 9 ) << "tmp.s1 = retCallback.y;" << std::endl;
@@ -720,11 +743,11 @@ static clfftStatus genTransposeKernel( const FFTGeneratedTransposeGCNAction::Sig
 				{
 					if (params.fft_preCallback.localMemSize > 0)
 					{
-						clKernWrite( transKernel, 9 ) << "tmp = " << params.fft_preCallback.funcname << "(" << pmRealIn << ", iOffset + gInd, userdata, localmem);" << std::endl;
+						clKernWrite( transKernel, 9 ) << "tmp = " << params.fft_preCallback.funcname << "(" << pmRealIn << ", iOffset + gInd, pre_userdata, localmem);" << std::endl;
 					}
 					else
 					{
-						clKernWrite( transKernel, 9 ) << "tmp = " << params.fft_preCallback.funcname << "(" << pmRealIn << ", iOffset + gInd, userdata);" << std::endl;
+						clKernWrite( transKernel, 9 ) << "tmp = " << params.fft_preCallback.funcname << "(" << pmRealIn << ", iOffset + gInd, pre_userdata);" << std::endl;
 					}
 				}
 				else
@@ -764,11 +787,19 @@ static clfftStatus genTransposeKernel( const FFTGeneratedTransposeGCNAction::Sig
 		switch( params.fft_outputLayout )
 		{
 		case CLFFT_COMPLEX_INTERLEAVED:
+			//No need of tileOut declaration when postcallback is set as the global buffer is used directly
+			if (!params.fft_hasPostCallback)
+			{
 			clKernWrite( transKernel, 3 ) << "global " << dtOutput << "* tileOut = " << pmComplexOut << " + oOffset;" << std::endl << std::endl;
+			}
 			break;
 		case CLFFT_COMPLEX_PLANAR:
+			//No need of tileOut declaration when postcallback is set as the global buffer is used directly
+			if (!params.fft_hasPostCallback)
+			{
 			clKernWrite( transKernel, 3 ) << "global " << dtOutput << "* realTileOut = " << pmRealOut << " + oOffset;" << std::endl;
 			clKernWrite( transKernel, 3 ) << "global " << dtOutput << "* imagTileOut = " << pmImagOut << " + oOffset;" << std::endl;
+			}
 			break;
 		case CLFFT_HERMITIAN_INTERLEAVED:
 		case CLFFT_HERMITIAN_PLANAR:
@@ -929,11 +960,35 @@ static clfftStatus genTransposeKernel( const FFTGeneratedTransposeGCNAction::Sig
 			switch( params.fft_outputLayout )
 			{
 			case CLFFT_COMPLEX_INTERLEAVED:
+				if (params.fft_hasPostCallback)
+				{
+					clKernWrite( transKernel, 9 ) << params.fft_postCallback.funcname << "(" << pmComplexOut << ", (oOffset + gInd), post_userdata, tmp";
+					if (params.fft_postCallback.localMemSize > 0)
+					{
+						clKernWrite( transKernel, 0 ) << ", localmem";
+					}
+					clKernWrite( transKernel, 0 ) << ");" << std::endl;
+				}
+				else
+				{
 				clKernWrite( transKernel, 9 ) << "tileOut[ gInd ] = tmp;" << std::endl;
+				}
 				break;
 			case CLFFT_COMPLEX_PLANAR:
+				if (params.fft_hasPostCallback)
+				{
+					clKernWrite( transKernel, 9 ) << params.fft_postCallback.funcname << "(" << pmRealOut << ", " << pmImagOut << ", (oOffset + gInd), post_userdata, tmp.s0, tmp.s1";
+					if (params.fft_postCallback.localMemSize > 0)
+					{
+						clKernWrite( transKernel, 0 ) << ", localmem";
+					}
+					clKernWrite( transKernel, 0 ) << ");" << std::endl;
+				}
+				else
+				{
 				clKernWrite( transKernel, 9 ) << "realTileOut[ gInd ] = tmp.s0;" << std::endl;
 				clKernWrite( transKernel, 9 ) << "imagTileOut[ gInd ] = tmp.s1;" << std::endl;
+				}
 				break;
 			case CLFFT_HERMITIAN_INTERLEAVED:
 			case CLFFT_HERMITIAN_PLANAR:
@@ -1036,6 +1091,12 @@ clfftStatus FFTGeneratedTransposeGCNAction::initParams ()
 		this->signature.fft_hasPreCallback = true;
 		this->signature.fft_preCallback = this->plan->preCallback;
 	}
+	if (this->plan->hasPostCallback)
+	{
+		this->signature.fft_hasPostCallback = true;
+		this->signature.fft_postCallback = this->plan->postCallbackParam;
+	}
+	this->signature.limit_LocalMemSize = this->plan->envelope.limit_LocalMemSize;
 
     return CLFFT_SUCCESS;
 }
@@ -1082,12 +1143,22 @@ clfftStatus FFTGeneratedTransposeGCNAction::generateKernel ( FFTRepo& fftRepo, c
 	OPENCL_V( CalculateBlockSize(this->signature.fft_precision, loopCount, blockSize), _T("CalculateBlockSize() failed!") );
 
 	//Requested local memory size by callback must not exceed the device LDS limits after factoring the LDS size required by main FFT kernel
-	if (this->signature.fft_hasPreCallback && this->signature.fft_preCallback.localMemSize > 0)
+	if ((this->signature.fft_hasPreCallback && this->signature.fft_preCallback.localMemSize > 0) || 
+		(this->signature.fft_hasPostCallback && this->signature.fft_postCallback.localMemSize > 0))
 	{
+		assert(!(this->signature.fft_hasPreCallback && this->signature.fft_hasPostCallback));
+
 		bool validLDSSize = false;
 		size_t length = blockSize.x * blockSize.y;
 		
-		validLDSSize = ((length * this->plan->ElementSize()) + this->signature.fft_preCallback.localMemSize) < this->plan->envelope.limit_LocalMemSize;
+		size_t requestedCallbackLDS = 0;
+
+		if (this->signature.fft_hasPreCallback && this->signature.fft_preCallback.localMemSize > 0)
+			requestedCallbackLDS = this->signature.fft_preCallback.localMemSize;
+		else if (this->signature.fft_hasPostCallback && this->signature.fft_postCallback.localMemSize > 0)
+			requestedCallbackLDS = this->signature.fft_postCallback.localMemSize;
+		
+		validLDSSize = ((length * this->plan->ElementSize()) + requestedCallbackLDS) < this->plan->envelope.limit_LocalMemSize;
 		
 		if(!validLDSSize)
 		{
@@ -1095,7 +1166,6 @@ clfftStatus FFTGeneratedTransposeGCNAction::generateKernel ( FFTRepo& fftRepo, c
 			return CLFFT_INVALID_ARG_VALUE;
 		}
 	}
-
 
     std::string programCode;
     OPENCL_V( genTransposeKernel( this->signature, programCode, lwSize, reShapeFactor, loopCount, blockSize ), _T( "GenerateTransposeKernel() failed!" ) );

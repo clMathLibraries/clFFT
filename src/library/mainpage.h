@@ -448,16 +448,15 @@ FFT features of this library.
 
 @section Callbacks  clFFT Callbacks
 
-The callback feature of clFFT has the ability to invoke user provided OpenCL inline functions from within FFT kernel
-to custom process the input or output data. The inline OpenCL function is passed as a string to the library
-which is incorporated into the generated FFT kernel. This helps to avoid additional kernel launches
-to carry out the pre/post processing tasks.
+The callback feature of clFFT has the ability to invoke user provided OpenCL™ inline functions 
+to pre-process or post-process data, from within the FFT kernel. The inline OpenCL callback function 
+is passed as a string to the library. It is then incorporated into the generated FFT kernel. This 
+eliminates the need for an additional kernel launch to carry out the pre/post processing tasks, thus 
+improving overall performance.
 
 There are 2 types of callback; Pre-callback and Post-callback. Pre-callback invokes user callback function to
-perform custom  pre-processing of the input data before FFT is executed,. Post-callback invokes user callback function to
-perform custom post-processing of the output data after FFT is executed.
-
-The current release of clFFT includes Pre-callback feature. Post-callback will be supported in future release.
+perform custom  pre-processing of the input data, before FFT is executed. Post-callback invokes user callback function to
+perform custom post-processing of the output data, after FFT is executed.
 
 @subsection CallbackWorkflow Callback Workflow
 
@@ -482,10 +481,11 @@ The workflow of FFT execution using callback feature of clFFT is as follows
 			<li> Name of the callback function
 			<li> Callback function as character array. The character array can also include any custom datatype declaration used by callback function
 			<li> Size of local memory requested by callback, if any, in bytes
-			<li> Type of callback. This is an enumerator. The current supported value for this is ‘PRECALLBACK’
+			<li> Type of callback; ‘PRECALLBACK’ or ‘POSTCALLBACK’. This is an enumerator
 			<li> Supplementary user data, if any, used by callback function
-			<li> Number of user data buffers
+			<li> Number of user data buffers. The library currently supports only 1 user data buffer per callback registration
 		</ul>
+		Multiple callback registration calls to the same type of callback will result in overwriting the previously registered callback function
 	<li> Invoke Bake Plan step
 	<li> Library inserts the callback code into the main FFT kernel during bake plan and compiles it. If there are any
 	compilation errors caused by syntax or incompatible callback function prototype, the library reports failure.
@@ -523,42 +523,80 @@ Parameters
 	filter data or any scalar value. The userdata can be of any custom data type/structure, in which case,
 	you have to declare the custom data type and include it along with the callback function string. </li>
 	<li> \c localmem : Pointer to local memory. This memory is allocated by library based on the size you specify
-	and is subjected to local memory availability. </li>
+	and is subject to local memory availability. </li>
 </ul>
 
 For Planar C2C, the return type of callback is a vector (float2/double2) whose elements contain the result for Real
 and Imaginary as computed in the callback
 
-@subsection SamplePrecallbackCode Sample Pre-Callback Code
+@subsubsection PostcallbackProtyotype Post-callback Prototypes
+
+ FFT Type                               | Function Prototype
+----------------------------------------| ------------------
+C2C/R2C – Interleaved Single Precision  | Without LDS <br />void  <postcallback_func> ( __global void *output, uint outoffset, __global void *userdata, float2 fftoutput) <br /> With LDS <br />void  <postcallback_func> ( __global void *output, uint outoffset, __global void *userdata, float2 fftoutput, __local void *localmem)
+C2C/R2C – Interleaved Double Precision  | Without LDS <br />void  <postcallback_func> ( __global void *output, uint outoffset, __global void *userdata, double2 fftoutput) <br /> With LDS <br />void  <postcallback_func> ( __global void *output, uint outoffset, __global void *userdata, double2 fftoutput, __local void *localmem)
+C2C/R2C – Planar Single Precision		| Without LDS <br />void  <postcallback_func> ( __global void *outputRe, __global void *outputIm, uint outoffset, __global void *userdata, float fftoutputRe, float fftoutputIm) <br /> With LDS <br />void  <postcallback_func> ( __global void *outputRe, __global void *outputIm, uint outoffset, __global void *userdata, float fftoutputRe, float fftoutputIm, __local void *localmem)
+C2C/R2C – Planar Double Precision		| Without LDS <br />void  <postcallback_func> ( __global void *outputRe, __global void *outputIm, uint outoffset, __global void *userdata, double fftoutputRe, double fftoutputIm) <br /> With LDS <br />void  <postcallback_func> ( __global void *outputRe, __global void *outputIm, uint outoffset, __global void *userdata, double fftoutputRe, double fftoutputIm, __local void *localmem)
+C2R Single Precision					| Without LDS <br />void  <postcallback_func> ( __global void *output, uint outoffset, __global void *userdata, float fftoutput) <br /> With LDS <br />void  <postcallback_func> ( __global void *output, uint outoffset, __global void *userdata, float fftoutput, __local void *localmem)
+C2R Double Precision					| Without LDS <br />void  <postcallback_func> ( __global void *output, uint outoffset, __global void *userdata, double fftoutput) <br /> With LDS <br />void  <postcallback_func> ( __global void *output, uint outoffset, __global void *userdata, double fftoutput, __local void *localmem)
+
+
+Parameters
+<ul>
+	<li> \c output  : The base pointer of the output buffer for C2R and Interleaved R2C/C2C transforms
+	<li> \c outputRe : The base pointer of the “Real” output buffer for Planar R2C/C2C transforms
+	<li> \c outputIm : The base pointer of the “Imaginary” part output buffer for Planar R2C/C2C transforms
+	<li> \c outoffset : Index of the current element  of the output buffer from the start
+	<li> \c userdata : Buffer containing optional caller specified data. The userdata pointer is useful
+	for passing any supplementary data to the callback function. For example, buffer having convolution
+	filter data or any scalar value. The userdata can be of any custom data type/structure, in which case,
+	you have to declare the custom data type and include it along with the callback function string. </li>
+	<li> \c localmem : Pointer to local memory. This memory is allocated by library based on the size you specify
+	and is subject to local memory availability. </li>
+</ul>
+
+@subsection SampleCallbackCode Sample Callback Code
 
 @code
 //**************************************************************************
-//* Step 1 : Store the callback function in a string.
+//* Step 1 : Store the pre and post callback function in a string.
 //**************************************************************************
-const char* precallbackstr = "float2 mulval(__global void* in,        \n
+const char* precallbackstr = "float2 pre_mulval(__global void* input, \n
                                   uint inoffset,                      \n
                                   __global void* userdata,            \n
                                   __local void* localmem)             \n
 				{                                                             \n
-				int scalar = *((__global int*)userdata + offset);             \n
-				float2 ret = *((__global float2*)(float2) + offset) * scalar; \n
+				float scalar = *((__global float*)userdata + inoffset);      \n
+				float2 ret = *((__global float2*)input + inoffset) * scalar; \n
 				return ret;                                                   \n
 				}                                                             \n";
 
+const char* postcallbackstr = "void post_mulval(__global void* output, \n
+                                  uint outoffset,                      \n
+                                  __global void* userdata,             \n
+								  float2 fftoutput,                    \n
+                                  __local void* localmem)              \n
+				{                                                      \n
+				float scalar = *((__global float*)userdata + outoffset);      \n
+				*((__global float2*)output + outoffset) = fftoutput * scalar; \n
+				}                                                             \n";
 
 //**************************************************************************
 //* Step 2 : Initialize arguments if any required by the callback.
 //**************************************************************************
-int h_userdata[N] = {  };
-cl_mem userdata = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, sizeof(int) * N,  (void*)h_userdata, NULL);
+int h_preuserdata[N] = {  };
+cl_mem preuserdata = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, sizeof(float) * N,  (void*)h_preuserdata, NULL);
 
+int h_postuserdata[N] = {  };
+cl_mem postuserdata = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, sizeof(float) * N,  (void*)h_postuserdata, NULL);
 
 //**************************************************************************
 //* Step 3 : Register the callback.
 //**************************************************************************
 
-status = clfftSetPlanCallback(plan_handle, "mulval", precallbackstr, 0, PRECALLBACK, &userdata, 1);
+status = clfftSetPlanCallback(plan_handle, "pre_mulval", precallbackstr, 0, PRECALLBACK, &preuserdata, 1);
 
+status = clfftSetPlanCallback(plan_handle, "post_mulval", postcallbackstr, 0, POSTCALLBACK, &postuserdata, 1);
 
 //**************************************************************************
 //* Step 4 : Bake plan and enqueue transform.
@@ -569,13 +607,14 @@ status = clfftEnqueueTransform( plan_handle, dir, 1, &queue, 0, NULL, &outEvent,
 			&input_buffers[ 0 ], buffersOut, clMedBuffer );
 @endcode
 
-@subsection PreCallbackConsiderations Pre-callback Considerations
+@subsection CallbackNotes Important Notes on Callback
 
 <ol>
 	<li> The caller is responsible to provide a callback function in string form that matches the function prototype based on the type of callback, type of transform(real/complex) and whether LDS is used
 	<li> clFFT considers the value returned by pre-callback function as the new value of the input at the index corresponding to the *inoffset* argument
-	<li> Pre-callback function can request for local memory for its own use. If the requested amount of local memory is available on the device, clFFT passes a pointer to the local memory when it invokes the callback function
-	<li> clFFT may invoke FFT kernels several times depending on the input parameters. However the pre-callback function provided by caller is invoked only once for each point in the input
+	<li> Callback function can request for local memory for its own use. If the requested amount of local memory is available on the device, clFFT passes a pointer to the local memory when it invokes the callback function
+	<li> clFFT may invoke FFT kernels several times depending on the input parameters. However the pre-callback function provided by caller is invoked only once for each point in the input. Similarly it calls the post-callback function, for each point in the output, only once.
+	<li> If clFFT is implementing a given FFT in multiple phases, it calls the pre-callback function only from the first phase kernel. Similarly it calls the post-callback function only from the last phase kernel
 </ol>
 
  */

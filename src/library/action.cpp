@@ -593,16 +593,31 @@ clfftStatus FFTAction::enqueue(clfftPlanHandle plHandle,
         OPENCL_V( clSetKernelArg( kern, uarg++, sizeof( cl_mem ), (void*)&outputBuff[o] ), _T( "clSetKernelArg failed" ) );
     }
 
-	//If pre-callback function is set for the plan, pass the appropriate aruments
+	//If callback function is set for the plan, pass the appropriate aruments
+	if (this->plan->hasPreCallback || this->plan->hasPostCallback)
+	{
 	if (this->plan->hasPreCallback)
 	{
 		OPENCL_V( clSetKernelArg( kern, uarg++, sizeof( cl_mem ), (void*)&this->plan->precallUserData ), _T( "clSetKernelArg failed" ) );
+		}
+
+		//If post-callback function is set for the plan, pass the appropriate aruments
+		if (this->plan->hasPostCallback)
+		{
+			OPENCL_V( clSetKernelArg( kern, uarg++, sizeof( cl_mem ), (void*)&this->plan->postcallUserData ), _T( "clSetKernelArg failed" ) );
+		}
 
 		//Pass LDS size arument if set
-		if (this->plan->preCallback.localMemSize > 0)
+		if ((this->plan->hasPreCallback && this->plan->preCallback.localMemSize > 0) || 
+			(this->plan->hasPostCallback && this->plan->postCallbackParam.localMemSize > 0))
 		{
-			//TODO: Check for available LDS beyond what FFT already uses
-			OPENCL_V( clSetKernelArg( kern, uarg++, this->plan->preCallback.localMemSize, NULL ), _T( "clSetKernelArg failed" ) );
+			int localmemSize = 0;
+			if (this->plan->hasPreCallback && this->plan->preCallback.localMemSize > 0)
+				localmemSize = this->plan->preCallback.localMemSize;
+			if (this->plan->hasPostCallback && this->plan->postCallbackParam.localMemSize > 0)
+				localmemSize += this->plan->postCallbackParam.localMemSize;
+
+			OPENCL_V( clSetKernelArg( kern, uarg++, localmemSize, NULL ), _T( "clSetKernelArg failed" ) );
 		}
 	}
 

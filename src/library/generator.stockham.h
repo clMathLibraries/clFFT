@@ -385,6 +385,8 @@ namespace StockhamGenerator
 			// Temporary variables
 			// Allocate temporary variables if we are not using complex registers (cReg = 0) or if cReg is true, then
 			// allocate temporary variables only for non power-of-2 radices
+			if (!(radix == 7 && cReg))
+			{
 			if( (radix & (radix-1)) || (!cReg) )
 			{
 				bflyStr += "\t";
@@ -414,6 +416,7 @@ namespace StockhamGenerator
 				bflyStr += "\t";
 				bflyStr += RegBaseType<PR>(2);
 				bflyStr += " T;";
+				}
 			}
 
 

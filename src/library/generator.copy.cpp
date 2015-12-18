@@ -169,6 +169,14 @@ namespace CopyGenerator
 				str += "\n\n";
 			}
 
+			//if postcallback is set
+			if (params.fft_hasPostCallback)
+			{
+				//Insert callback function code at the beginning 
+				str += params.fft_postCallback.funcstring;
+				str += "\n\n";
+			}
+
 			// Copy kernel begin
 			str += "__kernel void ";
 
@@ -205,8 +213,21 @@ namespace CopyGenerator
 
 			if (params.fft_hasPreCallback && h2c)
 			{
-				str += ", __global void* userdata";
+				assert(!params.fft_hasPostCallback);
+
+				str += ", __global void* pre_userdata";
 				if (params.fft_preCallback.localMemSize > 0)
+				{
+					str += ", __local void* localmem";
+				}
+			}
+
+			if (params.fft_hasPostCallback)
+			{
+				assert(!params.fft_hasPreCallback);
+
+				str += ", __global void* post_userdata";
+				if (params.fft_postCallback.localMemSize > 0)
 				{
 					str += ", __local void* localmem";
 				}
@@ -249,7 +270,10 @@ namespace CopyGenerator
 			// output
 			if(outIlvd)
 			{
+				if (!params.fft_hasPostCallback)
+				{
 					str += "__global "; str += r2Type; str += " *lwbOut;\n";
+				}
 				if(h2c)
 				{
 					str += "\t";
@@ -258,8 +282,11 @@ namespace CopyGenerator
 			}
 			else
 			{
+				if (!params.fft_hasPostCallback)
+				{
 					str += "__global "; str += rType; str += " *lwbOutRe;\n\t";
 					str += "__global "; str += rType; str += " *lwbOutIm;\n";
+				}
 				if(h2c)
 				{
 					str += "\t";
@@ -321,7 +348,10 @@ namespace CopyGenerator
 			// outputs
 			if(outIlvd)
 			{
+				if (!params.fft_hasPostCallback)
+				{
 					str += "lwbOut = gbOut + oOffset"; str += outF; str += ";\n";
+				}
 				if(h2c)
 				{
 					str += "\t";
@@ -330,8 +360,11 @@ namespace CopyGenerator
 			}
 			else
 			{
+				if (!params.fft_hasPostCallback)
+				{
 					str += "lwbOutRe = gbOutRe + oOffset"; str += outF; str += ";\n\t";
 					str += "lwbOutIm = gbOutIm + oOffset"; str += outF; str += ";\n";
+				}
 				if(h2c)
 				{
 					str += "\t";
@@ -386,13 +419,40 @@ namespace CopyGenerator
 				
 					if(outIlvd)
 					{
+						if (params.fft_hasPostCallback)
+						{
+							str += params.fft_postCallback.funcname; str += "(gbOut, oOffset"; str += outF;
+							str += ", post_userdata, R";
+							if (params.fft_postCallback.localMemSize > 0)
+							{
+								str += ", localmem";
+							}
+							str += ");\n\n";
+						}
+						else
+						{
 						str += "lwbOut[0] = R;\n\n";
 					}
+					}
+					else
+					{
+						if (params.fft_hasPostCallback)
+						{
+							str += params.fft_postCallback.funcname; str += "(gbOutRe, gbOutIm, oOffset"; str += outF;
+							str += ", post_userdata, R.x, R.y";
+
+							if (params.fft_postCallback.localMemSize > 0)
+							{
+								str += ", localmem";
+							}
+							str += ");\n\t";
+						}
 					else
 					{
 						str += "lwbOutRe[0] = R.x;\n\t";
 						str += "lwbOutIm[0] = R.y;\n\t";
 					}
+				}
 				}
 				else
 				{
@@ -400,11 +460,11 @@ namespace CopyGenerator
 					{
 						if(inIlvd)
 						{
-							str += "R = "; str += params.fft_preCallback.funcname; str += "( gbIn, (iOffset"; str += inF; str += "), userdata"; 
+							str += "R = "; str += params.fft_preCallback.funcname; str += "( gbIn, (iOffset"; str += inF; str += "), pre_userdata"; 
 						}
 						else
 						{
-							str += "R = "; str += params.fft_preCallback.funcname; str += "( gbInRe, gbInIm, (iOffset"; str += inF; str += "), userdata";
+							str += "R = "; str += params.fft_preCallback.funcname; str += "( gbInRe, gbInIm, (iOffset"; str += inF; str += "), pre_userdata";
 						}
 						if (params.fft_preCallback.localMemSize > 0)
 						{
@@ -486,6 +546,8 @@ clfftStatus FFTGeneratedCopyAction::initParams ()
 	//Set callback if specified
 	if (this->plan->hasPreCallback)
 	{
+		assert(!this->plan->hasPostCallback);
+
 		this->signature.fft_hasPreCallback = true;
 		this->signature.fft_preCallback = this->plan->preCallback;
 
@@ -496,6 +558,23 @@ clfftStatus FFTGeneratedCopyAction::initParams ()
 			return CLFFT_INVALID_ARG_VALUE;
 		}
 	}
+
+	if (this->plan->hasPostCallback)
+	{
+		assert(!this->plan->hasPreCallback);
+
+		this->signature.fft_hasPostCallback = true;
+		this->signature.fft_postCallback = this->plan->postCallbackParam;
+
+		//Requested local memory size by callback must not exceed the device LDS limits after factoring the LDS size required by main FFT kernel
+		//Assumes copy kernel does not have both pre and post callback 
+		if (this->plan->postCallbackParam.localMemSize > this->plan->envelope.limit_LocalMemSize)
+		{
+			fprintf(stderr, "Requested local memory size not available\n");
+			return CLFFT_INVALID_ARG_VALUE;
+		}
+	}
+	this->signature.limit_LocalMemSize = this->plan->envelope.limit_LocalMemSize;
 
     return CLFFT_SUCCESS;
 }

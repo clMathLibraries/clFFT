@@ -52,18 +52,30 @@ typedef unsigned char uint24_t[3];
 								*((__global float*)output + inoffset) = val;  \n \
 							} \n
 
+#define MagnitudeExtraction void extractMagnitude(__global void *output, uint outoffset, __global void *userdata, float2 fftoutput) \n \
+							{ \n \
+								float magnitude = sqrt(fftoutput.x * fftoutput.x + fftoutput.y * fftoutput.y); \n \
+								*((__global float*)output + outoffset) = magnitude; \n \
+							} \n
+
+#define MagnitudeExtraction_KERNEL __kernel void extractMagnitude(__global float2 *output, __global float *magoutput) \n \
+							{ \n \
+								uint outoffset = get_global_id(0); \n \
+								float magnitude = sqrt(output[outoffset].x * output[outoffset].x + output[outoffset].y * output[outoffset].y); \n \
+								*(magoutput + outoffset) = magnitude; \n \
+							} \n
 
 template < typename T >
 void R2C_transform(std::auto_ptr< clfftSetupData > setupData, size_t* inlengths, size_t batchSize, 
 				   clfftDim dim, clfftPrecision precision,  cl_uint profile_count);
 
 template < typename T >
-void runR2CPrecallbackFFT(std::auto_ptr< clfftSetupData > setupData, cl_context context, cl_command_queue commandQueue,
+void runR2C_FFT_WithCallback(std::auto_ptr< clfftSetupData > setupData, cl_context context, cl_command_queue commandQueue,
 						size_t* inlengths, clfftDim dim, clfftPrecision precision,
 						size_t batchSize, size_t vectorLength, size_t fftLength, cl_uint profile_count);
 
 template < typename T >
-void runR2CPreprocessKernelFFT(std::auto_ptr< clfftSetupData > setupData, cl_context context, 
+void runR2C_FFT_PreAndPostprocessKernel(std::auto_ptr< clfftSetupData > setupData, cl_context context, 
 							cl_command_queue commandQueue, cl_device_id device_id,
 							size_t* inlengths, clfftDim dim, clfftPrecision precision,
 							size_t batchSize, size_t vectorLength, size_t fftLength, cl_uint profile_count);
@@ -72,7 +84,7 @@ fftwf_complex* get_R2C_fftwf_output(size_t* lengths, size_t fftbatchLength, int 
 									clfftLayout in_layout, clfftDim dim);
 
 template < typename T1, typename T2>
-bool compare(T1 *refData, std::vector< std::complex< T2 > > data,
+bool compare(T1 *refData, std::vector< T2 > data,
              size_t length, const float epsilon = 1e-6f);
 
 #ifdef WIN32

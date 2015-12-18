@@ -628,21 +628,21 @@ public:
 		if (localMemSize > 0)
 		{
 			//Test for LDS in precallback function
-			precallbackstr = STRINGIFY(MULVAL_LDS);
+			precallbackstr = STRINGIFY(PRE_MULVAL_LDS);
 		}
 		else
 		{
 			if (input.is_interleaved() )
 			{
-				precallbackstr = (precision == CLFFT_SINGLE) ? STRINGIFY(MULVAL) : STRINGIFY(MULVAL_DP);
+				precallbackstr = (precision == CLFFT_SINGLE) ? STRINGIFY(PRE_MULVAL) : STRINGIFY(PRE_MULVAL_DP);
 			}
 			else if (input.is_planar())
 			{
-				precallbackstr = (precision == CLFFT_SINGLE) ? STRINGIFY(MULVAL_PLANAR) : STRINGIFY(MULVAL_PLANAR_DP);
+				precallbackstr = (precision == CLFFT_SINGLE) ? STRINGIFY(PRE_MULVAL_PLANAR) : STRINGIFY(PRE_MULVAL_PLANAR_DP);
 			}
 			else if (input.is_real())
 			{
-				precallbackstr = (precision == CLFFT_SINGLE) ? STRINGIFY(MULVAL_REAL) : STRINGIFY(MULVAL_REAL_DP);
+				precallbackstr = (precision == CLFFT_SINGLE) ? STRINGIFY(PRE_MULVAL_REAL) : STRINGIFY(PRE_MULVAL_REAL_DP);
 			}
 		}
 
@@ -665,14 +665,14 @@ public:
 		OPENCL_V_THROW( status, "Creating Buffer ( ::clCreateBuffer() )" );
 
 		//Register the callback
-		OPENCL_V_THROW (clfftSetPlanCallback(*plan_handle, "mulval", precallbackstr, localMemSize, PRECALLBACK, &userdataBuff, 1), "clFFTSetPlanCallback failed");
+		OPENCL_V_THROW (clfftSetPlanCallback(*plan_handle, "mulval_pre", precallbackstr, localMemSize, PRECALLBACK, &userdataBuff, 1), "clFFTSetPlanCallback failed");
 	}
 
 		/*****************************************************/
 	void set_input_precallback_userdatatype() {
 		cl_int status = 0;
 
-		char* precallbackstr = STRINGIFY(MULVAL_UDT);
+		char* precallbackstr = STRINGIFY(PRE_MULVAL_UDT);
 
 		size_t totalPts = input.total_number_of_points_including_data_and_intervening();
 
@@ -704,7 +704,58 @@ public:
 		OPENCL_V_THROW( status, "Creating Buffer ( ::clCreateBuffer() )" );
 
 		//Register the callback
-		OPENCL_V_THROW (clfftSetPlanCallback(*plan_handle, "mulval", precallbackstr, 0, PRECALLBACK, &userdataBuff, 1), "clFFTSetPlanCallback failed");
+		OPENCL_V_THROW (clfftSetPlanCallback(*plan_handle, "mulval_pre", precallbackstr, 0, PRECALLBACK, &userdataBuff, 1), "clFFTSetPlanCallback failed");
+	}
+
+		/*****************************************************/
+	void set_output_postcallback(unsigned int localMemSize = 0) {
+		cl_int status = 0;
+		clfftPrecision precision;
+		clfftGetPlanPrecision( *plan_handle, &precision );
+
+		const char* postcallbackstr;
+		
+		if (localMemSize > 0)
+		{
+			//Test for LDS in postcallback function
+			postcallbackstr = STRINGIFY(POST_MULVAL_LDS);
+		}
+		else
+		{
+			if (output.is_interleaved() )
+			{
+				postcallbackstr = (precision == CLFFT_SINGLE) ? STRINGIFY(POST_MULVAL) : STRINGIFY(POST_MULVAL_DP);
+			}
+			else if (output.is_planar())
+			{
+				postcallbackstr = (precision == CLFFT_SINGLE) ? STRINGIFY(POST_MULVAL_PLANAR) : STRINGIFY(POST_MULVAL_PLANAR_DP);
+			}
+			else if (output.is_real())
+			{
+				postcallbackstr = (precision == CLFFT_SINGLE) ? STRINGIFY(POST_MULVAL_REAL) : STRINGIFY(POST_MULVAL_REAL_DP);
+			}
+		}
+
+		//post-callback user data
+		buffer<T> userdata( 	static_cast<size_t>(dimension),
+					output.lengths(),
+					output.strides(),
+					output.batch_size(),
+					output.distance(),
+					layout::real,
+					_placeness
+					);
+
+		userdata.set_all_to_random_data(lengths[0], 10);
+		
+		// make the new buffer
+		const size_t bufferSizeBytes = userdata.size_in_bytes( );
+
+		cl_mem userdataBuff = clCreateBuffer( context.get( ), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, bufferSizeBytes, userdata.real_ptr(), &status);
+		OPENCL_V_THROW( status, "Creating Buffer ( ::clCreateBuffer() )" );
+
+		//Register the post-callback
+		OPENCL_V_THROW (clfftSetPlanCallback(*plan_handle, "mulval_post", postcallbackstr, localMemSize, POSTCALLBACK, &userdataBuff, 1), "clFFTSetPlanCallback failed");
 	}
 
 	/*****************************************************/

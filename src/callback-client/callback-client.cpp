@@ -29,7 +29,7 @@ int main(int argc, char **argv)
 			( "help,h",        "produces this help message" )
 			( "dumpKernels,d", "FFT engine will dump generated OpenCL FFT kernels to disk (default: dump off)" )
 			( "batchSize,b",   po::value< size_t >( &batchSize )->default_value( 1 ), "If this value is greater than one, arrays will be used " )
-			( "profile,p",     po::value< cl_uint >( &profile_count )->default_value( 10 ), "Time and report the kernel speed of the FFT (default: profiling off)" )
+			( "profile,p",     po::value< cl_uint >( &profile_count )->default_value( 10 ), "Time and report the kernel speed of the FFT (default: profiling on)" )
 			;
 
 		po::variables_map vm;
@@ -48,14 +48,8 @@ int main(int argc, char **argv)
 		}
 			
 		clfftDim dim = CLFFT_1D;
-		if( lengths[ 1 ] > 1 )
-		{
-			dim	= CLFFT_2D;
-		}
-		if( lengths[ 2 ] > 1 )
-		{
-			dim	= CLFFT_3D;
-		}
+		
+		tout << "\nRunning FFT for length " << BATCH_LENGTH << " and batch size " << batchSize << std::endl;
 
 		 // Real-Complex cases, SP
 		
@@ -100,11 +94,11 @@ void R2C_transform(std::auto_ptr< clfftSetupData > setupData, size_t* inlengths,
 	if (precision == CLFFT_SINGLE)
 	{
 		//Run clFFT with seaparate Pre-process Kernel
-		runR2CPreprocessKernelFFT<float>(setupData, context, commandQueue, device_id[0], inlengths, dim, precision, 
+		runR2C_FFT_PreAndPostprocessKernel<float>(setupData, context, commandQueue, device_id[0], inlengths, dim, precision, 
 										batchSize, vectorLength, fftLength, profile_count);
 
 		//Run clFFT using pre-callback 
-		runR2CPrecallbackFFT<float>(setupData, context, commandQueue, inlengths, dim, precision, 
+		runR2C_FFT_WithCallback<float>(setupData, context, commandQueue, inlengths, dim, precision, 
 									batchSize, vectorLength, fftLength, profile_count);
 	}
 
@@ -113,7 +107,7 @@ void R2C_transform(std::auto_ptr< clfftSetupData > setupData, size_t* inlengths,
 }
 
 template < typename T >
-void runR2CPrecallbackFFT(std::auto_ptr< clfftSetupData > setupData, cl_context context, cl_command_queue commandQueue,
+void runR2C_FFT_WithCallback(std::auto_ptr< clfftSetupData > setupData, cl_context context, cl_command_queue commandQueue,
 						size_t* inlengths, clfftDim dim, clfftPrecision precision,
 						size_t batchSize, size_t vectorLength, size_t fftLength, cl_uint profile_count)
 {
@@ -158,8 +152,12 @@ void runR2CPrecallbackFFT(std::auto_ptr< clfftSetupData > setupData, cl_context 
 	//Precallback setup
 	char* precallbackstr = STRINGIFY(ConvertToFloat);
 
+	//Postcallback setup
+	char* postcallbackstr = STRINGIFY(MagnitudeExtraction);
+
 	//Register the callback
 	OPENCL_V_THROW (clfftSetPlanCallback(plan_handle, "convert24To32bit", precallbackstr, 0, PRECALLBACK, NULL, 0), "clFFTSetPlanCallback failed");
+	OPENCL_V_THROW (clfftSetPlanCallback(plan_handle, "extractMagnitude", postcallbackstr, 0, POSTCALLBACK, NULL, 0), "clFFTSetPlanCallback failed");
 
 	//	Default plan creates a plan that expects an inPlace transform with interleaved complex numbers
 	OPENCL_V_THROW( clfftSetResultLocation( plan_handle, place ), "clfftSetResultLocation failed" );
@@ -209,14 +207,14 @@ void runR2CPrecallbackFFT(std::auto_ptr< clfftSetupData > setupData, cl_context 
 		double wtimesample = tr.Sample();
 		double wtime = wtimesample/((double)profile_count);
 	
-		tout << "\nExecution wall time (with clFFT Pre-callback): " << 1000.0*wtime << " ms" << std::endl;
+		tout << "\nExecution wall time (with clFFT Callback): " << 1000.0*wtime << " ms" << std::endl;
 	}
 
 	if(clMedBuffer) clReleaseMemObject(clMedBuffer);
 	
 	if (profile_count == 1)
 	{
-		std::vector< std::complex< T > > output( fftLength/2 );
+		std::vector< T > output( fftLength );
 
 		OPENCL_V_THROW( clEnqueueReadBuffer( commandQueue, outfftbuffer, CL_TRUE, 0, out_size_of_buffers, &output[ 0 ],
 			0, NULL, NULL ), "Reading the result buffer failed" );
@@ -228,11 +226,11 @@ void runR2CPrecallbackFFT(std::auto_ptr< clfftSetupData > setupData, cl_context 
 
 		if (!compare<fftwf_complex, T>(refout, output, fftLength/2))
 		{
-			std::cout << "\n\n\t\tInternal Client Test (with clFFT Pre-callback) *****FAIL*****" << std::endl;
+			std::cout << "\n\n\t\tInternal Client Test (with clFFT Callback) *****FAIL*****" << std::endl;
 		}
 		else
 		{
-			std::cout << "\n\n\t\tInternal Client Test (with clFFT Pre-callback) *****PASS*****" << std::endl;
+			std::cout << "\n\n\t\tInternal Client Test (with clFFT Callback) *****PASS*****" << std::endl;
 		}
 
 		fftwf_free(refout);
@@ -247,7 +245,7 @@ void runR2CPrecallbackFFT(std::auto_ptr< clfftSetupData > setupData, cl_context 
 }
 
 template < typename T >
-void runR2CPreprocessKernelFFT(std::auto_ptr< clfftSetupData > setupData, cl_context context, 
+void runR2C_FFT_PreAndPostprocessKernel(std::auto_ptr< clfftSetupData > setupData, cl_context context, 
 							cl_command_queue commandQueue, cl_device_id device_id,
 							size_t* inlengths, clfftDim dim, clfftPrecision precision,
 							size_t batchSize, size_t vectorLength, size_t fftLength, cl_uint profile_count)
@@ -281,6 +279,10 @@ void runR2CPreprocessKernelFFT(std::auto_ptr< clfftSetupData > setupData, cl_con
 	//out-place transform. 	
 	cl_mem outfftbuffer = ::clCreateBuffer( context, CL_MEM_READ_WRITE, out_size_of_buffers, NULL, &status);
     OPENCL_V_THROW( status, "Creating Buffer ( ::clCreateBuffer(oufftbuffer) )" );
+
+	//output magnitude buffer transform. 	
+	cl_mem magoutfftbuffer = ::clCreateBuffer( context, CL_MEM_WRITE_ONLY, out_size_of_buffers/2, NULL, &status);
+    OPENCL_V_THROW( status, "Creating Buffer ( ::clCreateBuffer(magoutfftbuffer) )" );
 
 	//clFFT initializations
 	
@@ -317,8 +319,13 @@ void runR2CPreprocessKernelFFT(std::auto_ptr< clfftSetupData > setupData, cl_con
 		OPENCL_V_THROW( medstatus, "Creating intmediate Buffer failed" );
 	}
 
-	//Pre-process kernel string
-	const char* source = STRINGIFY(ConvertToFloat_KERNEL);
+	//Pre and post process kernel string
+	std::string sourceStr;
+	sourceStr += STRINGIFY(ConvertToFloat_KERNEL);
+	sourceStr += "\n";
+	sourceStr += STRINGIFY(MagnitudeExtraction_KERNEL);
+
+	const char* source = sourceStr.c_str();
 	
 	cl_program program = clCreateProgramWithSource( context, 1, &source, NULL, &status );
 	OPENCL_V_THROW( status, "clCreateProgramWithSource failed." );
@@ -351,22 +358,29 @@ void runR2CPreprocessKernelFFT(std::auto_ptr< clfftSetupData > setupData, cl_con
 	}
 #endif
 
-	cl_kernel kernel = clCreateKernel( program, "convert24To32bit", &status );
-	OPENCL_V_THROW( status, "clCreateKernel failed" );
+	//For functional test
 
-	//for functional test
-	cl_uint uarg = 0;
+	//Pre-process kernel
+	cl_kernel prekernel = clCreateKernel( program, "convert24To32bit", &status );
+	OPENCL_V_THROW( status, "clCreateKernel convert24To32bit failed" );
 
 	//Input 24bit Buffer 
-	OPENCL_V_THROW( clSetKernelArg( kernel, uarg++, sizeof( cl_mem ), (void*)&in24bitfftbuffer ), "clSetKernelArg failed" );
+	OPENCL_V_THROW( clSetKernelArg( prekernel, 0, sizeof( cl_mem ), (void*)&in24bitfftbuffer ), "clSetKernelArg failed" );
 	
 	//output 32bit Buffer 
-	OPENCL_V_THROW( clSetKernelArg( kernel, uarg++, sizeof( cl_mem ), (void*)&in32bitfftbuffer ), "clSetKernelArg failed" );
+	OPENCL_V_THROW( clSetKernelArg( prekernel, 1, sizeof( cl_mem ), (void*)&in32bitfftbuffer ), "clSetKernelArg failed" );
+
+	//Post-process kernel
+	cl_kernel postkernel = clCreateKernel( program, "extractMagnitude", &status );
+	OPENCL_V_THROW( status, "clCreateKernel extractMagnitude failed" );
+
+	OPENCL_V_THROW( clSetKernelArg( postkernel, 0, sizeof( cl_mem ), (void*)&outfftbuffer ), "clSetKernelArg failed" );
+	OPENCL_V_THROW( clSetKernelArg( postkernel, 1, sizeof( cl_mem ), (void*)&magoutfftbuffer ), "clSetKernelArg failed" );
 
 	//Launch pre-process kernel
-	size_t gSize = fftLength;
-	status = clEnqueueNDRangeKernel( commandQueue, kernel, 1,
-											NULL, &gSize, NULL, 0, NULL, NULL );
+	size_t gSize_pre = fftLength;
+	status = clEnqueueNDRangeKernel( commandQueue, prekernel, 1,
+							NULL, &gSize_pre, NULL, 0, NULL, NULL );
 	OPENCL_V_THROW( status, "clEnqueueNDRangeKernel failed" );
 	
 	OPENCL_V_THROW( clFinish( commandQueue ), "clFinish failed" );
@@ -376,6 +390,12 @@ void runR2CPreprocessKernelFFT(std::auto_ptr< clfftSetupData > setupData, cl_con
 		&in32bitfftbuffer, &outfftbuffer, clMedBuffer ),
 		"clfftEnqueueTransform failed" );
 		
+	size_t gSize_post = fftLength/2;
+	//Launch post-process kernel
+	status = clEnqueueNDRangeKernel( commandQueue, postkernel, 1,
+						NULL, &gSize_post, NULL, 0, NULL, NULL );
+	OPENCL_V_THROW( status, "clEnqueueNDRangeKernel failed" );
+
 	OPENCL_V_THROW( clFinish( commandQueue ), "clFinish failed" );
 	
 	if (profile_count > 1)
@@ -386,17 +406,16 @@ void runR2CPreprocessKernelFFT(std::auto_ptr< clfftSetupData > setupData, cl_con
 		//	Loop as many times as the user specifies to average out the timings
 		for( cl_uint i = 0; i < profile_count; ++i )
 		{
-			uarg = 0;
+			//Launch pre-process kernel
 
 			//Input 24bit Buffer 
-			OPENCL_V_THROW( clSetKernelArg( kernel, uarg++, sizeof( cl_mem ), (void*)&in24bitfftbuffer ), "clSetKernelArg failed" );
+			OPENCL_V_THROW( clSetKernelArg( prekernel, 0, sizeof( cl_mem ), (void*)&in24bitfftbuffer ), "clSetKernelArg failed" );
 	
 			//output 32bit Buffer 
-			OPENCL_V_THROW( clSetKernelArg( kernel, uarg++, sizeof( cl_mem ), (void*)&in32bitfftbuffer ), "clSetKernelArg failed" );
+			OPENCL_V_THROW( clSetKernelArg( prekernel, 1, sizeof( cl_mem ), (void*)&in32bitfftbuffer ), "clSetKernelArg failed" );
 
-			//Launch pre-process kernel
-			status = clEnqueueNDRangeKernel( commandQueue, kernel, 1,
-													NULL, &gSize, NULL, 0, NULL, NULL );
+			status = clEnqueueNDRangeKernel( commandQueue, prekernel, 1,
+										NULL, &gSize_pre, NULL, 0, NULL, NULL );
 			OPENCL_V_THROW( status, "clEnqueueNDRangeKernel failed" );
 	
 			OPENCL_V_THROW( clFinish( commandQueue ), "clFinish failed" );
@@ -406,25 +425,34 @@ void runR2CPreprocessKernelFFT(std::auto_ptr< clfftSetupData > setupData, cl_con
 				&in32bitfftbuffer,  &outfftbuffer, clMedBuffer ),
 				"clfftEnqueueTransform failed" );
 		
+			//Launch post-process kernel
+			OPENCL_V_THROW( clSetKernelArg( postkernel, 0, sizeof( cl_mem ), (void*)&outfftbuffer ), "clSetKernelArg failed" );
+			OPENCL_V_THROW( clSetKernelArg( postkernel, 1, sizeof( cl_mem ), (void*)&magoutfftbuffer ), "clSetKernelArg failed" );
+
+			status = clEnqueueNDRangeKernel( commandQueue, postkernel, 1,
+								NULL, &gSize_post, NULL, 0, NULL, NULL );
+			OPENCL_V_THROW( status, "clEnqueueNDRangeKernel failed" );
+
 			OPENCL_V_THROW( clFinish( commandQueue ), "clFinish failed" );
 		}
 		double wtimesample = tr.Sample();
 		double wtime = wtimesample/((double)profile_count);
 	
-		tout << "\nExecution wall time (Separate Pre-process Kernel): " << 1000.0*wtime << " ms" << std::endl;
+		tout << "\nExecution wall time (Separate Pre and Post process kernels): " << 1000.0*wtime << " ms" << std::endl;
 	}
 
 	//cleanup preprocess kernel opencl objects
 	OPENCL_V_THROW( clReleaseProgram( program ), "Error: In clReleaseProgram\n" );
-	OPENCL_V_THROW( clReleaseKernel( kernel ), "Error: In clReleaseKernel\n" );
+	OPENCL_V_THROW( clReleaseKernel( prekernel ), "Error: In clReleaseKernel\n" );
+	OPENCL_V_THROW( clReleaseKernel( postkernel ), "Error: In clReleaseKernel\n" );
 
 	if(clMedBuffer) clReleaseMemObject(clMedBuffer);
 
 	if (profile_count == 1)
 	{
-		std::vector< std::complex< T > > output( fftLength/2 );
+		std::vector< T > output( fftLength/2 );
 
-		OPENCL_V_THROW( clEnqueueReadBuffer( commandQueue, outfftbuffer, CL_TRUE, 0, out_size_of_buffers, &output[ 0 ],
+		OPENCL_V_THROW( clEnqueueReadBuffer( commandQueue, magoutfftbuffer, CL_TRUE, 0, out_size_of_buffers/2, &output[ 0 ],
 			0, NULL, NULL ), "Reading the result buffer failed" );
 
 		//Reference fftw output
@@ -432,17 +460,13 @@ void runR2CPreprocessKernelFFT(std::auto_ptr< clfftSetupData > setupData, cl_con
 
 		refout = get_R2C_fftwf_output(inlengths, fftLength, (int)batchSize, inLayout, dim);
 
-		/*for( cl_uint i = 0; i < fftLength/2; i++)
-		{
-			std::cout << "i " << i << " refreal " << refout[i][0] << " refimag " << refout[i][1] << " clreal " << output[i].real() << " climag " << output[i].imag() << std::endl;
-		}*/
 		if (!compare<fftwf_complex, T>(refout, output, fftLength/2))
 		{
-			std::cout << "\n\n\t\tInternal Client Test (Separate Pre-process Kernel) *****FAIL*****" << std::endl;
+			std::cout << "\n\n\t\tInternal Client Test (Separate Pre and Post process kernels) *****FAIL*****" << std::endl;
 		}
 		else
 		{
-			std::cout << "\n\n\t\tInternal Client Test (Separate Pre-process Kernel) *****PASS*****" << std::endl;
+			std::cout << "\n\n\t\tInternal Client Test (Separate Pre and Post process kernels) *****PASS*****" << std::endl;
 		}
 
 		fftwf_free(refout);
@@ -455,11 +479,12 @@ void runR2CPreprocessKernelFFT(std::auto_ptr< clfftSetupData > setupData, cl_con
 	OPENCL_V_THROW( clReleaseMemObject( in24bitfftbuffer ), "Error: In clReleaseMemObject\n" );
 	OPENCL_V_THROW( clReleaseMemObject( in32bitfftbuffer ), "Error: In clReleaseMemObject\n" );
 	OPENCL_V_THROW( clReleaseMemObject( outfftbuffer ), "Error: In clReleaseMemObject\n" );
+	OPENCL_V_THROW( clReleaseMemObject( magoutfftbuffer ), "Error: In clReleaseMemObject\n" );
 }
 
 //Compare reference and opencl output 
 template < typename T1, typename T2>
-bool compare(T1 *refData, std::vector< std::complex< T2 > > data,
+bool compare(T1 *refData, std::vector< T2 > data,
              size_t length, const float epsilon)
 {
     float error = 0.0f;
@@ -470,7 +495,7 @@ bool compare(T1 *refData, std::vector< std::complex< T2 > > data,
 
     for(size_t i = 0; i < length; ++i)
     {
-        diff[0] = refData[i][0] - data[i].real();
+        diff[0] = refData[i][0] - data[i];
         error += (float)(diff[0] * diff[0]);
         ref[0] += refData[i][0] * refData[i][0];
     }
@@ -488,33 +513,8 @@ bool compare(T1 *refData, std::vector< std::complex< T2 > > data,
 			return false;
 	}
 
-	//imag
-	error = 0.0f;
-	ref[1] = 0.0;
-	for(size_t i = 0; i < length; ++i)
-    {
-        diff[1] = refData[i][1] - data[i].imag();
-        error += (float)(diff[1] * diff[1]);
-        ref[1] += refData[i][1] * refData[i][1];
-    }
-	
-	if (error == 0)
 		return true;
-
-	normRef =::sqrtf((float) ref[1]);
-    if (::fabs((float) ref[1]) < 1e-7f)
-    {
-        return false;
     }
-	normError = ::sqrtf((float) error);
-    error = normError / normRef;
-    
-	if (error > epsilon)
-		return false;
-
-	return true;
-}
-
 
 // Compute reference output using fftw for float type
 fftwf_complex* get_R2C_fftwf_output(size_t* lengths, size_t fftbatchLength, int batch_size,
@@ -564,6 +564,13 @@ fftwf_complex* get_R2C_fftwf_output(size_t* lengths, size_t fftbatchLength, int 
 	free(refin);
 
 	fftwf_destroy_plan(refPlan);
+
+	//Execute post-process code
+	for (size_t idx = 0; idx < (outfftVectorLength*batch_size); ++idx)
+	{
+		float magnitude = sqrtf(pow(refout[idx][0], 2) + pow(refout[idx][1], 2));
+		refout[idx][0] = magnitude;
+	}
 
 	return refout;
 }

@@ -28,11 +28,12 @@ set( clFFT.Test.Source
 	 accuracy_test_pow7.cpp
 	 accuracy_test_mixed_radices.cpp
 	 accuracy_test_random.cpp
-	 accuracy_test_mixed_precallback.cpp
+	 accuracy_test_mixed_callback.cpp
 	 accuracy_test_pow2_precallback.cpp
 	 accuracy_test_pow3_precallback.cpp
 	 accuracy_test_pow5_precallback.cpp
 	 accuracy_test_pow7_precallback.cpp
+	 accuracy_test_postcallback.cpp
 	 gtest_main.cpp
 	 ${PROJECT_SOURCE_DIR}/client/openCL.misc.cpp
 	 c-compliance.c
