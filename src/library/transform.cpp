@@ -626,6 +626,28 @@ clfftStatus clfftEnqueueTransform(
 			// if transpose kernel, we will fall below
 			if (fftPlan->transflag && !(fftPlan->planTX)) break;
 
+			if ( (fftPlan->gen == Transpose_NONSQUARE ) &&
+				 (fftPlan->nonSquareKernelType == NON_SQUARE_TRANS_PARENT) )
+			{
+				cl_event stage1OutEvents = NULL;
+
+				OPENCL_V(clfftEnqueueTransform(fftPlan->planTX, dir, numQueuesAndEvents, commQueues, numWaitEvents,
+					waitEvents, &stage1OutEvents, clInputBuffers, NULL, NULL),
+					_T("clfftEnqueueTransform stage1 failed"));
+
+				OPENCL_V(clfftEnqueueTransform(fftPlan->planTY, dir, numQueuesAndEvents, commQueues, 1,
+					&stage1OutEvents, outEvents, clInputBuffers, NULL, NULL),
+					_T("clfftEnqueueTransform stage1 failed"));
+				clReleaseEvent(stage1OutEvents);
+
+				if (fftRepo.pStatTimer)
+				{
+					fftRepo.pStatTimer->AddSample(plHandle, fftPlan, NULL, 0, NULL, std::vector< size_t >(), std::vector< size_t >());
+				}
+
+				return	CLFFT_SUCCESS;
+			}
+
 			cl_event rowOutEvents = NULL;
 
 #if defined(DEBUGGING)

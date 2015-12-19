@@ -25,6 +25,7 @@ enum clfftGenerators
     Stockham, // Using the Stockham autosort frameworks
     Transpose_GCN,
     Transpose_SQUARE,
+    Transpose_NONSQUARE,
     Copy,
     ENDGENERATORS			///< This value will always be last, and marks the length of clfftGenerators
 };

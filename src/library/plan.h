@@ -87,6 +87,13 @@ enum BlockComputeType
 };
 
 
+//NonSquareKernelType
+enum NonSquareTransposeKernelType
+{
+	NON_SQUARE_TRANS_PARENT,
+    NON_SQUARE_TRANS_TRANSPOSE,
+    NON_SQUARE_TRANS_SWAP
+};
 
 #define CLFFT_CB_SIZE 32
 #define CLFFT_MAX_INTERNAL_DIM 16
@@ -145,9 +152,16 @@ struct FFTKernelGenKeyParams {
 	BlockComputeType		 blockComputeType;
 	size_t					 blockSIMD;
 	size_t					 blockLDS;
+    
+	NonSquareTransposeKernelType      nonSquareKernelType;
 
 	bool fft_hasPreCallback;
 	clfftCallbackParam fft_preCallback;
+
+	bool fft_hasPostCallback;
+	clfftCallbackParam fft_postCallback;
+
+	cl_ulong   limit_LocalMemSize;
 
 	// Default constructor
 	FFTKernelGenKeyParams()
@@ -183,8 +197,10 @@ struct FFTKernelGenKeyParams {
 		blockComputeType = BCT_C2C;
 		blockSIMD = 0;
 		blockLDS = 0;
-
+        nonSquareKernelType = NON_SQUARE_TRANS_PARENT;
 		fft_hasPreCallback = false;
+		fft_hasPostCallback = false;
+		limit_LocalMemSize = 0;
 	}
 };
 
@@ -203,6 +219,7 @@ enum FFTActionImplID
     FFT_DEFAULT_COPY_ACTION,
     FFT_STATIC_STOCKHAM_ACTION
 };
+
 
 // 
 // FFTKernelSignatureHeader
@@ -450,15 +467,20 @@ public:
 	BlockComputeType blockComputeType;
 
 	bool hasPreCallback;
+	bool hasPostCallback;
 
 	clfftCallbackParam preCallback;
+	clfftCallbackParam postCallbackParam;
+
 	cl_mem precallUserData;
+	cl_mem postcallUserData;
 
     clfftPlanHandle plHandle;
 
     // The action
     FFTAction * action;
 
+    NonSquareTransposeKernelType nonSquareKernelType;
 
 	FFTPlan ()
 	:	baked (false)
@@ -503,8 +525,10 @@ public:
 	,	const_buffer( NULL )
 	,	gen(Stockham)
     ,   action(0)
+    ,   nonSquareKernelType(NON_SQUARE_TRANS_PARENT)
     ,   plHandle(0)
 	,   hasPreCallback(false)
+	,   hasPostCallback(false)
 	{
 	};
 

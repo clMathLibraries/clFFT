@@ -20,7 +20,8 @@ set( clFFT.Source	transform.cpp
 								plan.cpp
 								repo.cpp
 								generator.stockham.cpp
-								generator.transpose.gcn.cpp 
+								generator.transpose.gcn.cpp
+								generator.transpose.nonsquare.cpp
 								generator.transpose.square.cpp
 								generator.copy.cpp
 								lifetime.cpp
@@ -43,6 +44,7 @@ set( clFFT.Headers	private.h
 					generator.h
 					generator.stockham.h
 					generator.transpose.gcn.h
+					generator.transpose.nonsquare.h
 					generator.transpose.square.h
 					fft_binary_lookup.h
 					md5sum.h

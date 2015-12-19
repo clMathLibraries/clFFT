@@ -806,7 +806,28 @@ clfftStatus clfftSetPlanCallback(clfftPlanHandle plHandle, const char* funcName,
 
 		break;
 	case POSTCALLBACK:
+		{
+			ARG_CHECK(funcName != NULL);
+			ARG_CHECK(funcString != NULL);
+			ARG_CHECK(numUserdataBuffers >= 0);
+
+			//	We do not currently support multiple user data buffers
+			if( numUserdataBuffers > 1 )
 		return CLFFT_NOTIMPLEMENTED;
+
+			fftPlan->hasPostCallback = true;
+			fftPlan->postCallbackParam.funcname = funcName;
+			fftPlan->postCallbackParam.funcstring = funcString;
+			fftPlan->postCallbackParam.localMemSize = (localMemSize > 0) ? localMemSize : 0;
+
+			cl_mem userdataBuf = NULL;
+			
+			if (userdata)
+				userdataBuf = userdata[0];
+
+			fftPlan->postcallUserData = userdataBuf;
+		}
+		break;
 	default:
 		ARG_CHECK (false);
 	}
