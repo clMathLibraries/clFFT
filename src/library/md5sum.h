@@ -23,8 +23,8 @@
  * See md5.c for more information.
  */
 
-#ifndef _MD5_H
-#define _MD5_H
+#ifndef _MD5_SUM_H
+#define _MD5_SUM_H
 
 #ifdef HAVE_OPENSSL
 #include <openssl/md5.h>
@@ -48,4 +48,4 @@ extern void MD5_Final(unsigned char *result, MD5_CTX *ctx);
 
 void md5sum (const void * data, unsigned long size, char * md5sum);
 
-#endif // _MD5_H
+#endif // _MD5_SUM_H
