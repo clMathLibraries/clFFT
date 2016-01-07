@@ -34,6 +34,8 @@
  * optimizations are not included to reduce source code size and avoid
  * compile-time configuration.
  */
+
+#include "md5sum.h"
  
 #ifndef HAVE_OPENSSL
  
@@ -41,7 +43,6 @@
 #include <stdlib.h>
 #include <stdio.h>
  
-#include "md5sum.h"
  
 /*
  * The basic MD5 functions.
@@ -295,7 +296,7 @@ void MD5_Final(unsigned char *result, MD5_CTX *ctx)
 	memset(ctx, 0, sizeof(*ctx));
 }
  
-#endif
+#endif // HAVE_OPENSSL
 
 void md5sum(const void * data, unsigned long size, char * md5string)
 {
