@@ -330,7 +330,7 @@ void runR2C_FFT_PreAndPostprocessKernel(std::auto_ptr< clfftSetupData > setupDat
 	cl_program program = clCreateProgramWithSource( context, 1, &source, NULL, &status );
 	OPENCL_V_THROW( status, "clCreateProgramWithSource failed." );
 
-	status = clBuildProgram( program, 1, &device_id, NULL, NULL, NULL);
+	status = clBuildProgram( program, 1, &device_id, "", NULL, NULL);
 	OPENCL_V_THROW( status, "clBuildProgram failed" );
 
 #if defined( _DEBUG )
