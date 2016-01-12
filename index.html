@@ -113,7 +113,7 @@ Introduction to clFFT</h1>
 <p>The FFT is an implementation of the Discrete Fourier Transform (DFT) that makes use of symmetries in the FFT definition to reduce the mathematical intensity required from O( \(N^2\)) to O( \( N \log N\)) when the sequence length, <em>N</em>, is the product of small prime factors. Currently, there is no standard API for FFT routines. Hardware vendors usually provide a set of high-performance FFTs optimized for their systems: no two vendors employ the same interfaces for their FFT routines. clFFT provides a set of FFT routines that are optimized for AMD graphics processors, and that are also functional across CPU and other compute devices.</p>
 <h2><a class="anchor" id="SupportRadix"></a>
 Supported radices</h2>
-<p>clFFT supports transform sizes that are powers of 2, 3, 5, and 7. This means that the vector lengths that can be configured can be of any length that is a combination of powers of two, three, five, and seven; examples include \(2^7, 2^1*3^1, 3^2*5^4, 2^2*3^3*5^5\), up to the limit that the device can support.</p>
+<p>clFFT supports transform sizes that are powers of 2, 3, 5, and 7. This means that the vector lengths can be a combination of powers of two, three, five, and seven; examples include \(2^7, 2^1*3^1, 3^2*5^4, 2^2*3^3*5^5\), up to the limit that the device can support.</p>
 <h2><a class="anchor" id="SizeLimit"></a>
 Transform size limits</h2>
 <p>Currently, there is an upper bound on the transform size that the library can support for certain transforms. This limit is \(2^{24}\) for real 1D single precision and \(2^{22}\) for real 1D double precision.</p>
@@ -136,7 +136,7 @@ Dimensionality</h2>
 <li>For a 3D complex DFT <p class="formulaDsp">
 \[ \tilde{x}_{jkl} = {{1}\over{scale}}\sum_{s=0}^{p-1}\sum_{q=0}^{m-1}\sum_{r=0}^{n-1} x_{rqs}\exp\left({\pm i} {{2\pi jr}\over{n}}\right)\exp\left({\pm i}{{2\pi kq}\over{m}}\right)\exp\left({\pm i}{{2\pi ls}\over{p}}\right) \]
 </p>
- for \(j=0,1,\ldots,n-1\hbox{ and } k=0,1,\ldots,m-1\hbox{ and } l=0,1,\ldots,p-1\), where \(x_{rqs}\) are the complex data to be transformed, \(\tilde{x}_{jkl}\) are the transformed data, and the sign \(\pm\) determines the direction of the transform. By default, the scale is set to 1 for forwards transforms and \({{1}\over{MNP}}\) for backwards transforms, where <em>M</em>, <em>N</em>, and <em>P</em> are the 3D size of the transform.</li>
+ for \(j=0,1,\ldots,n-1\hbox{ and } k=0,1,\ldots,m-1\hbox{ and } l=0,1,\ldots,p-1\), where \(x_{rqs}\) are the complex data to be transformed, \(\tilde{x}_{jkl}\) are the transformed data, and the sign \(\pm\) determines the direction of the transform. By default, the scale is set to 1 for forward transforms and \({{1}\over{MNP}}\) for backward transforms, where <em>M</em>, <em>N</em>, and <em>P</em> are the 3D size of the transform.</li>
 </ul>
 <h2><a class="anchor" id="InitLibrary"></a>
 Setup and Teardown of clFFT</h2>
@@ -144,20 +144,20 @@ Setup and Teardown of clFFT</h2>
 <p>After you use the library, the <a class="el" href="clFFT_8h.html#a93ef77fcfaf06ae42534b0302be74925">clfftTeardown()</a> method must be called. This function instructs clFFT to release all resources allocated internally, and resets acquired references to any OpenCL objects.</p>
 <h2><a class="anchor" id="ThreadSafety"></a>
 Thread safety</h2>
-<p>The clFFT API is designed to be thread-safe. It is safe to create plans from multiple threads and to destroy those plans in separate threads. Multiple threads can call <a class="el" href="clFFT_8h.html#aa0f2e7bc39a9511908c7403a0dfb0e0f">clfftEnqueueTransform()</a> to place work in a command queue at the same time. clFFT does not provide a single-threaded version of the library. The overhead of the synchronization mechanisms inside a clFFT thread safe is expected to be minor.</p>
+<p>The clFFT API is designed to be thread-safe. It is safe to create plans from multiple threads and to destroy those plans in separate threads. Multiple threads can call <a class="el" href="clFFT_8h.html#aa0f2e7bc39a9511908c7403a0dfb0e0f">clfftEnqueueTransform()</a> to place work in a command queue at the same time. clFFT does not provide a single-threaded version of the library. The overhead of the synchronization mechanisms inside a clFFT thread-safe is expected to be minor.</p>
 <p>Currently, you must manage the multi-device operation. You can create OpenCL contexts that are associated with multiple devices, but clFFT only uses a single device from that context to transform the data. You can manage a multi-device operation by creating multiple contexts, in which each context contains a different device; you are responsible for scheduling and partitioning the work across multiple devices and contexts.</p>
 <h2><a class="anchor" id="MajorFormat"></a>
 Row major formats</h2>
-<p>clFFT expects all multi-dimensional input passed to it to be in row-major format. This is compatible with C-based languages. However, clFFT is very flexible in the organization of input and output data, and it accepts input data by letting you specify a stride for each dimension. This feature can be used to process data in column major arrays and other non-contiguous data formats. See <a class="el" href="clFFT_8h.html#a917a9af0591da63e64434d11ef149e6c">clfftSetPlanInStride()</a> and <a class="el" href="clFFT_8h.html#aac2e3c6cc25d7d2a2550d9c882d53411">clfftSetPlanOutStride()</a>.</p>
+<p>clFFT expects all multi-dimensional input passed to it to be in row-major format. This is compatible with C-based languages. However, clFFT is very flexible in the organization of the input and output data, and it accepts input data by letting you specify a stride for each dimension. This feature can be used to process data in column major arrays and other non-contiguous data formats. See <a class="el" href="clFFT_8h.html#a917a9af0591da63e64434d11ef149e6c">clfftSetPlanInStride()</a> and <a class="el" href="clFFT_8h.html#aac2e3c6cc25d7d2a2550d9c882d53411">clfftSetPlanOutStride()</a>.</p>
 <h2><a class="anchor" id="Object"></a>
 OpenCL object creation</h2>
-<p>Your application must allocate and manage OpenCL objects, such as contexts, <em>cl_mem</em> buffers and command queues. All the clFFT interfaces that interact with OpenCL objects take those objects as references through the API. Specifically, the plan creation function <a class="el" href="clFFT_8h.html#a7818f7de76a12ba312559a37e3dec3e9">clfftCreateDefaultPlan()</a> takes an OpenCL context as a parameter reference, increments the reference count on that object, and keeps the object alive until the corresponding plan is destroyed by a call to <a class="el" href="clFFT_8h.html#a94ca83d94770dc29460645043442c875">clfftDestroyPlan()</a>.</p>
+<p>Your application must allocate and manage OpenCL objects, such as contexts, <em>cl_mem</em> buffers and command queues. All the clFFT interfaces that interact with OpenCL objects take those objects as references through the API. Specifically, the plan creation function <a class="el" href="clFFT_8h.html#a7818f7de76a12ba312559a37e3dec3e9">clfftCreateDefaultPlan()</a> takes an OpenCL context as a parameter reference, increments the reference count on that object, and keeps the object alive until the corresponding plan is destroyed by the call <a class="el" href="clFFT_8h.html#a94ca83d94770dc29460645043442c875">clfftDestroyPlan()</a>.</p>
 <h2><a class="anchor" id="FlushQueue"></a>
 Flushing of command queues</h2>
-<p>The clFFT API operates asynchronously; with the exception of thread safety locking with multiple threads, all APIs return immediately. Specifically, the <a class="el" href="clFFT_8h.html#aa0f2e7bc39a9511908c7403a0dfb0e0f">clfftEnqueueTransform()</a> API does not explicitly flush the command queues that are passed by reference to it. It pushes the transform work onto the command queues and returns the modified queues to the client. The client is free to issue its own blocking logic using OpenCL synchronization mechanisms or push further work onto the queue to continue processing.</p>
+<p>The clFFT API operates asynchronously; with the exception of thread safety locking with multiple threads, all APIs return immediately. Specifically, the <a class="el" href="clFFT_8h.html#aa0f2e7bc39a9511908c7403a0dfb0e0f">clfftEnqueueTransform()</a> API does not explicitly flush the command queues that are passed by reference to it. It pushes the transform work onto the command queues and returns the modified queues to the client. The client is free to issue its own blocking logic by using OpenCL synchronization mechanisms or push further work onto the queue to continue processing.</p>
 <h2><a class="anchor" id="EnvVariables"></a>
 Environment variables</h2>
-<p>The clFFT library looks for the definition of 2 environment varibles. One is CLFFT_CACHE_PATH. If this variable is defined, then the library caches OpenCL binaries. This will enable a subsequent application run of the same type of transforms to avoid going through the expensive compile step. Instead, the stored binaries are loaded and executed. The CLFFT_CACHE_PATH must point to a folder location where the library can store binaries. The other environment variable is CLFFT_REQUEST_LIB_NOMEMALLOC. This variable when defined asks the library to do all computations in-place and avoid allocating extra device memory whenever possible. This feature is experimental and currently works only for certain types of transforms, and where the input can be decomposed into square matrices by the library. Currently it works for 1D complex transforms of size of even powers of 2,3,5 and 7.</p>
+<p>The clFFT library looks for definition of two environment variables: CLFFT_CACHE_PATH and CLFFT_REQUEST_LIB_NOMEMALLOC. If the variable CLFFT_CACHE_PATH is defined, the library caches OpenCL binaries. This enables a subsequent run of the application with the same type of transforms to avoid the expensive compilation step. Instead, the stored binaries are loaded and executed. The CLFFT_CACHE_PATH must point to a folder location where the library can store binaries. The other variable CLFFT_REQUEST_LIB_NOMEMALLOC when defined, requests the library to do all computations in-place and avoid allocating extra device memory whenever possible. This feature is experimental and currently works only for certain types of transforms when the library decomposes the input into square matrices or rectangular matrices with dimensions in the ratio 1:2. Currently, it works for 1D complex transforms of size of powers of 2.</p>
 <h1><a class="anchor" id="clFFTPlans"></a>
 clFFT plans</h1>
 <p>A plan is the collection of (almost) all the parameters needed to specify an FFT computation. A clFFT plan includes the following parameters: </p><ul>
@@ -246,22 +246,19 @@ Complex data being subject to backward FFT transform that results in real data. 
 </ol>
 <h3><a class="anchor" id="DistanceStridesandPitches"></a>
 Strides and Distances</h3>
-<p>For one-dimensional data, if clStrides[0] = strideX = 1, successive elements in the first dimension are stored contiguously in memory. If strideX is an integral value greater than 1, gaps in memory exist between each element of the vectors.</p>
-<p>For multi-dimensional data, if clStrides[1] = strideY = LenX for 2 dimensional data and clStrides[2] = strideZ = LenX*LenY for 3 dimensional data, no gaps exist in memory between each element, and all vectors are stored tightly packed in memory. Here, LenX, LenY, and LenZ denote the transform lengths clLengths[0], clLengths[1], and clLengths[2], respectively, which are used to set up the plan.</p>
+<p>For one-dimensional data, if clStrides[0] = strideX = 1, successive elements in the first dimension are stored contiguously in memory. If strideX is an integral value greater than 1, gaps in memory exist between each element of the vectors. For multi-dimensional data, if clStrides[1] = strideY = LenX for 2 dimensional data and clStrides[2] = strideZ = LenX*LenY for 3 dimensional data, no gaps exist in memory between each element, and all vectors are stored tightly packed in memory. Here, LenX, LenY, and LenZ denote the transform lengths clLengths[0], clLengths[1], and clLengths[2], respectively, which are used to set up the plan.</p>
 <p>By specifying non-default strides, it is possible to process either row-major or column-major arrays. Data can be extracted from arrays of structures. Almost any regular data storage pattern can be accommodated.</p>
-<p>Distance is the amount of memory that exists between corresponding elements in an FFT primitive in a batch. Distance is measured in units of the FFT primitive; complex data measures in complex units, and real data measures in real units. Stride between tightly packed elements is 1 in either case. Typically, one can measure the distance between any two elements in a batch primitive, be it 1D, 2D, or 3D data. For tightly packed data, the distance between FFT primitives is the size of the FFT primitive, such that dist=LenX for 1D data, dist=LenX*LenY for 2D data, and dist=LenX*LenY*LenZ for 3D data. It is possible to set the distance of a plan to be less than the size of the FFT vector; most often 1 for this case. When computing a batch of 1D FFT vectors, if distance == 1, and strideX == length(vector), a transposed output is produced for a batch of 1D vectors. You must verify that the distance and strides are valid (not intersecting); if not valid, undefined results may occur.</p>
-<p>A simple example would be to perform a 1D length 4096 on each row of an array of 1024 rows x 4096 columns of values stored in a column-major array, such as a FORTRAN program might provide. (This would be equivalent to a C or C++ program that has an array of 4096 rows x 1024 columns stored in a row-major manner, on which you want to perform a 1-D length 4096 transform on each column.) In this case, specify the strides [1024, 1].</p>
+<p>Distance is the amount of memory that exists between corresponding elements in an FFT primitive in a batch. Distance is measured in units of the FFT primitive; complex data measures in complex units, and real data measures in real units. Stride between tightly packed elements is 1 in either case. Typically, one can measure the distance between any two elements in a batch primitive, be it 1D, 2D, or 3D data. For tightly packed data, the distance between FFT primitives is the size of the FFT primitive, such that dist=LenX for 1D data, dist=LenX*LenY for 2D data, and dist=LenX*LenY*LenZ for 3D data. It is possible to set the distance of a plan to be less than the size of the FFT vector; most often 1 for this case. When computing a batch of 1D FFT vectors, if distance == 1, and strideX == length(vector), a transposed output is produced for a batch of 1D vectors. You must verify that the distance and strides are valid (not intersecting); if not valid, undefined results may occur. A simple example would be to perform a 1D length 4096 on each row of an array of 1024 rows x 4096 columns of values stored in a column-major array, such as a FORTRAN program might provide. (This would be equivalent to a C or C++ program that has an array of 4096 rows x 1024 columns stored in a row-major manner, on which you want to perform a 1-D length 4096 transform on each column.) In this case, specify the strides as [1024, 1].</p>
 <p>A more complex example would be to compute a 2D FFT for each 64 x 64 subtile of the grid that has an input buffer with a raster grid of 1024 x 1024 monochrome pixel values. Specifying strides allows you to treat each horizontal band of 1024 x 64 pixels as an array of 16 64 x 64 matrixes, and process an entire band with a single call <a class="el" href="clFFT_8h.html#aa0f2e7bc39a9511908c7403a0dfb0e0f">clfftEnqueueTransform()</a>. (Specifying strides is not quite flexible enough to transform the entire grid of this example with a single kernel execution.) It is possible to create a Plan to compute arrays of 64 x 64 2D FFTs, then specify three strides: [1, 1024, 64]. The first stride, 1, indicates that the rows of each matrix are stored consecutively; the second stride, 1024, gives the distance between rows, and the third stride, 64, defines the distance between two matrices. Then call <a class="el" href="clFFT_8h.html#aa0f2e7bc39a9511908c7403a0dfb0e0f">clfftEnqueueTransform()</a> 16 times – once for each horizontal band of pixels.</p>
 <h2><a class="anchor" id="EnumPrecision"></a>
 Supported precisions in clFFT</h2>
-<p>Both <em>CLFFT_SINGLE</em> and <em>CLFFT_DOUBLE</em> precisions are supported by the library for all supported radices. For both these enums the math functions of the host computer are used to produce the sine and cosine tables that are used by the OpenCL kernel. Both <em>CLFFT_SINGLE_FAST</em> and <em>CLFFT_DOUBLE_FAST</em> generate faster kernels with reduced accuracy, but are disabled in the current build.</p>
-<p>See <a class="el" href="clFFT_8h.html#a0ed2c949c80e301ed7a2bffb9a7b8fb1">clfftPrecision</a>, <a class="el" href="clFFT_8h.html#aa306c43df8094549e03d0355a1e001a7">clfftSetPlanPrecision()</a>, and <a class="el" href="clFFT_8h.html#a8dd99d6b38403d0af14e1d94dcde4e45">clfftGetPlanPrecision()</a>.</p>
+<p>Both <em>CLFFT_SINGLE</em> and <em>CLFFT_DOUBLE</em> precisions are supported by the library for all supported radices. For both these enums the math functions of the host computer are used to produce the sine and cosine tables that are used by the OpenCL kernel. Both <em>CLFFT_SINGLE_FAST</em> and <em>CLFFT_DOUBLE_FAST</em> generate faster kernels with reduced accuracy, but are disabled in the current build. See <a class="el" href="clFFT_8h.html#a0ed2c949c80e301ed7a2bffb9a7b8fb1">clfftPrecision</a>, <a class="el" href="clFFT_8h.html#aa306c43df8094549e03d0355a1e001a7">clfftSetPlanPrecision()</a>, and <a class="el" href="clFFT_8h.html#a8dd99d6b38403d0af14e1d94dcde4e45">clfftGetPlanPrecision()</a>.</p>
 <h2><a class="anchor" id="FftDirection"></a>
 clfftDirection</h2>
-<p>The direction of the transform is not baked into the plan for complex transforms; the same plan can be used to specify both forward and backward transforms. To specify the direction, <a class="el" href="clFFT_8h.html#a0a586ab5b1540f18a8596df47f5881bf">clfftDirection</a> is passed as a parameter into <a class="el" href="clFFT_8h.html#aa0f2e7bc39a9511908c7403a0dfb0e0f">clfftEnqueueTransform()</a>. In the case of real transforms, the plan's input and output layouts determine the direction.</p>
+<p>For complex transforms, the direction of the transform is not baked into the plan; the same plan can be used to specify both forward and backward transforms. To specify the direction, <a class="el" href="clFFT_8h.html#a0a586ab5b1540f18a8596df47f5881bf">clfftDirection</a> is passed as a parameter into <a class="el" href="clFFT_8h.html#aa0f2e7bc39a9511908c7403a0dfb0e0f">clfftEnqueueTransform()</a>. For real transforms, the input and output layouts of the plan determine the direction.</p>
 <h2><a class="anchor" id="EnumResultLocation"></a>
 In-place and out-of-place transforms</h2>
-<p>The clFFT API supports both in-place and out-of-place transforms. With in-place transforms, only the input buffers are provided to the <a class="el" href="clFFT_8h.html#aa0f2e7bc39a9511908c7403a0dfb0e0f">clfftEnqueueTransform()</a> API, and the resulting data is written in the same buffer, overwriting the input data. With out-of-place transforms, distinct output buffers are provided to the <a class="el" href="clFFT_8h.html#aa0f2e7bc39a9511908c7403a0dfb0e0f">clfftEnqueueTransform()</a> API, and the input data is preserved. In-place transforms require the <em>cl_mem</em> objects the client creates have both read and write permissions. This is given in the nature of the in-place algorithm. Out-of-place transforms require that the destination buffers to have read and write permissions, but input buffers can still be created with read-only permissions. This is a clFFT requirement because internally the algorithms may go back and forth between the destination buffers and internally allocated temp buffers. For out-of-place transforms, clFFT never writes back to input buffers.</p>
+<p>The clFFT API supports both in-place and out-of-place transforms. With in-place transforms, only the input buffers are provided to the <a class="el" href="clFFT_8h.html#aa0f2e7bc39a9511908c7403a0dfb0e0f">clfftEnqueueTransform()</a> API, and the resulting data is written in the same buffer, overwriting the input data. With out-of-place transforms, distinct output buffers are provided to the <a class="el" href="clFFT_8h.html#aa0f2e7bc39a9511908c7403a0dfb0e0f">clfftEnqueueTransform()</a> API, and the input data is preserved. In-place transforms require that the <em>cl_mem</em> objects created by the client application, have both read and write permissions. This is given in the nature of the in-place algorithm. Out-of-place transforms require that the destination buffers have read and write permissions, but input buffers can still be created with read-only permissions. This is a clFFT requirement because internally the algorithms may go back and forth between the destination buffers and internally allocated temp buffers. For out-of-place transforms, clFFT never writes back to input buffers.</p>
 <h2><a class="anchor" id="clFFTEff"></a>
 Batches</h2>
 <p>The efficiency of clFFT is improved by utilizing transforms in batches. Sending as much data as possible in a single transform call leverages the parallel compute capabilities of OpenCL devices (and GPU devices in particular), and minimizes the penalty of transfer overhead. It is best to think of an OpenCL device as a high-throughput, high-latency device. Using a networking analogy as an example, this approach is similar to having a massively high-bandwidth pipe with very high ping response times. If the client is ready to send data to the device for compute, it should be sent in as few API calls as possible and this can be done by batching. clFFT plans have a parameter <a class="el" href="clFFT_8h.html#a745f5b98386b73f9fc04395d30140d71">clfftSetPlanBatchSize()</a> to describe the number of transforms being batched, and another parameter <a class="el" href="clFFT_8h.html#af185d2dd92f401f726f7fd84423a8791">clfftSetPlanDistance()</a> to describe how those batches are laid out and spaced in memory. 1D, 2D, or 3D transforms can be batched.</p>
@@ -273,29 +270,27 @@ Initialize the library by calling <a class="el" href="clFFT_8h.html#a56c68ba71f2
 <li>
 <p class="startli">For each distinct type of FFT needed: </p><ol>
 <li>
-Create an FFT Plan object. To create an FFT Plan object, do either of the following. In both cases, the function returns an opaque handle to the plan object. <ul>
+Create an FFT Plan object. To create an FFT Plan object, do either of the following. <ul>
 <li>
-Call the factory function <a class="el" href="clFFT_8h.html#a7818f7de76a12ba312559a37e3dec3e9">clfftCreateDefaultPlan()</a> and specify the value of the most fundamental parameters, such as plHandle, context, dim, and clLengths, while other parametes assume default values. The OpenCL context must be provided when the plan is created; it cannot be changed.  </li>
+Call the factory function <a class="el" href="clFFT_8h.html#a7818f7de76a12ba312559a37e3dec3e9">clfftCreateDefaultPlan()</a> and specify the value of the most fundamental parameters, such as plHandle, context, dim, and clLengths, while other parameters assume default values. The OpenCL context must be provided when the plan is created; it cannot be changed.  <br />
+ Or </li>
 <li>
 Call <a class="el" href="clFFT_8h.html#a5aa776e183cdde6d708d07c94a80eab6">clfftCopyPlan()</a>.  </li>
 </ul>
-</li>
+Note: In both the cases, the function returns an opaque handle to the plan object. </li>
 <li>
 Complete the specification of all the Plan parameters by calling various parameter-setting functions that have the prefix <em>clfftSet</em>.  </li>
 <li>
-<p class="startli">Optionally, "bake" or finalize the plan by calling <a class="el" href="clFFT_8h.html#a264e8cb8ab8a2a72589a525170c5bfcb">clfftBakePlan()</a> function. This signals the library the end of the specification phase, and causes it to generate and compile the exact OpenCL kernels that perform the specified FFT on the provided OpenCL device.</p>
-<p>At this point, all performance-enhancing optimizations are applied, possibly including executing benchmark kernels on the OpenCL device context to maximize runtime performance.</p>
-<p class="endli">Although the last step is optional, it is recommended to use it so that you can have control on when to do this work. Usually, this time consuming step is done when the application is initialized. If you do not call <a class="el" href="clFFT_8h.html#a264e8cb8ab8a2a72589a525170c5bfcb">clfftBakePlan()</a>, this work is done during the first call of <a class="el" href="clFFT_8h.html#aa0f2e7bc39a9511908c7403a0dfb0e0f">clfftEnqueueTransform()</a>.  </p>
-</li>
+Optionally, "bake" or finalize the plan by calling <a class="el" href="clFFT_8h.html#a264e8cb8ab8a2a72589a525170c5bfcb">clfftBakePlan()</a> function. This signals the library the end of the specification phase, and causes it to generate and compile the exact OpenCL kernels that perform the specified FFT on the provided OpenCL device. At this point, all performance-enhancing optimizations are applied, possibly including executing benchmark kernels on the OpenCL device context to maximize the runtime performance. <br />
+ <br />
+ Although the previous step is optional, it is recommended to use it so that you can have control on when to do this work. Usually, this time consuming step is done when the application is initialized. If you do not call <a class="el" href="clFFT_8h.html#a264e8cb8ab8a2a72589a525170c5bfcb">clfftBakePlan()</a>, this work is done during the first call of <a class="el" href="clFFT_8h.html#aa0f2e7bc39a9511908c7403a0dfb0e0f">clfftEnqueueTransform()</a>.  </li>
 </ol>
 <p class="endli"></p>
 </li>
 <li>
 Execute the OpenCL FFT kernels as many times as needed.  <ol>
 <li>
-<p class="startli">Call <a class="el" href="clFFT_8h.html#aa0f2e7bc39a9511908c7403a0dfb0e0f">clfftEnqueueTransform()</a>. At this point, specify whether you want to execute a forward or reverse transform; also, provide the OpenCL <em>cl_mem</em> handles for the input buffer(s), output buffer(s)&ndash;unless you want the transformed data to overwrite the input buffers, and (optionally) scratch buffer.</p>
-<p class="endli"><a class="el" href="clFFT_8h.html#aa0f2e7bc39a9511908c7403a0dfb0e0f">clfftEnqueueTransform()</a> performs one or more calls to the OpenCL function clEnqueueNDRangeKernel. Like clEnqueueNDRangeKernel, <a class="el" href="clFFT_8h.html#aa0f2e7bc39a9511908c7403a0dfb0e0f">clfftEnqueueTransform()</a> is a non-blocking call. The commands to execute the FFT compute kernel(s) are added to the OpenCL context queue to be executed asynchronously. An OpenCL event handle is returned to the caller. If multiple NDRangeKernel operations are queued, the final event handle is returned.  </p>
-</li>
+Call <a class="el" href="clFFT_8h.html#aa0f2e7bc39a9511908c7403a0dfb0e0f">clfftEnqueueTransform()</a>. At this point, specify whether you want to execute a forward or reverse transform; also, provide the OpenCL <em>cl_mem</em> handles for the input buffer(s), output buffer(s)&ndash;unless you want the transformed data to overwrite the input buffers, and (optionally) scratch buffer. <a class="el" href="clFFT_8h.html#aa0f2e7bc39a9511908c7403a0dfb0e0f">clfftEnqueueTransform()</a> performs one or more calls to the OpenCL function clEnqueueNDRangeKernel. Like clEnqueueNDRangeKernel, <a class="el" href="clFFT_8h.html#aa0f2e7bc39a9511908c7403a0dfb0e0f">clfftEnqueueTransform()</a> is a non-blocking call. The commands to execute the FFT compute kernel(s) are added to the OpenCL context queue to be executed asynchronously. An OpenCL event handle is returned to the caller. If multiple NDRangeKernel operations are queued, the final event handle is returned.  </li>
 <li>
 Add any application OpenCL tasks to the OpenCL context queue. For example, if the next step in the application process is to apply a filter to the transformed data, the application calls clEnqueueNDRangeKernel, and specifies its output buffer(s) as the input to the filter kernel, and provides the transform's event handle to ensure proper synchronization.  </li>
 <li>
@@ -307,8 +302,7 @@ Terminate the library by calling <a class="el" href="clFFT_8h.html#a93ef77fcfaf0
 </ul>
 <h1><a class="anchor" id="RealFFT"></a>
 FFTs of real data</h1>
-<p>When real data is subject to DFT transformation, the resulting complex output data follows a special property. About half of the output is redundant because they are complex conjugates of the other half. This is called the Hermitian redundancy. So, for space and performance considerations, it is only necessary to store the non-redundant part of the data. Most FFT libraries use this property to offer specific storage layouts for FFTs involving real data. clFFT provides three enumerated types to deal with real data FFTs:</p>
-<ul>
+<p>When real data is subject to DFT transformation, the resulting complex output data follows a special property. About half of the output is redundant because they are complex conjugates of the other half. This is called the Hermitian redundancy. So, for space and performance considerations, it is only necessary to store the non-redundant part of the data. Most FFT libraries use this property to offer specific storage layouts for FFTs involving real data. clFFT provides three enumerated types to deal with real data FFTs: </p><ul>
 <li>
 <em>CLFFT_REAL</em> </li>
 <li>
@@ -316,7 +310,7 @@ FFTs of real data</h1>
 <li>
 <em>CLFFT_HERMITIAN_PLANAR</em> </li>
 </ul>
-<p>The <em>CLFFT_REAL</em> enum specifies that the data is purely real. This can be used to feed real input or get back real output. The <em>CLFFT_HERMITIAN_INTERLEAVED</em> and CLFFT_HERMITIAN_PLANAR* enums are similar to the corresponding full complex enums in the way they store real and imaginary components, but store only about half of the complex output. Client applications can do just a forward transform and analyze the output or they can process the output and do a backward transform to get back real data. This is illustrated in the following figure.</p>
+<p>The <em>CLFFT_REAL</em> enum specifies that the data is purely real. This can be used to feed real input or get back real output. The <em>CLFFT_HERMITIAN_INTERLEAVED</em> and <em>CLFFT_HERMITIAN_PLANAR</em> enums are similar to the corresponding full complex enums in the way they store real and imaginary components, but store only about half of the complex output. Client applications can do just a forward transform and analyze the output or they can process the output and do a backward transform to get back real data. This is illustrated in the following figure.</p>
 <div class="image">
 <img src="realfft_fwdinv.jpg" alt="realfft_fwdinv.jpg"/>
 <div class="caption">
@@ -337,8 +331,7 @@ Example for N = 8</div></div>
 <img src="realfft_ex_n7.jpg" alt="realfft_ex_n7.jpg"/>
 <div class="caption">
 Example for N = 7</div></div>
-<p>For length 8, only (1 + 8/2) = 5 of the output complex numbers are stored, with the index ranging from 0 through 4. Similarly for length 7, only (1 + 7/2) = 4 of the output complex numbers are stored, with the index ranging from 0 through 3.</p>
-<p>For 2D and 3D FFTs, the FFT length along the least dimension is used to compute the (1 + N/2) value. This is because the FFT along the least dimension is what is computed first and is logically a real-to-hermitian transform. The FFTs along other dimensions are computed afterwards; they are simply 'complex-to-complex' transforms. For example, assuming clLengths[2] is used to set up a 2D real FFT, let N1 = clLengths[1], and N0 = clLengths[0]. The output FFT has N1*(1 + N0/2) complex elements. Similarly, for a 3D FFT with clLengths[3] and N2 = clLengths[2], N1 = clLengths[1], and N0 = clLengths[0], the output has N2*N1*(1 + N0/2) complex elements.</p>
+<p>For length 8, only (1 + 8/2) = 5 of the output complex numbers are stored, with the index ranging from 0 through 4. Similarly for length 7, only (1 + 7/2) = 4 of the output complex numbers are stored, with the index ranging from 0 through 3. For 2D and 3D FFTs, the FFT length along the least dimension is used to compute the (1 + N/2) value. This is because the FFT along the least dimension is computed first and is logically a real-to-hermitian transform. The FFTs along other dimensions are computed afterwards; they are simply 'complex-to-complex' transforms. For example, assuming clLengths[2] is used to set up a 2D real FFT, let N1 = clLengths[1], and N0 = clLengths[0]. The output FFT has N1*(1 + N0/2) complex elements. Similarly, for a 3D FFT with clLengths[3] and N2 = clLengths[2], N1 = clLengths[1], and N0 = clLengths[0], the output has N2*N1*(1 + N0/2) complex elements.</p>
 <h2><a class="anchor" id="RealModes"></a>
 Supported Modes</h2>
 <p>Out-of-place transforms:</p>
@@ -399,15 +392,13 @@ Examples</h2>
 2D FFT - Real to Hermitian, Example</div></div>
  <h1><a class="anchor" id="Callbacks"></a>
 clFFT Callbacks</h1>
-<p>The callback feature of clFFT has the ability to invoke user provided OpenCL inline functions from within FFT kernel to custom process the input or output data. The inline OpenCL function is passed as a string to the library which is incorporated into the generated FFT kernel. This helps to avoid additional kernel launches to carry out the pre/post processing tasks.</p>
-<p>There are 2 types of callback; Pre-callback and Post-callback. Pre-callback invokes user callback function to perform custom pre-processing of the input data before FFT is executed,. Post-callback invokes user callback function to perform custom post-processing of the output data after FFT is executed.</p>
-<p>The current release of clFFT includes Pre-callback feature. Post-callback will be supported in future release.</p>
+<p>The callback feature of clFFT has the ability to invoke user provided OpenCL™ inline functions to pre-process or post-process data from within the FFT kernel. The inline OpenCL callback function is passed as a string to the library. It is then incorporated into the generated FFT kernel. This eliminates the need for an additional kernel launch to carry out the pre/post processing tasks, thus improving overall performance. There are 2 types of callback; Pre-callback and Post-callback. Pre-callback invokes user callback function to perform custom pre-processing of the input data before FFT is executed. Post-callback invokes user callback function to perform custom post-processing of the output data after FFT is executed.</p>
 <h2><a class="anchor" id="CallbackWorkflow"></a>
 Callback Workflow</h2>
-<p>The workflow of FFT execution using callback feature of clFFT is as follows</p>
+<p>The workflow of FFT execution using callback feature of clFFT is as follows:</p>
 <ol>
 <li>
-Create clFFT Plan and initialize standard clFFT parameters. </li>
+Create the clFFT Plan and initialize the standard clFFT parameters. </li>
 <li>
 Use <a class="el" href="clFFT_8h.html#a9e11136b05502559f1d397be25a2f0c8">clfftSetPlanCallback()</a> API to register the callback function with library <div class="fragment"><div class="line">clfftStatus <a class="code" href="clFFT_8h.html#a9e11136b05502559f1d397be25a2f0c8">clfftSetPlanCallback</a>(<a class="code" href="clFFT_8h.html#af8210cf8cf7d7a6183c0602506ef8425">clfftPlanHandle</a> plHandle,</div>
 <div class="line">                                                                        <span class="keyword">const</span> <span class="keywordtype">char</span>* funcName,</div>
@@ -422,25 +413,23 @@ clFFT plan handle </li>
 <li>
 Name of the callback function </li>
 <li>
-Callback function as character array. The character array can also include any custom datatype declaration used by callback function </li>
+Callback function as character array; the character array can include custom datatype declaration if any custom type is used by callback function </li>
 <li>
 Size of local memory requested by callback, if any, in bytes </li>
 <li>
-Type of callback. This is an enumerator. The current supported value for this is ‘PRECALLBACK’ </li>
+Type of callback: ‘PRECALLBACK’ or ‘POSTCALLBACK’; this is an enumerator </li>
 <li>
 Supplementary user data, if any, used by callback function </li>
 <li>
-Number of user data buffers </li>
+Number of user data buffers; the library currently supports only one user data buffer per callback registration </li>
 </ul>
-</li>
+Multiple callback registration calls to the same type of callback result in overwriting the previously registered callback function </li>
 <li>
-Invoke Bake Plan step </li>
-<li>
-Library inserts the callback code into the main FFT kernel during bake plan and compiles it. If there are any compilation errors caused by syntax or incompatible callback function prototype, the library reports failure. </li>
+Invoke Bake Plan step Library inserts the callback code into the main FFT kernel during bake plan and compiles it. If there are any compilation errors caused by syntax or incompatible callback function prototype, the library reports failure. </li>
 <li>
 Enqueue clFFT transform </li>
 </ol>
-<p>The caller is responsible to provide a callback function that matches the function prototype based on the type of callback(pre/post), type of transform(real/complex) and whether LDS is used. The bake plan step does the function prototype checking.</p>
+<p>The caller is responsible to provide a callback function that matches the function prototype based on the type of callback(pre/post), type of transform(real/complex) and whether LDS is used. The bake plan step checks the function prototype.</p>
 <h2><a class="anchor" id="CallbackFunctionPrototype"></a>
 Callback Function Prototypes</h2>
 <p>clFFT expects the callback function to be of a specific prototype depending on the type of callback(pre/post), type of transform(real/complex) and whether LDS is used. These are as follows:</p>
@@ -494,36 +483,100 @@ double &lt;precallback_func&gt; ( __global void *input, uint inoffset, __global 
 <li>
 <code>localmem</code> : Pointer to local memory. This memory is allocated by library based on the size you specify and is subjected to local memory availability.  </li>
 </ul>
-<p>For Planar C2C, the return type of callback is a vector (float2/double2) whose elements contain the result for Real and Imaginary as computed in the callback</p>
-<h2><a class="anchor" id="SamplePrecallbackCode"></a>
-Sample Pre-Callback Code</h2>
+<p>For Planar C2C, the return type of callback is a vector (float2/double2) that contains the Real and Imaginary elements as computed in the callback.</p>
+<h3><a class="anchor" id="PostcallbackProtyotype"></a>
+Post-callback Prototypes</h3>
+<table class="doxtable">
+<tr>
+<th>FFT Type </th><th>Function Prototype  </th></tr>
+<tr>
+<td>C2C/R2C – Interleaved Single Precision </td><td>Without LDS <br />
+void &lt;postcallback_func&gt; ( __global void *output, uint outoffset, __global void *userdata, float2 fftoutput) <br />
+ With LDS <br />
+void &lt;postcallback_func&gt; ( __global void *output, uint outoffset, __global void *userdata, float2 fftoutput, __local void *localmem) </td></tr>
+<tr>
+<td>C2C/R2C – Interleaved Double Precision </td><td>Without LDS <br />
+void &lt;postcallback_func&gt; ( __global void *output, uint outoffset, __global void *userdata, double2 fftoutput) <br />
+ With LDS <br />
+void &lt;postcallback_func&gt; ( __global void *output, uint outoffset, __global void *userdata, double2 fftoutput, __local void *localmem) </td></tr>
+<tr>
+<td>C2C/R2C – Planar Single Precision </td><td>Without LDS <br />
+void &lt;postcallback_func&gt; ( __global void *outputRe, __global void *outputIm, uint outoffset, __global void *userdata, float fftoutputRe, float fftoutputIm) <br />
+ With LDS <br />
+void &lt;postcallback_func&gt; ( __global void *outputRe, __global void *outputIm, uint outoffset, __global void *userdata, float fftoutputRe, float fftoutputIm, __local void *localmem) </td></tr>
+<tr>
+<td>C2C/R2C – Planar Double Precision </td><td>Without LDS <br />
+void &lt;postcallback_func&gt; ( __global void *outputRe, __global void *outputIm, uint outoffset, __global void *userdata, double fftoutputRe, double fftoutputIm) <br />
+ With LDS <br />
+void &lt;postcallback_func&gt; ( __global void *outputRe, __global void *outputIm, uint outoffset, __global void *userdata, double fftoutputRe, double fftoutputIm, __local void *localmem) </td></tr>
+<tr>
+<td>C2R Single Precision </td><td>Without LDS <br />
+void &lt;postcallback_func&gt; ( __global void *output, uint outoffset, __global void *userdata, float fftoutput) <br />
+ With LDS <br />
+void &lt;postcallback_func&gt; ( __global void *output, uint outoffset, __global void *userdata, float fftoutput, __local void *localmem) </td></tr>
+<tr>
+<td>C2R Double Precision </td><td>Without LDS <br />
+void &lt;postcallback_func&gt; ( __global void *output, uint outoffset, __global void *userdata, double fftoutput) <br />
+ With LDS <br />
+void &lt;postcallback_func&gt; ( __global void *output, uint outoffset, __global void *userdata, double fftoutput, __local void *localmem) </td></tr>
+</table>
+<p>Parameters </p><ul>
+<li>
+<code>output</code> : The base pointer of the output buffer for C2R and Interleaved R2C/C2C transforms </li>
+<li>
+<code>outputRe</code> : The base pointer of the “Real” output buffer for Planar R2C/C2C transforms </li>
+<li>
+<code>outputIm</code> : The base pointer of the “Imaginary” part output buffer for Planar R2C/C2C transforms </li>
+<li>
+<code>outoffset</code> : Index of the current element of the output buffer from the start </li>
+<li>
+<code>userdata</code> : Buffer containing optional caller specified data. The userdata pointer is useful for passing any supplementary data to the callback function. For example, buffer having convolution filter data or any scalar value. The userdata can be of any custom data type/structure, in which case, you have to declare the custom data type and include it along with the callback function string.  </li>
+<li>
+<code>fftoutput</code> : The result computed by clFFT for the element corresponding to outoffset argument </li>
+<li>
+<code>localmem</code> : Pointer to local memory. This memory is allocated by library based on the size you specify and is subject to local memory availability.  </li>
+</ul>
+<h2><a class="anchor" id="SampleCallbackCode"></a>
+Sample Callback Code</h2>
 <div class="fragment"><div class="line"><span class="comment">//**************************************************************************</span></div>
-<div class="line"><span class="comment">//* Step 1 : Store the callback function in a string.</span></div>
+<div class="line"><span class="comment">//* Step 1 : Store the pre and post callback function in a string.</span></div>
 <div class="line"><span class="comment">//**************************************************************************</span></div>
-<div class="line"><span class="keyword">const</span> <span class="keywordtype">char</span>* precallbackstr = <span class="stringliteral">&quot;float2 mulval(__global void* in,        \n</span></div>
+<div class="line"><span class="keyword">const</span> <span class="keywordtype">char</span>* precallbackstr = <span class="stringliteral">&quot;float2 pre_mulval(__global void* input, \n</span></div>
 <div class="line"><span class="stringliteral">                                  uint inoffset,                      \n</span></div>
 <div class="line"><span class="stringliteral">                                  __global void* userdata,            \n</span></div>
 <div class="line"><span class="stringliteral">                                  __local void* localmem)             \n</span></div>
-<div class="line"><span class="stringliteral">                                {                                                             \n</span></div>
-<div class="line"><span class="stringliteral">                                int scalar = *((__global int*)userdata + offset);             \n</span></div>
-<div class="line"><span class="stringliteral">                                float2 ret = *((__global float2*)(float2) + offset) * scalar; \n</span></div>
-<div class="line"><span class="stringliteral">                                return ret;                                                   \n</span></div>
+<div class="line"><span class="stringliteral">                                {                                                            \n</span></div>
+<div class="line"><span class="stringliteral">                                float scalar = *((__global float*)userdata + inoffset);      \n</span></div>
+<div class="line"><span class="stringliteral">                                float2 ret = *((__global float2*)input + inoffset) * scalar; \n</span></div>
+<div class="line"><span class="stringliteral">                                return ret;                                                  \n</span></div>
+<div class="line"><span class="stringliteral">                                }                                                            \n&quot;</span>;</div>
+<div class="line"></div>
+<div class="line"><span class="keyword">const</span> <span class="keywordtype">char</span>* postcallbackstr = <span class="stringliteral">&quot;void post_mulval(__global void* output, \n</span></div>
+<div class="line"><span class="stringliteral">                                  uint outoffset,                      \n</span></div>
+<div class="line"><span class="stringliteral">                                  __global void* userdata,             \n</span></div>
+<div class="line"><span class="stringliteral">                                                                  float2 fftoutput,                    \n</span></div>
+<div class="line"><span class="stringliteral">                                  __local void* localmem)              \n</span></div>
+<div class="line"><span class="stringliteral">                                {                                                      \n</span></div>
+<div class="line"><span class="stringliteral">                                float scalar = *((__global float*)userdata + outoffset);      \n</span></div>
+<div class="line"><span class="stringliteral">                                 *((__global float2*)output + outoffset) = fftoutput * scalar; \n</span></div>
 <div class="line"><span class="stringliteral">                                }                                                             \n&quot;</span>;</div>
-<div class="line"></div>
-<div class="line"></div>
+<div class="line">                                </div>
 <div class="line"><span class="comment">//**************************************************************************</span></div>
-<div class="line"><span class="comment">//* Step 2 : Initialize arguments if any required by the callback.</span></div>
+<div class="line"><span class="comment">//* Step 2 : Initialize arguments, if any, required by the callback.</span></div>
 <div class="line"><span class="comment">//**************************************************************************</span></div>
-<div class="line"><span class="keywordtype">int</span> h_userdata[N] = {  };</div>
-<div class="line">cl_mem userdata = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, <span class="keyword">sizeof</span>(<span class="keywordtype">int</span>) * N,  (<span class="keywordtype">void</span>*)h_userdata, NULL);</div>
+<div class="line"><span class="keywordtype">int</span> h_preuserdata[N] = {  };</div>
+<div class="line">cl_mem preuserdata = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, <span class="keyword">sizeof</span>(<span class="keywordtype">float</span>) * N,  (<span class="keywordtype">void</span>*)h_preuserdata, NULL);</div>
 <div class="line"></div>
+<div class="line"><span class="keywordtype">int</span> h_postuserdata[N] = {  };</div>
+<div class="line">cl_mem postuserdata = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, <span class="keyword">sizeof</span>(<span class="keywordtype">float</span>) * N,  (<span class="keywordtype">void</span>*)h_postuserdata, NULL);</div>
 <div class="line"></div>
 <div class="line"><span class="comment">//**************************************************************************</span></div>
 <div class="line"><span class="comment">//* Step 3 : Register the callback.</span></div>
 <div class="line"><span class="comment">//**************************************************************************</span></div>
 <div class="line"></div>
-<div class="line">status = <a class="code" href="clFFT_8h.html#a9e11136b05502559f1d397be25a2f0c8">clfftSetPlanCallback</a>(plan_handle, <span class="stringliteral">&quot;mulval&quot;</span>, precallbackstr, 0, <a class="code" href="clFFT_8h.html#a5054fb252880d1e32b9d758e3c6b45e3ac07041dc0f34755070319d1afc32ab6e">PRECALLBACK</a>, &amp;userdata, 1);</div>
+<div class="line">status = <a class="code" href="clFFT_8h.html#a9e11136b05502559f1d397be25a2f0c8">clfftSetPlanCallback</a>(plan_handle, <span class="stringliteral">&quot;pre_mulval&quot;</span>, precallbackstr, 0, <a class="code" href="clFFT_8h.html#a5054fb252880d1e32b9d758e3c6b45e3ac07041dc0f34755070319d1afc32ab6e">PRECALLBACK</a>, &amp;preuserdata, 1);</div>
 <div class="line"></div>
+<div class="line">status = <a class="code" href="clFFT_8h.html#a9e11136b05502559f1d397be25a2f0c8">clfftSetPlanCallback</a>(plan_handle, <span class="stringliteral">&quot;post_mulval&quot;</span>, postcallbackstr, 0, <a class="code" href="clFFT_8h.html#a5054fb252880d1e32b9d758e3c6b45e3a8b6cc34b822e92a0a2e8db260b42fdc8">POSTCALLBACK</a>, &amp;postuserdata, 1);</div>
 <div class="line"></div>
 <div class="line"><span class="comment">//**************************************************************************</span></div>
 <div class="line"><span class="comment">//* Step 4 : Bake plan and enqueue transform.</span></div>
@@ -532,24 +585,26 @@ Sample Pre-Callback Code</h2>
 <div class="line"></div>
 <div class="line">status = <a class="code" href="clFFT_8h.html#aa0f2e7bc39a9511908c7403a0dfb0e0f">clfftEnqueueTransform</a>( plan_handle, dir, 1, &amp;queue, 0, NULL, &amp;outEvent,</div>
 <div class="line">                        &amp;input_buffers[ 0 ], buffersOut, clMedBuffer );</div>
-</div><!-- fragment --><h2><a class="anchor" id="PreCallbackConsiderations"></a>
-Pre-callback Considerations</h2>
+</div><!-- fragment --><h2><a class="anchor" id="CallbackNotes"></a>
+Important Notes on Callback</h2>
 <ol>
 <li>
-The caller is responsible to provide a callback function in string form that matches the function prototype based on the type of callback, type of transform(real/complex) and whether LDS is used </li>
+The caller is responsible to provide a callback function in string form that matches the function prototype based on the type of callback, type of transform(real/complex), and whether LDS is used. </li>
 <li>
-clFFT considers the value returned by pre-callback function as the new value of the input at the index corresponding to the <em>inoffset</em> argument </li>
+clFFT considers the value returned by the pre-callback function as the new value of the input at the index corresponding to the <em>inoffset</em> argument. </li>
 <li>
-Pre-callback function can request for local memory for its own use. If the requested amount of local memory is available on the device, clFFT passes a pointer to the local memory when it invokes the callback function </li>
+Callback function can request for local memory for its own use. If the requested amount of local memory is available on the device, clFFT passes a pointer to the local memory when it invokes the callback function. </li>
 <li>
-clFFT may invoke FFT kernels several times depending on the input parameters. However the pre-callback function provided by caller is invoked only once for each point in the input </li>
+clFFT may invoke the FFT kernels several times depending on the input parameters. However, the pre-callback function provided by the caller is invoked only once for each point in the input. Similarly, it calls the post-callback function only once for each point in the output. </li>
+<li>
+If clFFT is implementing a given FFT in multiple phases, it calls the pre-callback function only from the first phase kernel. Similarly, it calls the post-callback function only from the last phase kernel. </li>
 </ol>
 </div></div><!-- contents -->
 </div><!-- doc-content -->
 <!-- start footer part -->
 <div id="nav-path" class="navpath"><!-- id is needed for treeview function! -->
   <ul>
-    <li class="footer">Generated on Mon Oct 19 2015 17:31:11 for clFFT by
+    <li class="footer">Generated on Mon Jan 11 2016 16:18:20 for clFFT by
     <a href="http://www.doxygen.org/index.html">
     <img class="footer" src="doxygen.png" alt="doxygen"/></a> 1.8.10 </li>
   </ul>

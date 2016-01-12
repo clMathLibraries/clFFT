@@ -32,10 +32,11 @@ var NAVTREE =
       [ "clFFT Callbacks", "index.html#Callbacks", [
         [ "Callback Workflow", "index.html#CallbackWorkflow", null ],
         [ "Callback Function Prototypes", "index.html#CallbackFunctionPrototype", [
-          [ "Pre-callback Prototypes", "index.html#PrecallbackProtyotype", null ]
+          [ "Pre-callback Prototypes", "index.html#PrecallbackProtyotype", null ],
+          [ "Post-callback Prototypes", "index.html#PostcallbackProtyotype", null ]
         ] ],
-        [ "Sample Pre-Callback Code", "index.html#SamplePrecallbackCode", null ],
-        [ "Pre-callback Considerations", "index.html#PreCallbackConsiderations", null ]
+        [ "Sample Callback Code", "index.html#SampleCallbackCode", null ],
+        [ "Important Notes on Callback", "index.html#CallbackNotes", null ]
       ] ]
     ] ],
     [ "Classes", "annotated.html", [
