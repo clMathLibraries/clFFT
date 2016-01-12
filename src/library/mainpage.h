@@ -1,4 +1,4 @@
-/* ************************************************************************
+﻿/* ************************************************************************
  * Copyright 2013-2015 Advanced Micro Devices, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -100,7 +100,7 @@ explicitly flush the command queues that are passed by reference to it. It pushe
 @subsection EnvVariables Environment variables
 The clFFT library looks for definition of two environment variables: CLFFT_CACHE_PATH and CLFFT_REQUEST_LIB_NOMEMALLOC. 
 If the variable CLFFT_CACHE_PATH is defined, the library caches OpenCL binaries. This enables a subsequent run of the application with the same type of transforms to avoid the expensive compilation step. Instead, the stored binaries are loaded and executed. The CLFFT_CACHE_PATH must point to a folder location where the library can store binaries. 
-The other variable CLFFT_REQUEST_LIB_NOMEMALLOC when defined, requests the library to do all computations in-place and avoid allocating extra device memory whenever possible. This feature is experimental and currently works only for certain types of transforms  when the library decomposes the input into square matrices or rectangular matrices with dimensions in the ratio 1:2. Currently, it works for 1D complex transforms of size of powers of 2 and even powers of 3, 5, and 7. 
+The other variable CLFFT_REQUEST_LIB_NOMEMALLOC when defined, requests the library to do all computations in-place and avoid allocating extra device memory whenever possible. This feature is experimental and currently works only for certain types of transforms  when the library decomposes the input into square matrices or rectangular matrices with dimensions in the ratio 1:2. Currently, it works for 1D complex transforms of size of powers of 2. 
 
 @section clFFTPlans clFFT plans
 A plan is the collection of (almost) all the parameters needed to specify an FFT computation.
