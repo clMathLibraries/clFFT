@@ -3507,8 +3507,8 @@ namespace StockhamGenerator
 						}
 						else
 						{
-							str += "__global const "; str += rType; str += " * restrict gbOutRe, ";
-							str += "__global const "; str += rType; str += " * restrict gbOutIm";
+							str += "__global "; str += rType; str += " * restrict gbOutRe, ";
+							str += "__global "; str += rType; str += " * restrict gbOutIm";
 						}
 
 						//If plan has callback
