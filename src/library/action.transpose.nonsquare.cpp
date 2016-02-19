@@ -1,0 +1,364 @@
+/* ************************************************************************
+* Copyright 2013 Advanced Micro Devices, Inc.
+*
+* Licensed under the Apache License, Version 2.0 (the "License");
+* you may not use this file except in compliance with the License.
+* You may obtain a copy of the License at
+*
+* http://www.apache.org/licenses/LICENSE-2.0
+*
+* Unless required by applicable law or agreed to in writing, software
+* distributed under the License is distributed on an "AS IS" BASIS,
+* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+* See the License for the specific language governing permissions and
+* limitations under the License.
+* ************************************************************************/
+
+
+// action.transpose.nonsquare.cpp provides the entry points of "baking"
+// nonsquare inplace transpose kernels called in plan.cpp.
+// the actual kernel string generation is provided by generator.transpose.cpp
+
+#include "stdafx.h"
+
+#include <math.h>
+#include <iomanip>
+#include "generator.transpose.h"
+#include "action.transpose.nonsquare.h"
+#include "generator.stockham.h"
+
+#include "action.h"
+
+FFTGeneratedTransposeNonSquareAction::FFTGeneratedTransposeNonSquareAction(clfftPlanHandle plHandle, FFTPlan * plan, cl_command_queue queue, clfftStatus & err)
+    : FFTTransposeNonSquareAction(plHandle, plan, queue, err)
+{
+    if (err != CLFFT_SUCCESS)
+    {
+        // FFTTransposeNonSquareAction() failed, exit
+        fprintf(stderr, "FFTTransposeNonSquareAction() failed!\n");
+        return;
+    }
+
+    // Initialize the FFTAction::FFTKernelGenKeyParams member
+    err = this->initParams();
+
+    if (err != CLFFT_SUCCESS)
+    {
+        fprintf(stderr, "FFTGeneratedTransposeNonSquareAction::initParams() failed!\n");
+        return;
+    }
+
+    FFTRepo &fftRepo = FFTRepo::getInstance();
+
+    err = this->generateKernel(fftRepo, queue);
+
+    if (err != CLFFT_SUCCESS)
+    {
+        fprintf(stderr, "FFTGeneratedTransposeNonSquareAction::generateKernel failed\n");
+        return;
+    }
+
+    err = compileKernels(queue, plHandle, plan);
+
+    if (err != CLFFT_SUCCESS)
+    {
+        fprintf(stderr, "FFTGeneratedTransposeNonSquareAction::compileKernels failed\n");
+        return;
+    }
+
+    err = CLFFT_SUCCESS;
+}
+
+
+bool FFTGeneratedTransposeNonSquareAction::buildForwardKernel()
+{
+    clfftLayout inputLayout = this->getSignatureData()->fft_inputLayout;
+    clfftLayout outputLayout = this->getSignatureData()->fft_outputLayout;
+
+    bool r2c_transform = (inputLayout == CLFFT_REAL);
+    bool c2r_transform = (outputLayout == CLFFT_REAL);
+    bool real_transform = (r2c_transform || c2r_transform);
+
+    return (!real_transform) || r2c_transform;
+}
+
+bool FFTGeneratedTransposeNonSquareAction::buildBackwardKernel()
+{
+    clfftLayout inputLayout = this->getSignatureData()->fft_inputLayout;
+    clfftLayout outputLayout = this->getSignatureData()->fft_outputLayout;
+
+    bool r2c_transform = (inputLayout == CLFFT_REAL);
+    bool c2r_transform = (outputLayout == CLFFT_REAL);
+    bool real_transform = (r2c_transform || c2r_transform);
+
+    return (!real_transform) || c2r_transform;
+}
+
+// These strings represent the names that are used as strKernel parameters
+const std::string pmRealIn("pmRealIn");
+const std::string pmImagIn("pmImagIn");
+const std::string pmRealOut("pmRealOut");
+const std::string pmImagOut("pmImagOut");
+const std::string pmComplexIn("pmComplexIn");
+const std::string pmComplexOut("pmComplexOut");
+
+clfftStatus FFTGeneratedTransposeNonSquareAction::initParams()
+{
+
+    this->signature.fft_precision = this->plan->precision;
+    this->signature.fft_placeness = this->plan->placeness;
+    this->signature.fft_inputLayout = this->plan->inputLayout;
+    this->signature.fft_outputLayout = this->plan->outputLayout;
+    this->signature.fft_3StepTwiddle = false;
+    this->signature.nonSquareKernelType = this->plan->nonSquareKernelType;
+
+    this->signature.fft_realSpecial = this->plan->realSpecial;
+
+    this->signature.transOutHorizontal = this->plan->transOutHorizontal;	// using the twiddle front flag to specify horizontal write
+                                                                            // we do this so as to reuse flags in FFTKernelGenKeyParams
+                                                                            // and to avoid making a new one 
+
+    ARG_CHECK(this->plan->inStride.size() == this->plan->outStride.size());
+
+    if (CLFFT_INPLACE == this->signature.fft_placeness)
+    {
+        //	If this is an in-place transform the
+        //	input and output layout
+        //	*MUST* be the same.
+        //
+        ARG_CHECK(this->signature.fft_inputLayout == this->signature.fft_outputLayout)
+
+    /*        for (size_t u = this->plan->inStride.size(); u-- > 0; )
+            {
+                ARG_CHECK(this->plan->inStride[u] == this->plan->outStride[u]);
+            }*/
+    }
+
+    this->signature.fft_DataDim = this->plan->length.size() + 1;
+    int i = 0;
+    for (i = 0; i < (this->signature.fft_DataDim - 1); i++)
+    {
+        this->signature.fft_N[i] = this->plan->length[i];
+        this->signature.fft_inStride[i] = this->plan->inStride[i];
+        this->signature.fft_outStride[i] = this->plan->outStride[i];
+
+    }
+    this->signature.fft_inStride[i] = this->plan->iDist;
+    this->signature.fft_outStride[i] = this->plan->oDist;
+
+    if (this->plan->large1D != 0) {
+        ARG_CHECK(this->signature.fft_N[0] != 0)
+            //ToDo:ENABLE ASSERT
+       //     ARG_CHECK((this->plan->large1D % this->signature.fft_N[0]) == 0)
+            this->signature.fft_3StepTwiddle = true;
+        //ToDo:ENABLE ASSERT
+       // ARG_CHECK(this->plan->large1D == (this->signature.fft_N[1] * this->signature.fft_N[0]));
+    }
+
+    //	Query the devices in this context for their local memory sizes
+    //	How we generate a kernel depends on the *minimum* LDS size for all devices.
+    //
+    const FFTEnvelope * pEnvelope = NULL;
+    OPENCL_V(this->plan->GetEnvelope(&pEnvelope), _T("GetEnvelope failed"));
+    BUG_CHECK(NULL != pEnvelope);
+
+    // TODO:  Since I am going with a 2D workgroup size now, I need a better check than this 1D use
+    // Check:  CL_DEVICE_MAX_WORK_GROUP_SIZE/CL_KERNEL_WORK_GROUP_SIZE
+    // CL_DEVICE_MAX_WORK_ITEM_SIZES
+    this->signature.fft_R = 1; // Dont think i'll use
+    this->signature.fft_SIMD = pEnvelope->limit_WorkGroupSize; // Use devices maximum workgroup size
+
+                                                               //Set callback if specified
+    if (this->plan->hasPreCallback)
+    {
+        this->signature.fft_hasPreCallback = true;
+        this->signature.fft_preCallback = this->plan->preCallback;
+    }
+	if (this->plan->hasPostCallback)
+	{
+		this->signature.fft_hasPostCallback = true;
+		this->signature.fft_postCallback = this->plan->postCallbackParam;
+	}
+	this->signature.limit_LocalMemSize = this->plan->envelope.limit_LocalMemSize;
+
+    return CLFFT_SUCCESS;
+}
+
+
+static const size_t lwSize = 256;
+static const size_t reShapeFactor = 2;
+
+
+//	OpenCL does not take unicode strings as input, so this routine returns only ASCII strings
+//	Feed this generator the FFTPlan, and it returns the generated program as a string
+clfftStatus FFTGeneratedTransposeNonSquareAction::generateKernel(FFTRepo& fftRepo, const cl_command_queue commQueueFFT)
+{
+
+
+    std::string programCode;
+    if (this->signature.nonSquareKernelType == NON_SQUARE_TRANS_TRANSPOSE)
+    {
+		//Requested local memory size by callback must not exceed the device LDS limits after factoring the LDS size required by transpose kernel
+		if (this->signature.fft_hasPreCallback && this->signature.fft_preCallback.localMemSize > 0)
+		{
+			assert(!this->signature.fft_hasPostCallback);
+
+			bool validLDSSize = false;
+			size_t requestedCallbackLDS = 0;
+
+			requestedCallbackLDS = this->signature.fft_preCallback.localMemSize;
+			
+			validLDSSize = ((2 * this->plan->ElementSize() * 16 * reShapeFactor * 16 * reShapeFactor) + requestedCallbackLDS) < this->plan->envelope.limit_LocalMemSize;
+		
+			if(!validLDSSize)
+			{
+				fprintf(stderr, "Requested local memory size not available\n");
+				return CLFFT_INVALID_ARG_VALUE;
+			}
+		}
+        OPENCL_V(clfft_transpose_generator::genTransposeKernelLeadingDimensionBatched(this->signature, programCode, lwSize, reShapeFactor), _T("genTransposeKernel() failed!"));
+    }
+    else
+    {
+		//No pre-callback possible in swap kernel
+		assert(!this->signature.fft_hasPreCallback);
+
+        OPENCL_V(clfft_transpose_generator::genSwapKernel(this->signature, programCode, lwSize, reShapeFactor), _T("genSwapKernel() failed!"));
+    }
+
+    cl_int status = CL_SUCCESS;
+    cl_device_id Device = NULL;
+    status = clGetCommandQueueInfo(commQueueFFT, CL_QUEUE_DEVICE, sizeof(cl_device_id), &Device, NULL);
+    OPENCL_V(status, _T("clGetCommandQueueInfo failed"));
+
+    cl_context QueueContext = NULL;
+    status = clGetCommandQueueInfo(commQueueFFT, CL_QUEUE_CONTEXT, sizeof(cl_context), &QueueContext, NULL);
+    OPENCL_V(status, _T("clGetCommandQueueInfo failed"));
+
+
+    OPENCL_V(fftRepo.setProgramCode(Transpose_NONSQUARE, this->getSignatureData(), programCode, Device, QueueContext), _T("fftRepo.setclString() failed!"));
+    if (this->signature.nonSquareKernelType == NON_SQUARE_TRANS_TRANSPOSE)
+    {
+        // Note:  See genFunctionPrototype( )
+        if (this->signature.fft_3StepTwiddle)
+        {
+            OPENCL_V(fftRepo.setProgramEntryPoints(Transpose_NONSQUARE, this->getSignatureData(), "transpose_nonsquare_tw_fwd", "transpose_nonsquare_tw_back", Device, QueueContext), _T("fftRepo.setProgramEntryPoint() failed!"));
+        }
+        else
+        {
+            OPENCL_V(fftRepo.setProgramEntryPoints(Transpose_NONSQUARE, this->getSignatureData(), "transpose_nonsquare", "transpose_nonsquare", Device, QueueContext), _T("fftRepo.setProgramEntryPoint() failed!"));
+        }
+    }
+    else
+    {
+        OPENCL_V(fftRepo.setProgramEntryPoints(Transpose_NONSQUARE, this->getSignatureData(), "swap_nonsquare", "swap_nonsquare", Device, QueueContext), _T("fftRepo.setProgramEntryPoint() failed!"));
+    }
+    return CLFFT_SUCCESS;
+}
+
+
+clfftStatus FFTGeneratedTransposeNonSquareAction::getWorkSizes(std::vector< size_t >& globalWS, std::vector< size_t >& localWS)
+{
+
+    size_t wg_slice;
+    size_t smaller_dim = (this->signature.fft_N[0] < this->signature.fft_N[1]) ? this->signature.fft_N[0] : this->signature.fft_N[1];
+    size_t global_item_size;
+
+    if (this->signature.nonSquareKernelType == NON_SQUARE_TRANS_TRANSPOSE)
+    {
+        if (smaller_dim % (16 * reShapeFactor) == 0)
+            wg_slice = smaller_dim / 16 / reShapeFactor;
+        else
+            wg_slice = (smaller_dim / (16 * reShapeFactor)) + 1;
+
+        global_item_size = wg_slice*(wg_slice + 1) / 2 * 16 * 16 * this->plan->batchsize;
+
+        for (int i = 2; i < this->signature.fft_DataDim - 1; i++)
+        {
+            global_item_size *= this->signature.fft_N[i];
+        }
+
+        /*Push the data required for the transpose kernels*/
+        globalWS.clear();
+        globalWS.push_back(global_item_size * 2);
+
+        localWS.clear();
+        localWS.push_back(lwSize);
+    }
+    else
+    {
+        /*Now calculate the data for the swap kernels */
+
+        size_t input_elm_size_in_bytes;
+        switch (this->signature.fft_precision)
+        {
+        case CLFFT_SINGLE:
+        case CLFFT_SINGLE_FAST:
+            input_elm_size_in_bytes = 4;
+            break;
+        case CLFFT_DOUBLE:
+        case CLFFT_DOUBLE_FAST:
+            input_elm_size_in_bytes = 8;
+            break;
+        default:
+            return CLFFT_TRANSPOSED_NOTIMPLEMENTED;
+        }
+
+        switch (this->signature.fft_outputLayout)
+        {
+        case CLFFT_COMPLEX_INTERLEAVED:
+        case CLFFT_COMPLEX_PLANAR:
+            input_elm_size_in_bytes *= 2;
+            break;
+        case CLFFT_REAL:
+            break;
+        default:
+            return CLFFT_TRANSPOSED_NOTIMPLEMENTED;
+        }
+        size_t max_elements_loaded = AVAIL_MEM_SIZE / input_elm_size_in_bytes;
+        size_t num_elements_loaded;
+        size_t local_work_size_swap, num_grps_pro_row;
+
+        if ((max_elements_loaded >> 1) > smaller_dim)
+        {
+            local_work_size_swap = (smaller_dim < 256) ? smaller_dim : 256;
+            num_elements_loaded = smaller_dim;
+            num_grps_pro_row = 1;
+        }
+        else
+        {
+            num_grps_pro_row = (smaller_dim << 1) / max_elements_loaded;
+            num_elements_loaded = max_elements_loaded >> 1;
+            local_work_size_swap = (num_elements_loaded < 256) ? num_elements_loaded : 256;
+        }
+        size_t num_reduced_row;
+        size_t num_reduced_col;
+
+        if (this->signature.fft_N[1] == smaller_dim)
+        {
+            num_reduced_row = smaller_dim;
+            num_reduced_col = 2;
+        }
+        else
+        {
+            num_reduced_row = 2;
+            num_reduced_col = smaller_dim;
+        }
+
+        size_t *cycle_map = new size_t[num_reduced_row * num_reduced_col * 2];
+        /* The memory required by cycle_map cannot exceed 2 times row*col by design*/
+		clfft_transpose_generator::get_cycles(cycle_map, num_reduced_row, num_reduced_col);
+
+        global_item_size = local_work_size_swap * num_grps_pro_row * cycle_map[0] * this->plan->batchsize;
+
+        for (int i = 2; i < this->signature.fft_DataDim - 1; i++)
+        {
+            global_item_size *= this->signature.fft_N[i];
+        }
+        delete[] cycle_map;
+
+        globalWS.push_back(global_item_size);
+        localWS.push_back(local_work_size_swap);
+    }
+    return CLFFT_SUCCESS;
+}

@@ -242,6 +242,7 @@ int main( int argc, char **argv )
 	if( vm.count( "short" ) )
 	{
 		newFilter += "--gtest_filter=*accuracy_test_pow2*";
+		//newFilter += "--gtest_filter=";
 		if( userFilter.size( ) )
 		{
 			newFilter += ":";

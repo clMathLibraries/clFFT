@@ -1298,7 +1298,7 @@ TEST_F(accuracy_test_pow2_double, large_1D_forward_in_place_complex_planar_to_co
 // *****************************************************
 // *****************************************************
 
-//#define CLFFT_TEST_HUGE
+#define CLFFT_TEST_HUGE
 #ifdef CLFFT_TEST_HUGE
 
 #define HUGE_TEST_MAKE(test_name, len, bat) \
@@ -1344,20 +1344,20 @@ void test_name() \
 
 SP_HUGE_TEST( huge_sp_test_1, 1048576,    11 )
 SP_HUGE_TEST( huge_sp_test_2, 1048576*2,  7  )
-SP_HUGE_TEST( huge_sp_test_3, 1048576*4,  3  )
-SP_HUGE_TEST( huge_sp_test_4, 1048576*8,  5  )
-SP_HUGE_TEST( huge_sp_test_5, 1048576*16, 3  )
-SP_HUGE_TEST( huge_sp_test_6, 1048576*32, 2  )
-SP_HUGE_TEST( huge_sp_test_7, 1048576*64, 1  )
+//SP_HUGE_TEST( huge_sp_test_3, 1048576*4,  3  )
+//SP_HUGE_TEST( huge_sp_test_4, 1048576*8,  5  )
+//SP_HUGE_TEST( huge_sp_test_5, 1048576*16, 3  )
+//SP_HUGE_TEST( huge_sp_test_6, 1048576*32, 2  )
+//SP_HUGE_TEST( huge_sp_test_7, 1048576*64, 1  )
 
 DP_HUGE_TEST( huge_dp_test_1, 524288,    11 )
 DP_HUGE_TEST( huge_dp_test_2, 524288*2,  7  )
-DP_HUGE_TEST( huge_dp_test_3, 524288*4,  3  )
-DP_HUGE_TEST( huge_dp_test_4, 524288*8,  5  )
-DP_HUGE_TEST( huge_dp_test_5, 524288*16, 3  )
-DP_HUGE_TEST( huge_dp_test_6, 524288*32, 2  )
-DP_HUGE_TEST( huge_dp_test_7, 524288*64, 1  )
-
+//DP_HUGE_TEST( huge_dp_test_3, 524288*4,  3  )
+//DP_HUGE_TEST( huge_dp_test_4, 524288*8,  5  )
+//DP_HUGE_TEST( huge_dp_test_5, 524288*16, 3  )
+//DP_HUGE_TEST( huge_dp_test_6, 524288*32, 2  )
+//DP_HUGE_TEST( huge_dp_test_7, 524288*64, 1  )
+/*
 SP_HUGE_TEST( large_sp_test_1, 8192,    11 )
 SP_HUGE_TEST( large_sp_test_2, 8192*2,  7  )
 SP_HUGE_TEST( large_sp_test_3, 8192*4,  3  )
@@ -1373,7 +1373,7 @@ DP_HUGE_TEST( large_dp_test_4, 4096*8,  5  )
 DP_HUGE_TEST( large_dp_test_5, 4096*16, 3  )
 DP_HUGE_TEST( large_dp_test_6, 4096*32, 21  )
 DP_HUGE_TEST( large_dp_test_7, 4096*64, 17  )
-
+*/
 #endif
 
 // *****************************************************
