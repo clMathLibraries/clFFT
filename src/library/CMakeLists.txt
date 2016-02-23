@@ -22,13 +22,12 @@ set( clFFT.Source	transform.cpp
 								generator.stockham.cpp
 								generator.transpose.gcn.cpp
 								generator.transpose.cpp
-								action.transpose.nonsquare.cpp
-								action.transpose.square.cpp
+								action.transpose.cpp
 								generator.copy.cpp
 								lifetime.cpp
 								fft_binary_lookup.cpp
 								md5sum.c
-								action.cpp
+								enqueue.cpp
 								stdafx.cpp )
 
 # Windows only uses dllmain
@@ -46,8 +45,7 @@ set( clFFT.Headers	private.h
 					generator.stockham.h
 					generator.transpose.gcn.h
 					generator.transpose.h
-					action.transpose.nonsquare.h
-					action.transpose.square.h
+					action.transpose.h
 					fft_binary_lookup.h
 					md5sum.h
 					../include/stdafx.h

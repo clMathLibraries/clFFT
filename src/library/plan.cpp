@@ -1955,7 +1955,7 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 						clLengths[0] = fftPlan->length[0];
 						clLengths[1] = fftPlan->length[1];
 
-						//Transpose stage 1
+						//Transpose stage 1 first do batched sqaure transpose along leading dim 
 						OPENCL_V(clfftCreateDefaultPlanInternal(&fftPlan->planTX, fftPlan->context, CLFFT_2D, clLengths),
 							_T("CreateDefaultPlan transpose_nsq_stage1 plan failed"));
 
@@ -1999,9 +1999,9 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 							_T("BakePlan transpose_nsq_stage1 plan failed"));
 
 
-						//Transpose stage 2
+						//Transpose stage 2 then do swapping lines
 						OPENCL_V(clfftCreateDefaultPlanInternal(&fftPlan->planTY, fftPlan->context, CLFFT_2D, clLengths),
-							_T("CreateDefaultPlan transpose_nsq_stage1 plan failed"));
+							_T("CreateDefaultPlan transpose_nsq_stage2 plan failed"));
 
 						FFTPlan* trans2Plan = NULL;
 						lockRAII* trans2Lock = NULL;

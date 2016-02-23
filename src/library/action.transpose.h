@@ -16,7 +16,7 @@
 
 #pragma once
 #if !defined( AMD_CLFFT_generator_transpose_H )
-#define AMD_CLFFT_generator_transpose_H
+#define AMD_CLFFT_action_transpose_H
 #include "private.h"
 #include "repo.h"
 #include "plan.h"
