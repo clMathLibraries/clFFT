@@ -196,7 +196,7 @@ clfftStatus FFTGeneratedTransposeNonSquareAction::generateKernel(FFTRepo& fftRep
 
 
     std::string programCode;
-    if (this->signature.nonSquareKernelType == NON_SQUARE_TRANS_TRANSPOSE)
+    if (this->signature.nonSquareKernelType == NON_SQUARE_TRANS_TRANSPOSE_BATCHED_LEADING)
     {
 		//Requested local memory size by callback must not exceed the device LDS limits after factoring the LDS size required by transpose kernel
 		if (this->signature.fft_hasPreCallback && this->signature.fft_preCallback.localMemSize > 0)
@@ -218,11 +218,53 @@ clfftStatus FFTGeneratedTransposeNonSquareAction::generateKernel(FFTRepo& fftRep
 		}
         OPENCL_V(clfft_transpose_generator::genTransposeKernelLeadingDimensionBatched(this->signature, programCode, lwSize, reShapeFactor), _T("genTransposeKernel() failed!"));
     }
+	else if (this->signature.nonSquareKernelType == NON_SQUARE_TRANS_TRANSPOSE_BATCHED)
+	{
+		//pre call back check
+		//Requested local memory size by callback must not exceed the device LDS limits after factoring the LDS size required by transpose kernel
+		if (this->signature.fft_hasPreCallback && this->signature.fft_preCallback.localMemSize > 0)
+		{
+			assert(!this->signature.fft_hasPostCallback);
+
+			bool validLDSSize = false;
+			size_t requestedCallbackLDS = 0;
+
+			requestedCallbackLDS = this->signature.fft_preCallback.localMemSize;
+
+			validLDSSize = ((2 * this->plan->ElementSize() * 16 * reShapeFactor * 16 * reShapeFactor) + requestedCallbackLDS) < this->plan->envelope.limit_LocalMemSize;
+
+			if (!validLDSSize)
+			{
+				fprintf(stderr, "Requested local memory size not available\n");
+				return CLFFT_INVALID_ARG_VALUE;
+			}
+		}
+		OPENCL_V(clfft_transpose_generator::genTransposeKernelBatched(this->signature, programCode, lwSize, reShapeFactor), _T("genTransposeKernel() failed!"));
+	}
     else
     {
-		//No pre-callback possible in swap kernel
-		assert(!this->signature.fft_hasPreCallback);
+		//No pre-callback possible in swap kernel 
+		//assert(!this->signature.fft_hasPreCallback);
 
+		//pre-callback is possible in swap kernel now
+		if (this->signature.fft_hasPreCallback && this->signature.fft_preCallback.localMemSize > 0)
+		{
+			assert(!this->signature.fft_hasPostCallback);
+
+			bool validLDSSize = false;
+			size_t requestedCallbackLDS = 0;
+
+			requestedCallbackLDS = this->signature.fft_preCallback.localMemSize;
+			//LDS usage of swap lines is exactly 2 lines
+			int lineSize = (this->signature.fft_N[0]) < (this->signature.fft_N[1]) ? this->signature.fft_N[0] : this->signature.fft_N[1];
+			validLDSSize = ((2 * this->plan->ElementSize() * lineSize) + requestedCallbackLDS) < this->plan->envelope.limit_LocalMemSize;
+
+			if (!validLDSSize)
+			{
+				fprintf(stderr, "Requested local memory size not available\n");
+				return CLFFT_INVALID_ARG_VALUE;
+			}
+		}
         OPENCL_V(clfft_transpose_generator::genSwapKernel(this->signature, programCode, lwSize, reShapeFactor), _T("genSwapKernel() failed!"));
     }
 
@@ -237,7 +279,7 @@ clfftStatus FFTGeneratedTransposeNonSquareAction::generateKernel(FFTRepo& fftRep
 
 
     OPENCL_V(fftRepo.setProgramCode(Transpose_NONSQUARE, this->getSignatureData(), programCode, Device, QueueContext), _T("fftRepo.setclString() failed!"));
-    if (this->signature.nonSquareKernelType == NON_SQUARE_TRANS_TRANSPOSE)
+    if (this->signature.nonSquareKernelType == NON_SQUARE_TRANS_TRANSPOSE_BATCHED_LEADING)
     {
         // Note:  See genFunctionPrototype( )
         if (this->signature.fft_3StepTwiddle)
@@ -249,6 +291,17 @@ clfftStatus FFTGeneratedTransposeNonSquareAction::generateKernel(FFTRepo& fftRep
             OPENCL_V(fftRepo.setProgramEntryPoints(Transpose_NONSQUARE, this->getSignatureData(), "transpose_nonsquare", "transpose_nonsquare", Device, QueueContext), _T("fftRepo.setProgramEntryPoint() failed!"));
         }
     }
+	else if(this->signature.nonSquareKernelType == NON_SQUARE_TRANS_TRANSPOSE_BATCHED)
+	{
+		if (this->signature.fft_3StepTwiddle)
+		{
+			OPENCL_V(fftRepo.setProgramEntryPoints(Transpose_NONSQUARE, this->getSignatureData(), "transpose_square_tw_fwd", "transpose_square_tw_back", Device, QueueContext), _T("fftRepo.setProgramEntryPoint() failed!"));
+		}
+		else
+		{
+			OPENCL_V(fftRepo.setProgramEntryPoints(Transpose_NONSQUARE, this->getSignatureData(), "transpose_square", "transpose_square", Device, QueueContext), _T("fftRepo.setProgramEntryPoint() failed!"));
+		}
+	}
     else
     {
         OPENCL_V(fftRepo.setProgramEntryPoints(Transpose_NONSQUARE, this->getSignatureData(), "swap_nonsquare", "swap_nonsquare", Device, QueueContext), _T("fftRepo.setProgramEntryPoint() failed!"));
@@ -264,7 +317,8 @@ clfftStatus FFTGeneratedTransposeNonSquareAction::getWorkSizes(std::vector< size
     size_t smaller_dim = (this->signature.fft_N[0] < this->signature.fft_N[1]) ? this->signature.fft_N[0] : this->signature.fft_N[1];
     size_t global_item_size;
 
-    if (this->signature.nonSquareKernelType == NON_SQUARE_TRANS_TRANSPOSE)
+    if (this->signature.nonSquareKernelType == NON_SQUARE_TRANS_TRANSPOSE_BATCHED_LEADING  
+        || this->signature.nonSquareKernelType == NON_SQUARE_TRANS_TRANSPOSE_BATCHED)
     {
         if (smaller_dim % (16 * reShapeFactor) == 0)
             wg_slice = smaller_dim / 16 / reShapeFactor;
@@ -280,7 +334,11 @@ clfftStatus FFTGeneratedTransposeNonSquareAction::getWorkSizes(std::vector< size
 
         /*Push the data required for the transpose kernels*/
         globalWS.clear();
-        globalWS.push_back(global_item_size * 2);
+		if(this->signature.nonSquareKernelType == NON_SQUARE_TRANS_TRANSPOSE_BATCHED_LEADING)
+			globalWS.push_back(global_item_size * 2);
+		else if (this->signature.nonSquareKernelType == NON_SQUARE_TRANS_TRANSPOSE_BATCHED)
+			globalWS.push_back(global_item_size);
+
 
         localWS.clear();
         localWS.push_back(lwSize);

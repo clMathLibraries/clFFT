@@ -38,7 +38,8 @@ void OffsetCalc(std::stringstream& transKernel, const FFTKernelGenKeyParams& par
 
 	for (size_t i = params.fft_DataDim - 2; i > 0; i--)
 	{
-		clKernWrite(transKernel, 3) << offset << " += (g_index/numGroupsY_" << i << ")*" << stride[i + 1] << ";" << std::endl;
+		clKernWrite(transKernel, 3) << offset << " += (g_index/numGroupsY_" << i << ")*" << stride[i + 1] << ";" << std::endl;//TIMMY
+		//clKernWrite(transKernel, 3) << offset << " += (g_index/numGroupsY_" << i << ")*" << 1048576 << ";" << std::endl;
 		clKernWrite(transKernel, 3) << "g_index = g_index % numGroupsY_" << i << ";" << std::endl;
 	}
 
@@ -1592,6 +1593,13 @@ clfftStatus genTransposeKernelLeadingDimensionBatched(const FFTGeneratedTranspos
 		{
 			//Insert callback function code at the beginning 
 			clKernWrite(transKernel, 0) << params.fft_preCallback.funcstring << std::endl;
+			clKernWrite(transKernel, 0) << std::endl;
+		}
+		//If post-callback is set for the plan
+		if (params.fft_hasPostCallback)
+		{
+			//Insert callback function code at the beginning 
+			clKernWrite(transKernel, 0) << params.fft_postCallback.funcstring << std::endl;
 			clKernWrite(transKernel, 0) << std::endl;
 		}
 
