@@ -181,6 +181,9 @@ clfftStatus FFTGeneratedTransposeNonSquareAction::initParams()
 	}
 	this->signature.limit_LocalMemSize = this->plan->envelope.limit_LocalMemSize;
 
+	this->signature.transposeMiniBatchSize = this->plan->transposeMiniBatchSize;
+	this->signature.transposeBatchSize = this->plan->batchsize;
+
     return CLFFT_SUCCESS;
 }
 
@@ -217,6 +220,7 @@ clfftStatus FFTGeneratedTransposeNonSquareAction::generateKernel(FFTRepo& fftRep
 			}
 		}
         OPENCL_V(clfft_transpose_generator::genTransposeKernelLeadingDimensionBatched(this->signature, programCode, lwSize, reShapeFactor), _T("genTransposeKernel() failed!"));
+		//std::cout << programCode << std::endl;//TIMMY
     }
 	else if (this->signature.nonSquareKernelType == NON_SQUARE_TRANS_TRANSPOSE_BATCHED)
 	{
@@ -240,6 +244,7 @@ clfftStatus FFTGeneratedTransposeNonSquareAction::generateKernel(FFTRepo& fftRep
 			}
 		}
 		OPENCL_V(clfft_transpose_generator::genTransposeKernelBatched(this->signature, programCode, lwSize, reShapeFactor), _T("genTransposeKernel() failed!"));
+		//std::cout << programCode << std::endl;//TIMMY
 	}
     else
     {
@@ -266,6 +271,7 @@ clfftStatus FFTGeneratedTransposeNonSquareAction::generateKernel(FFTRepo& fftRep
 			}
 		}
         OPENCL_V(clfft_transpose_generator::genSwapKernel(this->signature, programCode, lwSize, reShapeFactor), _T("genSwapKernel() failed!"));
+		//std::cout << programCode << std::endl;//TIMMY
     }
 
     cl_int status = CL_SUCCESS;
@@ -562,6 +568,9 @@ clfftStatus FFTGeneratedTransposeSquareAction::initParams()
 		this->signature.fft_postCallback = this->plan->postCallbackParam;
 	}
 	this->signature.limit_LocalMemSize = this->plan->envelope.limit_LocalMemSize;
+
+	this->signature.transposeMiniBatchSize = this->plan->transposeMiniBatchSize;
+	this->signature.transposeBatchSize = this->plan->batchsize;
 
 	return CLFFT_SUCCESS;
 }

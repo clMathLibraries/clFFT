@@ -2017,6 +2017,7 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 							int lengthY = trans1Plan->length[1];
 
 							int BatchFactor = (lengthX > lengthY) ? (lengthX / lengthY) : (lengthY / lengthX);
+							trans1Plan->transposeMiniBatchSize = BatchFactor;
 							trans1Plan->batchsize *= BatchFactor;
 							trans1Plan->iDist = trans1Plan->iDist / BatchFactor;
 							if (lengthX > lengthY)
@@ -2085,6 +2086,7 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 							int lengthY = trans2Plan->length[1];
 
 							int BatchFactor = (lengthX > lengthY) ? (lengthX/lengthY) : (lengthY/lengthX);
+							trans2Plan->transposeMiniBatchSize = BatchFactor;
 							trans2Plan->batchsize *= BatchFactor;
 							trans2Plan->iDist = trans2Plan->iDist / BatchFactor;
 							if (lengthX > lengthY)
