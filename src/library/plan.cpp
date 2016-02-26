@@ -775,7 +775,7 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 					trans2Plan->oDist         = clLengths[1] * trans2Plan->outStride[1];
                     trans2Plan->gen           = transGen;
 
-					if(transGen != Transpose_NONSQUARE)//Timmy was commented
+					//if(transGen != Transpose_NONSQUARE)//Timmy was commented
 						trans2Plan->large1D		  = fftPlan->length[0];
 
 					trans2Plan->transflag     = true;
@@ -831,11 +831,11 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 						row2Plan->oDist *= fftPlan->length[index];
 					}
 					//Timmy was group commented
-					if (transGen == Transpose_NONSQUARE)
-					{
-						row2Plan->large1D = fftPlan->length[0];
-						row2Plan->twiddleFront = true;
-					}
+					//if (transGen == Transpose_NONSQUARE)
+					//{
+					//	row2Plan->large1D = fftPlan->length[0];
+					//	row2Plan->twiddleFront = true;
+					//}
 
 					OPENCL_V(clfftBakePlan(fftPlan->planY, numQueues, commQueueFFT, NULL, NULL ),
 						_T( "BakePlan large1d second row plan failed" ) );
@@ -1957,12 +1957,13 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 
 
 						/*
-						There are two ways of conducting inplace transpose with 1:2 dimension ratio.
-						A. first conduct batched square transpose along leading dim (row dim)
-						   then conduct line swapping kernels for the whole non square matrix
-						B. first conduct line swapping kernels for the whole non square matrix
+						There are three ways of conducting inplace transpose with 1:2 (or 2:1) dimension ratio.
+						A. first conduct line swapping kernels for the whole non square matrix
 						   then conduct batched square transpose along column dim (a 'real' batched transpose)
-
+						B. first conduct batched square transpose along column dim (a 'real' batched transpose)
+						   then conduct line swapping kernels for the whole non square matrix (for 2:1 case)
+						C. first conduct batched square transpose along leading dim (row dim)
+						   then conduct line swapping kernels for the whole non square matrix
 						Note that the twiddle computation has to go at the begining of the first kernel or the end of the second kernel
 
 						if leading dimension is bigger, it makes more sense (faster) to swap line first and then conduct batched square transpose
@@ -1971,15 +1972,38 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 						enum NON_SQUARE_KERNEL_ORDER
 						{
 							SWAP_AND_TRANSPOSE,
-							TRANSPOSE_AND_SWAP
+							TRANSPOSE_AND_SWAP,
+							TRANSPOSE_LEADING_AND_SWAP,
 						};
 
 						NON_SQUARE_KERNEL_ORDER currKernelOrder;
+						//controling the transpose and swap kernel order
 						if (clLengths[0] > clLengths[1])
+						{
 							currKernelOrder = SWAP_AND_TRANSPOSE;
+							std::cout << "SWAP_AND_TRANSPOSE" << std::endl;
+						}
 						else
-							currKernelOrder = TRANSPOSE_AND_SWAP;
-						//currKernelOrder = TRANSPOSE_AND_SWAP;
+						{
+							if (fftPlan->large1D != 0)
+							{
+								//currently tranpose twiddling is only supported in below case
+								//TODO support tranpose twiddling for all cases.
+								currKernelOrder = TRANSPOSE_LEADING_AND_SWAP;
+								std::cout << "TRANSPOSE_LEADING_AND_SWAP" << std::endl;
+							}
+							else
+							{
+								currKernelOrder = TRANSPOSE_AND_SWAP;
+								std::cout << "TRANSPOSE_AND_SWAP" << std::endl;
+							}
+						}
+						//if the original input data is more than 1d only TRANSPOSE_LEADING_AND_SWAP order is supported
+						//TODO need to fix this here. related to sub batch size.
+						if (fftPlan->length.size() > 2)
+							currKernelOrder = TRANSPOSE_LEADING_AND_SWAP;
+						else
+							std::cout << "new order" << std::endl;
 						//Transpose stage 1 
 						OPENCL_V(clfftCreateDefaultPlanInternal(&fftPlan->planTX, fftPlan->context, CLFFT_2D, clLengths),
 							_T("CreateDefaultPlan transpose_nsq_stage1 plan failed"));
@@ -2004,8 +2028,10 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 						trans1Plan->gen = Transpose_NONSQUARE;
 						if(currKernelOrder == SWAP_AND_TRANSPOSE)
 							trans1Plan->nonSquareKernelType = NON_SQUARE_TRANS_SWAP;// was NON_SQUARE_TRANS_TRANSPOSE_BATCHED_LEADING;
-						else
+						else if (currKernelOrder == TRANSPOSE_AND_SWAP)
 							trans1Plan->nonSquareKernelType = NON_SQUARE_TRANS_TRANSPOSE_BATCHED;
+						else
+							trans1Plan->nonSquareKernelType = NON_SQUARE_TRANS_TRANSPOSE_BATCHED_LEADING;
 						trans1Plan->transflag = true;
                         trans1Plan->large1D = fftPlan->large1D;
 
@@ -2075,6 +2101,8 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 						trans2Plan->gen = Transpose_NONSQUARE;
 						if (currKernelOrder == SWAP_AND_TRANSPOSE)
 							trans2Plan->nonSquareKernelType = NON_SQUARE_TRANS_TRANSPOSE_BATCHED; //was NON_SQUARE_TRANS_SWAP;
+						else if(currKernelOrder == TRANSPOSE_AND_SWAP)
+							trans2Plan->nonSquareKernelType = NON_SQUARE_TRANS_SWAP;
 						else
 							trans2Plan->nonSquareKernelType = NON_SQUARE_TRANS_SWAP;
 						trans2Plan->transflag = true;

@@ -607,6 +607,7 @@ clfftStatus genSwapKernel(const FFTGeneratedTransposeNonSquareAction::Signature 
 				clKernWrite(transKernel, 6) << "if (pos == 0){" << std::endl;
 
 				clKernWrite(transKernel, 9) << "Ls[j] = " << params.fft_preCallback.funcname << "(inputA, ( is *" << smaller_dim << " + " << num_elements_loaded << " * work_id + j + iOffset), pre_userdata";
+				//clKernWrite(transKernel, 9) << "Ls[j] = " << params.fft_preCallback.funcname << "(inputA + iOffset, ( is *" << smaller_dim << " + " << num_elements_loaded << " * work_id + j), pre_userdata";
 				if (params.fft_preCallback.localMemSize > 0)
 				{
 					clKernWrite(transKernel, 0) << ", localmem";
@@ -614,6 +615,7 @@ clfftStatus genSwapKernel(const FFTGeneratedTransposeNonSquareAction::Signature 
 				clKernWrite(transKernel, 0) << ");" << std::endl;
 
 				clKernWrite(transKernel, 9) << "Ld[j] = " << params.fft_preCallback.funcname << "(inputA, ( id *" << smaller_dim << " + " << num_elements_loaded << " * work_id + j + iOffset), pre_userdata";
+				//clKernWrite(transKernel, 9) << "Ld[j] = " << params.fft_preCallback.funcname << "(inputA + iOffset, ( id *" << smaller_dim << " + " << num_elements_loaded << " * work_id + j), pre_userdata";
 				if (params.fft_preCallback.localMemSize > 0)
 				{
 					clKernWrite(transKernel, 0) << ", localmem";
@@ -623,6 +625,7 @@ clfftStatus genSwapKernel(const FFTGeneratedTransposeNonSquareAction::Signature 
 
 				clKernWrite(transKernel, 6) << "else if (pos == 1){" << std::endl;
 				clKernWrite(transKernel, 9) << "Ld[j] = " << params.fft_preCallback.funcname << "(inputA, ( id *" << smaller_dim << " + " << num_elements_loaded << " * work_id + j + iOffset), pre_userdata";
+				//clKernWrite(transKernel, 9) << "Ld[j] = " << params.fft_preCallback.funcname << "(inputA + iOffset, ( id *" << smaller_dim << " + " << num_elements_loaded << " * work_id + j), pre_userdata";
 				if (params.fft_preCallback.localMemSize > 0)
 				{
 					clKernWrite(transKernel, 0) << ", localmem";
@@ -650,6 +653,10 @@ clfftStatus genSwapKernel(const FFTGeneratedTransposeNonSquareAction::Signature 
 					clKernWrite(transKernel, 0) << ", localmem";
 				}
 				clKernWrite(transKernel, 0) << ");" << std::endl;
+			}
+			else if (params.fft_hasPreCallback)
+		    {
+				clKernWrite(transKernel, 6) << "inputA[id*" << smaller_dim << " + " << num_elements_loaded << " * work_id + j + iOffset] = Ls[j];" << std::endl;
 			}
 			else
 			{
