@@ -220,7 +220,6 @@ clfftStatus FFTGeneratedTransposeNonSquareAction::generateKernel(FFTRepo& fftRep
 			}
 		}
         OPENCL_V(clfft_transpose_generator::genTransposeKernelLeadingDimensionBatched(this->signature, programCode, lwSize, reShapeFactor), _T("genTransposeKernel() failed!"));
-		//std::cout << programCode << std::endl;//TIMMY
     }
 	else if (this->signature.nonSquareKernelType == NON_SQUARE_TRANS_TRANSPOSE_BATCHED)
 	{
@@ -244,13 +243,9 @@ clfftStatus FFTGeneratedTransposeNonSquareAction::generateKernel(FFTRepo& fftRep
 			}
 		}
 		OPENCL_V(clfft_transpose_generator::genTransposeKernelBatched(this->signature, programCode, lwSize, reShapeFactor), _T("genTransposeKernel() failed!"));
-		//std::cout << programCode << std::endl;//TIMMY
 	}
     else
     {
-		//No pre-callback possible in swap kernel 
-		//assert(!this->signature.fft_hasPreCallback);
-
 		//pre-callback is possible in swap kernel now
 		if (this->signature.fft_hasPreCallback && this->signature.fft_preCallback.localMemSize > 0)
 		{
@@ -271,7 +266,6 @@ clfftStatus FFTGeneratedTransposeNonSquareAction::generateKernel(FFTRepo& fftRep
 			}
 		}
         OPENCL_V(clfft_transpose_generator::genSwapKernel(this->signature, programCode, lwSize, reShapeFactor), _T("genSwapKernel() failed!"));
-		//std::cout << programCode << std::endl;//TIMMY
     }
 
     cl_int status = CL_SUCCESS;

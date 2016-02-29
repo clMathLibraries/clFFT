@@ -775,7 +775,7 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 					trans2Plan->oDist         = clLengths[1] * trans2Plan->outStride[1];
                     trans2Plan->gen           = transGen;
 
-					//if(transGen != Transpose_NONSQUARE)//Timmy was commented
+					//if(transGen != Transpose_NONSQUARE)
 						trans2Plan->large1D		  = fftPlan->length[0];
 
 					trans2Plan->transflag     = true;
@@ -830,7 +830,7 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 						row2Plan->iDist *= fftPlan->length[index];
 						row2Plan->oDist *= fftPlan->length[index];
 					}
-					//Timmy was group commented
+					
 					//if (transGen == Transpose_NONSQUARE)
 					//{
 					//	row2Plan->large1D = fftPlan->length[0];
@@ -1971,17 +1971,17 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 						*/
 						enum NON_SQUARE_KERNEL_ORDER
 						{
-							SWAP_AND_TRANSPOSE,
-							TRANSPOSE_AND_SWAP,
-							TRANSPOSE_LEADING_AND_SWAP,
+							SWAP_AND_TRANSPOSE, // A.
+							TRANSPOSE_AND_SWAP, // B.
+							TRANSPOSE_LEADING_AND_SWAP, // C.
 						};
 
 						NON_SQUARE_KERNEL_ORDER currKernelOrder;
-						//controling the transpose and swap kernel order
+						// controling the transpose and swap kernel order
+						// if leading dim is larger than the other dim it makes sense to swap and transpose
 						if (clLengths[0] > clLengths[1])
 						{
 							currKernelOrder = SWAP_AND_TRANSPOSE;
-							std::cout << "SWAP_AND_TRANSPOSE" << std::endl;
 						}
 						else
 						{
@@ -1990,20 +1990,18 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 								//currently tranpose twiddling is only supported in below case
 								//TODO support tranpose twiddling for all cases.
 								currKernelOrder = TRANSPOSE_LEADING_AND_SWAP;
-								std::cout << "TRANSPOSE_LEADING_AND_SWAP" << std::endl;
 							}
 							else
 							{
 								currKernelOrder = TRANSPOSE_AND_SWAP;
-								std::cout << "TRANSPOSE_AND_SWAP" << std::endl;
 							}
 						}
 						//if the original input data is more than 1d only TRANSPOSE_LEADING_AND_SWAP order is supported
-						//TODO need to fix this here. related to sub batch size.
+						//TODO need to fix this here. related to multi dim batch size.
 						if (fftPlan->length.size() > 2)
 							currKernelOrder = TRANSPOSE_LEADING_AND_SWAP;
-						else
-							std::cout << "new order" << std::endl;
+						//ends tranpose kernel order
+
 						//Transpose stage 1 
 						OPENCL_V(clfftCreateDefaultPlanInternal(&fftPlan->planTX, fftPlan->context, CLFFT_2D, clLengths),
 							_T("CreateDefaultPlan transpose_nsq_stage1 plan failed"));
@@ -2027,7 +2025,7 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 						trans1Plan->oDist = fftPlan->oDist;
 						trans1Plan->gen = Transpose_NONSQUARE;
 						if(currKernelOrder == SWAP_AND_TRANSPOSE)
-							trans1Plan->nonSquareKernelType = NON_SQUARE_TRANS_SWAP;// was NON_SQUARE_TRANS_TRANSPOSE_BATCHED_LEADING;
+							trans1Plan->nonSquareKernelType = NON_SQUARE_TRANS_SWAP;
 						else if (currKernelOrder == TRANSPOSE_AND_SWAP)
 							trans1Plan->nonSquareKernelType = NON_SQUARE_TRANS_TRANSPOSE_BATCHED;
 						else
@@ -2100,7 +2098,7 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 						trans2Plan->oDist = fftPlan->oDist;
 						trans2Plan->gen = Transpose_NONSQUARE;
 						if (currKernelOrder == SWAP_AND_TRANSPOSE)
-							trans2Plan->nonSquareKernelType = NON_SQUARE_TRANS_TRANSPOSE_BATCHED; //was NON_SQUARE_TRANS_SWAP;
+							trans2Plan->nonSquareKernelType = NON_SQUARE_TRANS_TRANSPOSE_BATCHED;
 						else if(currKernelOrder == TRANSPOSE_AND_SWAP)
 							trans2Plan->nonSquareKernelType = NON_SQUARE_TRANS_SWAP;
 						else
