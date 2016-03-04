@@ -90,8 +90,9 @@ enum BlockComputeType
 //NonSquareKernelType
 enum NonSquareTransposeKernelType
 {
-	NON_SQUARE_TRANS_PARENT,
-    NON_SQUARE_TRANS_TRANSPOSE,
+    NON_SQUARE_TRANS_PARENT,
+    NON_SQUARE_TRANS_TRANSPOSE_BATCHED_LEADING,
+    NON_SQUARE_TRANS_TRANSPOSE_BATCHED,
     NON_SQUARE_TRANS_SWAP
 };
 
@@ -154,6 +155,14 @@ struct FFTKernelGenKeyParams {
 	size_t					 blockLDS;
     
 	NonSquareTransposeKernelType      nonSquareKernelType;
+	// sometimes non square matrix are broken down into a number of
+	// square matrix during inplace transpose
+	// let's call this number transposeMiniBatchSize
+	// no user of the library should set its value
+	size_t transposeMiniBatchSize;
+	// transposeBatchSize is the number of batchs times transposeMiniBatchSzie
+	// no user of the library should set its value
+	size_t transposeBatchSize;
 
 	bool fft_hasPreCallback;
 	clfftCallbackParam fft_preCallback;
@@ -198,6 +207,8 @@ struct FFTKernelGenKeyParams {
 		blockSIMD = 0;
 		blockLDS = 0;
         nonSquareKernelType = NON_SQUARE_TRANS_PARENT;
+		transposeMiniBatchSize = 1;
+		transposeBatchSize = 1;
 		fft_hasPreCallback = false;
 		fft_hasPostCallback = false;
 		limit_LocalMemSize = 0;
@@ -481,6 +492,11 @@ public:
     FFTAction * action;
 
     NonSquareTransposeKernelType nonSquareKernelType;
+	// sometimes non square matrix are broken down into a number of
+	// square matrix during inplace transpose
+	// let's call this number transposeMiniBatchSize
+	// no user of the library should set its value
+	size_t transposeMiniBatchSize;
 
 	FFTPlan ()
 	:	baked (false)
@@ -526,6 +542,7 @@ public:
 	,	gen(Stockham)
     ,   action(0)
     ,   nonSquareKernelType(NON_SQUARE_TRANS_PARENT)
+	,   transposeMiniBatchSize(1)
     ,   plHandle(0)
 	,   hasPreCallback(false)
 	,   hasPostCallback(false)

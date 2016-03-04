@@ -637,7 +637,7 @@ clfftStatus clfftEnqueueTransform(
 
 				OPENCL_V(clfftEnqueueTransform(fftPlan->planTY, dir, numQueuesAndEvents, commQueues, 1,
 					&stage1OutEvents, outEvents, clInputBuffers, NULL, NULL),
-					_T("clfftEnqueueTransform stage1 failed"));
+					_T("clfftEnqueueTransform stage2 failed"));
 				clReleaseEvent(stage1OutEvents);
 
 				if (fftRepo.pStatTimer)

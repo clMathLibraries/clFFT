@@ -18,6 +18,7 @@
 #pragma once
 #if !defined( AMD_CLFFT_generator_stockham_H )
 #define AMD_CLFFT_generator_stockham_H
+#include <stdio.h>
 #include "private.h"
 #include "repo.h"
 #include "plan.h"
