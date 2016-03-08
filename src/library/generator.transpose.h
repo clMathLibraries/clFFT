@@ -52,11 +52,14 @@ Below is a matrix(row major) contaning three square sub matrix along row
 */
 clfftStatus genTransposeKernelLeadingDimensionBatched(const FFTGeneratedTransposeNonSquareAction::Signature & params, std::string& strKernel, const size_t& lwSize, const size_t reShapeFactor);
 
-//swap lines. This kind of kernels are using with combination of square transpose kernels to perform nonsqaure transpose
-clfftStatus genSwapKernel(const FFTGeneratedTransposeNonSquareAction::Signature & params, std::string& strKernel, const size_t& lwSize, const size_t reShapeFactor);
+//swap lines. This kind of kernels are using with combination of square transpose kernels to perform nonsqaure transpose 1:2 ratio
+clfftStatus genSwapKernel(const FFTGeneratedTransposeNonSquareAction::Signature & params, std::string& strKernel, std::string& KernelFuncName, const size_t& lwSize, const size_t reShapeFactor);
+
+clfftStatus genSwapKernelGeneral(const FFTGeneratedTransposeNonSquareAction::Signature & params, std::string& strKernel, std::string& KernelFuncName, const size_t& lwSize, const size_t reShapeFactor);
 
 void get_cycles(size_t *cycle_map, size_t num_reduced_row, size_t num_reduced_col);
 
+void permutation_calculation(size_t m, size_t n, std::vector<std::vector<size_t>> &permutationVec);
 }//end of namespace clfft_transpose_generator
 
 #endif

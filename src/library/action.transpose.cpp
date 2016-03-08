@@ -199,6 +199,7 @@ clfftStatus FFTGeneratedTransposeNonSquareAction::generateKernel(FFTRepo& fftRep
 
 
     std::string programCode;
+	std::string kernelFuncName;//applied to swap kernel for now
     if (this->signature.nonSquareKernelType == NON_SQUARE_TRANS_TRANSPOSE_BATCHED_LEADING)
     {
 		//Requested local memory size by callback must not exceed the device LDS limits after factoring the LDS size required by transpose kernel
@@ -220,6 +221,7 @@ clfftStatus FFTGeneratedTransposeNonSquareAction::generateKernel(FFTRepo& fftRep
 			}
 		}
         OPENCL_V(clfft_transpose_generator::genTransposeKernelLeadingDimensionBatched(this->signature, programCode, lwSize, reShapeFactor), _T("genTransposeKernel() failed!"));
+		std::cout << programCode << std::endl;//TIMMY
     }
 	else if (this->signature.nonSquareKernelType == NON_SQUARE_TRANS_TRANSPOSE_BATCHED)
 	{
@@ -243,6 +245,7 @@ clfftStatus FFTGeneratedTransposeNonSquareAction::generateKernel(FFTRepo& fftRep
 			}
 		}
 		OPENCL_V(clfft_transpose_generator::genTransposeKernelBatched(this->signature, programCode, lwSize, reShapeFactor), _T("genTransposeKernel() failed!"));
+		std::cout << programCode << std::endl;//TIMMY
 	}
     else
     {
@@ -265,7 +268,16 @@ clfftStatus FFTGeneratedTransposeNonSquareAction::generateKernel(FFTRepo& fftRep
 				return CLFFT_INVALID_ARG_VALUE;
 			}
 		}
-        OPENCL_V(clfft_transpose_generator::genSwapKernel(this->signature, programCode, lwSize, reShapeFactor), _T("genSwapKernel() failed!"));
+		//here we should decide generate what kind of swap kernel. 1:2 and 1:3 probably need different swap kernels
+		if (this->signature.fft_N[0] == 2 * this->signature.fft_N[1] || 2 * this->signature.fft_N[0] == this->signature.fft_N[1])
+		{
+			OPENCL_V(clfft_transpose_generator::genSwapKernel(this->signature, programCode, kernelFuncName, lwSize, reShapeFactor), _T("genSwapKernel() failed!"));
+		}
+		else
+		{
+			OPENCL_V(clfft_transpose_generator::genSwapKernelGeneral(this->signature, programCode, kernelFuncName, lwSize, reShapeFactor), _T("genSwapKernel() failed!"));
+		}
+		std::cout << programCode << std::endl;//TIMMY
     }
 
     cl_int status = CL_SUCCESS;
@@ -304,7 +316,8 @@ clfftStatus FFTGeneratedTransposeNonSquareAction::generateKernel(FFTRepo& fftRep
 	}
     else
     {
-        OPENCL_V(fftRepo.setProgramEntryPoints(Transpose_NONSQUARE, this->getSignatureData(), "swap_nonsquare", "swap_nonsquare", Device, QueueContext), _T("fftRepo.setProgramEntryPoint() failed!"));
+		//this should be modified as well
+        OPENCL_V(fftRepo.setProgramEntryPoints(Transpose_NONSQUARE, this->getSignatureData(), kernelFuncName.c_str(), kernelFuncName.c_str(), Device, QueueContext), _T("fftRepo.setProgramEntryPoint() failed!"));
     }
     return CLFFT_SUCCESS;
 }
@@ -315,6 +328,8 @@ clfftStatus FFTGeneratedTransposeNonSquareAction::getWorkSizes(std::vector< size
 
     size_t wg_slice;
     size_t smaller_dim = (this->signature.fft_N[0] < this->signature.fft_N[1]) ? this->signature.fft_N[0] : this->signature.fft_N[1];
+	size_t bigger_dim = (this->signature.fft_N[0] >= this->signature.fft_N[1]) ? this->signature.fft_N[0] : this->signature.fft_N[1];
+	size_t dim_ratio = bigger_dim / smaller_dim;
     size_t global_item_size;
 
     if (this->signature.nonSquareKernelType == NON_SQUARE_TRANS_TRANSPOSE_BATCHED_LEADING  
@@ -347,76 +362,93 @@ clfftStatus FFTGeneratedTransposeNonSquareAction::getWorkSizes(std::vector< size
     {
         /*Now calculate the data for the swap kernels */
 
-        size_t input_elm_size_in_bytes;
-        switch (this->signature.fft_precision)
-        {
-        case CLFFT_SINGLE:
-        case CLFFT_SINGLE_FAST:
-            input_elm_size_in_bytes = 4;
-            break;
-        case CLFFT_DOUBLE:
-        case CLFFT_DOUBLE_FAST:
-            input_elm_size_in_bytes = 8;
-            break;
-        default:
-            return CLFFT_TRANSPOSED_NOTIMPLEMENTED;
-        }
+		if(dim_ratio == 2){
+			//1:2 ratio
+			size_t input_elm_size_in_bytes;
+			switch (this->signature.fft_precision)
+			{
+			case CLFFT_SINGLE:
+			case CLFFT_SINGLE_FAST:
+				input_elm_size_in_bytes = 4;
+				break;
+			case CLFFT_DOUBLE:
+			case CLFFT_DOUBLE_FAST:
+				input_elm_size_in_bytes = 8;
+				break;
+			default:
+				return CLFFT_TRANSPOSED_NOTIMPLEMENTED;
+			}
 
-        switch (this->signature.fft_outputLayout)
-        {
-        case CLFFT_COMPLEX_INTERLEAVED:
-        case CLFFT_COMPLEX_PLANAR:
-            input_elm_size_in_bytes *= 2;
-            break;
-        case CLFFT_REAL:
-            break;
-        default:
-            return CLFFT_TRANSPOSED_NOTIMPLEMENTED;
-        }
-        size_t max_elements_loaded = AVAIL_MEM_SIZE / input_elm_size_in_bytes;
-        size_t num_elements_loaded;
-        size_t local_work_size_swap, num_grps_pro_row;
+			switch (this->signature.fft_outputLayout)
+			{
+			case CLFFT_COMPLEX_INTERLEAVED:
+			case CLFFT_COMPLEX_PLANAR:
+				input_elm_size_in_bytes *= 2;
+				break;
+			case CLFFT_REAL:
+				break;
+			default:
+				return CLFFT_TRANSPOSED_NOTIMPLEMENTED;
+			}
+			size_t max_elements_loaded = AVAIL_MEM_SIZE / input_elm_size_in_bytes;
+			size_t num_elements_loaded;
+			size_t local_work_size_swap, num_grps_pro_row;
 
-        if ((max_elements_loaded >> 1) > smaller_dim)
-        {
-            local_work_size_swap = (smaller_dim < 256) ? smaller_dim : 256;
-            num_elements_loaded = smaller_dim;
-            num_grps_pro_row = 1;
-        }
-        else
-        {
-            num_grps_pro_row = (smaller_dim << 1) / max_elements_loaded;
-            num_elements_loaded = max_elements_loaded >> 1;
-            local_work_size_swap = (num_elements_loaded < 256) ? num_elements_loaded : 256;
-        }
-        size_t num_reduced_row;
-        size_t num_reduced_col;
+			if ((max_elements_loaded >> 1) > smaller_dim)
+			{
+				local_work_size_swap = (smaller_dim < 256) ? smaller_dim : 256;
+				num_elements_loaded = smaller_dim;
+				num_grps_pro_row = 1;
+			}
+			else
+			{
+				num_grps_pro_row = (smaller_dim << 1) / max_elements_loaded;
+				num_elements_loaded = max_elements_loaded >> 1;
+				local_work_size_swap = (num_elements_loaded < 256) ? num_elements_loaded : 256;
+			}
+			size_t num_reduced_row;
+			size_t num_reduced_col;
 
-        if (this->signature.fft_N[1] == smaller_dim)
-        {
-            num_reduced_row = smaller_dim;
-            num_reduced_col = 2;
-        }
-        else
-        {
-            num_reduced_row = 2;
-            num_reduced_col = smaller_dim;
-        }
+			if (this->signature.fft_N[1] == smaller_dim)
+			{
+				num_reduced_row = smaller_dim;
+				num_reduced_col = 2;
+			}
+			else
+			{
+				num_reduced_row = 2;
+				num_reduced_col = smaller_dim;
+			}
 
-        size_t *cycle_map = new size_t[num_reduced_row * num_reduced_col * 2];
-        /* The memory required by cycle_map cannot exceed 2 times row*col by design*/
-		clfft_transpose_generator::get_cycles(cycle_map, num_reduced_row, num_reduced_col);
+			size_t *cycle_map = new size_t[num_reduced_row * num_reduced_col * 2];
+			/* The memory required by cycle_map cannot exceed 2 times row*col by design*/
+			clfft_transpose_generator::get_cycles(cycle_map, num_reduced_row, num_reduced_col);
 
-        global_item_size = local_work_size_swap * num_grps_pro_row * cycle_map[0] * this->plan->batchsize;
+			global_item_size = local_work_size_swap * num_grps_pro_row * cycle_map[0] * this->plan->batchsize;
 
-        for (int i = 2; i < this->signature.fft_DataDim - 1; i++)
-        {
-            global_item_size *= this->signature.fft_N[i];
-        }
-        delete[] cycle_map;
+			for (int i = 2; i < this->signature.fft_DataDim - 1; i++)
+			{
+				global_item_size *= this->signature.fft_N[i];
+			}
+			delete[] cycle_map;
 
-        globalWS.push_back(global_item_size);
-        localWS.push_back(local_work_size_swap);
+			globalWS.push_back(global_item_size);
+			localWS.push_back(local_work_size_swap);
+		}
+		else
+		{
+			if (dim_ratio == 3 || dim_ratio == 5 || dim_ratio == 10)
+			{
+				//1:3 ratio
+				size_t local_work_size_swap = 256;
+				std::vector<std::vector<size_t>> permutationTable;
+				clfft_transpose_generator::permutation_calculation(dim_ratio, smaller_dim, permutationTable);
+				size_t global_item_size = permutationTable.size() * local_work_size_swap * this->plan->batchsize;
+
+				globalWS.push_back(global_item_size);
+				localWS.push_back(local_work_size_swap);
+			}
+		}
     }
     return CLFFT_SUCCESS;
 }
@@ -599,6 +631,7 @@ clfftStatus FFTGeneratedTransposeSquareAction::generateKernel(FFTRepo& fftRepo, 
 
 	std::string programCode;
 	OPENCL_V(clfft_transpose_generator::genTransposeKernelBatched(this->signature, programCode, lwSize, reShapeFactor), _T("GenerateTransposeKernel() failed!"));
+	//std::cout << programCode << std::endl;//TIMMY
 
 	cl_int status = CL_SUCCESS;
 	cl_device_id Device = NULL;

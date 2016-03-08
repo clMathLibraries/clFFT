@@ -632,9 +632,14 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 						padding = 64;
 
 					clfftGenerators transGen = Transpose_GCN;
-
+					
+					//non square in-place tranpose currently support 1:2 ratio
+					//TODO: expand the support to 1:3, 1:5 and 1:10 ratio
 					if (clfftGetRequestLibNoMemAlloc() &&
-						(clLengths[0] == 2*clLengths[1]) &&
+						((clLengths[0] == 2*clLengths[1]) || 
+						 (clLengths[0] == 3*clLengths[1]) ||
+						 (clLengths[0] == 5*clLengths[1]) ||
+						 (clLengths[0] == 10 * clLengths[1])) &&
 						fftPlan->placeness == CLFFT_INPLACE)
 					{
 						padding = 0;
@@ -775,7 +780,7 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 					trans2Plan->oDist         = clLengths[1] * trans2Plan->outStride[1];
                     trans2Plan->gen           = transGen;
 
-					//if(transGen != Transpose_NONSQUARE)
+					if(transGen != Transpose_NONSQUARE)//TIMMY twiddle
 						trans2Plan->large1D		  = fftPlan->length[0];
 
 					trans2Plan->transflag     = true;
@@ -831,11 +836,11 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 						row2Plan->oDist *= fftPlan->length[index];
 					}
 					
-					//if (transGen == Transpose_NONSQUARE)
-					//{
-					//	row2Plan->large1D = fftPlan->length[0];
-					//	row2Plan->twiddleFront = true;
-					//}
+					if (transGen == Transpose_NONSQUARE)//TIMMY twiddle
+					{
+						row2Plan->large1D = fftPlan->length[0];
+						row2Plan->twiddleFront = true;
+					}
 
 					OPENCL_V(clfftBakePlan(fftPlan->planY, numQueues, commQueueFFT, NULL, NULL ),
 						_T( "BakePlan large1d second row plan failed" ) );

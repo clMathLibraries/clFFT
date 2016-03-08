@@ -20,7 +20,7 @@ This file contains the implementation of inplace transpose kernel string generat
 This includes both square and non square, twiddle and non twiddle, as well as the kernels
 that swap lines following permutation algorithm.
 */
-
+#include <vector>
 #include "generator.transpose.h"
 
 namespace clfft_transpose_generator
@@ -357,8 +357,71 @@ void get_cycles(size_t *cycle_map, size_t num_reduced_row, size_t num_reduced_co
 	delete[] is_swapped;
 }
 
+/*
+calculate the permutation cycles consumed in swap kernels.
+each cycle is strored in a vecotor. hopfully there are mutliple independent vectors thus we use a vector of vecotor
+*/
+void permutation_calculation(size_t m, size_t n, std::vector<std::vector<size_t>> &permutationVec)
+{
+	/*
+	calculate inplace transpose permutation lists
+	reference:
+	https://en.wikipedia.org/wiki/In-place_matrix_transposition
+	and
+	http://www.netlib.org/utk/people/JackDongarra/CCDSC-2014/talk35.pdf
+	row major matrix of size n x m
+	p(k) = (k*n)mod(m*n-1), if 0 < k < m*n-1
+	when k = 0 or m*n-1, it does not require movement
+	*/
+	if (m < 1 || n < 1)
+		return;
+
+	size_t mn_minus_one = m*n - 1;
+	//maintain a table so check is faster
+	size_t *table = new size_t[mn_minus_one + 1]();//init to zeros
+	table[0] = 1;
+
+	for (size_t i = 1; i < mn_minus_one; i++)
+	{
+		//first check if i is already stored in somewhere in vector of vectors
+		bool already_checked = false;
+		if (table[i] >= 1)
+			already_checked = true;
+		if (already_checked == true)
+			continue;
+
+		//if not checked yet
+		std::vector<size_t> vec;
+		vec.push_back(i);
+		table[i] += 1;
+		auto temp = i;
+
+		while (1)
+		{
+			temp = (temp*n);
+			temp = temp % (mn_minus_one);
+			if (find(vec.begin(), vec.end(), temp) != vec.end())
+			{
+				//what goes around comes around and it should
+				break;
+			}
+			if (table[temp] >= 1)
+			{
+				already_checked = true;
+				break;
+			}
+			vec.push_back(temp);
+			table[temp] += 1;
+		}
+		if (already_checked == true)
+			continue;
+		permutationVec.push_back(vec);
+	}
+	delete[] table;
+}
 //swap lines. This kind of kernels are using with combination of square transpose kernels to perform nonsqaure transpose
-clfftStatus genSwapKernel(const FFTGeneratedTransposeNonSquareAction::Signature & params, std::string& strKernel, const size_t& lwSize, const size_t reShapeFactor)
+//this function assumes a 1:2 ratio
+clfftStatus genSwapKernel(const FFTGeneratedTransposeNonSquareAction::Signature & params, std::string& strKernel, std::string& KernelFuncName, const size_t& lwSize, const size_t reShapeFactor)
 {
 	strKernel.reserve(4096);
 	std::stringstream transKernel(std::stringstream::out);
@@ -734,6 +797,7 @@ clfftStatus genSwapKernel(const FFTGeneratedTransposeNonSquareAction::Signature 
 		clKernWrite(transKernel, 0) << "}" << std::endl << std::endl;
 
 		funcName = "swap_nonsquare";
+		KernelFuncName = funcName;
 		// Generate kernel API
 
 		/*when swap can be performed in LDS itself then, same prototype of transpose can be used for swap function too*/
@@ -852,6 +916,224 @@ clfftStatus genSwapKernel(const FFTGeneratedTransposeNonSquareAction::Signature 
 	return CLFFT_SUCCESS;
 }
 
+//swap lines. a more general kernel generator.
+//this function accepts any ratio in theory. But in practice we restrict it to 1:2, 1:3, 1:5 and 1:10 ration
+clfftStatus genSwapKernelGeneral(const FFTGeneratedTransposeNonSquareAction::Signature & params, std::string& strKernel, std::string& KernelFuncName, const size_t& lwSize, const size_t reShapeFactor)
+{
+	if (params.fft_placeness == CLFFT_OUTOFPLACE)
+		return CLFFT_TRANSPOSED_NOTIMPLEMENTED;
+	if ( (params.fft_N[0] != 2 * params.fft_N[1]) && (params.fft_N[1] != 2 * params.fft_N[0]) &&
+		 (params.fft_N[0] != 3 * params.fft_N[1]) && (params.fft_N[1] != 3 * params.fft_N[0]) &&
+		 (params.fft_N[0] != 5 * params.fft_N[1]) && (params.fft_N[1] != 5 * params.fft_N[0]) &&
+		 (params.fft_N[0] != 10 * params.fft_N[1]) && (params.fft_N[1] != 10 * params.fft_N[0]) )
+	{
+		return CLFFT_TRANSPOSED_NOTIMPLEMENTED;
+	}
+
+	strKernel.reserve(4096);
+	std::stringstream transKernel(std::stringstream::out);
+
+	// These strings represent the various data types we read or write in the kernel, depending on how the plan
+	// is configured
+	std::string dtInput;        // The type read as input into kernel
+	std::string dtOutput;       // The type written as output from kernel
+	std::string dtPlanar;       // Fundamental type for planar arrays
+	std::string tmpBuffType;
+	std::string dtComplex;      // Fundamental type for complex arrays
+
+								// NOTE:  Enable only for debug
+								// clKernWrite( transKernel, 0 ) << "#pragma OPENCL EXTENSION cl_amd_printf : enable\n" << std::endl;
+
+								//if (params.fft_inputLayout != params.fft_outputLayout)
+								//	return CLFFT_TRANSPOSED_NOTIMPLEMENTED;
+
+	switch (params.fft_precision)
+	{
+	case CLFFT_SINGLE:
+	case CLFFT_SINGLE_FAST:
+		dtPlanar = "float";
+		dtComplex = "float2";
+		break;
+	case CLFFT_DOUBLE:
+	case CLFFT_DOUBLE_FAST:
+		dtPlanar = "double";
+		dtComplex = "double2";
+
+		// Emit code that enables double precision in the kernel
+		clKernWrite(transKernel, 0) << "#ifdef cl_khr_fp64" << std::endl;
+		clKernWrite(transKernel, 3) << "#pragma OPENCL EXTENSION cl_khr_fp64 : enable" << std::endl;
+		clKernWrite(transKernel, 0) << "#else" << std::endl;
+		clKernWrite(transKernel, 3) << "#pragma OPENCL EXTENSION cl_amd_fp64 : enable" << std::endl;
+		clKernWrite(transKernel, 0) << "#endif\n" << std::endl;
+
+		break;
+	default:
+		return CLFFT_TRANSPOSED_NOTIMPLEMENTED;
+		break;
+	}
+
+	size_t smaller_dim = (params.fft_N[0] < params.fft_N[1]) ? params.fft_N[0] : params.fft_N[1];
+	size_t bigger_dim = (params.fft_N[0] >= params.fft_N[1]) ? params.fft_N[0] : params.fft_N[1];
+	size_t dim_ratio = bigger_dim / smaller_dim;
+
+	size_t input_elm_size_in_bytes;
+	switch (params.fft_precision)
+	{
+	case CLFFT_SINGLE:
+	case CLFFT_SINGLE_FAST:
+		input_elm_size_in_bytes = 4;
+		break;
+	case CLFFT_DOUBLE:
+	case CLFFT_DOUBLE_FAST:
+		input_elm_size_in_bytes = 8;
+		break;
+	default:
+		return CLFFT_TRANSPOSED_NOTIMPLEMENTED;
+	}
+
+	switch (params.fft_outputLayout)
+	{
+	case CLFFT_COMPLEX_INTERLEAVED:
+	case CLFFT_COMPLEX_PLANAR:
+		input_elm_size_in_bytes *= 2;
+		break;
+	case CLFFT_REAL:
+		break;
+	default:
+		return CLFFT_TRANSPOSED_NOTIMPLEMENTED;
+	}
+	/* not entirely clearly why do i need this yet
+	size_t max_elements_loaded = AVAIL_MEM_SIZE / input_elm_size_in_bytes;
+	size_t num_elements_loaded;
+	size_t local_work_size_swap, num_grps_pro_row;
+	*/
+
+	//if pre-callback is set for the plan
+	//if post-callback is set for the plan
+
+	//generate the swap_table
+	std::vector<std::vector<size_t>> permutationTable;
+	permutation_calculation(dim_ratio, smaller_dim, permutationTable);
+
+	clKernWrite(transKernel, 0) << "__constant int swap_table["<< permutationTable.size() <<"][1] = {" << std::endl;
+	for (auto itor = permutationTable.begin(); itor != permutationTable.end(); itor++)
+	{
+		clKernWrite(transKernel, 0) << "{" << (*itor)[0] << "}";
+		if (itor == (permutationTable.end() - 1))//last vector
+			clKernWrite(transKernel, 0) << std::endl << "};" << std::endl;
+		else
+			clKernWrite(transKernel, 0) << "," << std::endl;
+	}
+
+	std::string funcName = "swap_nonsquare_" + std::to_string(smaller_dim) + "_" + std::to_string(dim_ratio);
+
+	KernelFuncName = funcName;
+	size_t local_work_size_swap = 256;
+	// Generate kernel API
+
+	/*when swap can be performed in LDS itself then, same prototype of transpose can be used for swap function too*/
+	genTransposePrototypeLeadingDimensionBatched(params, local_work_size_swap, dtPlanar, dtComplex, funcName, transKernel, dtInput, dtOutput);
+
+	clKernWrite(transKernel, 3) << "//each wg handles one row of " << smaller_dim << " in memory" << std::endl;
+	clKernWrite(transKernel, 3) << "const int num_wg_per_batch = " << permutationTable.size() << ";" << std::endl; // number of wg per batch = number of independent cycles
+	clKernWrite(transKernel, 3) << "int group_id = get_group_id(0);" << std::endl;
+	clKernWrite(transKernel, 3) << "int idx = get_local_id(0);" << std::endl;
+
+	clKernWrite(transKernel, 3) << std::endl;
+	clKernWrite(transKernel, 3) << "int batch_offset = group_id / num_wg_per_batch;" << std::endl;
+	clKernWrite(transKernel, 3) << "inputA += batch_offset*" << smaller_dim * bigger_dim << ";" << std::endl;
+	clKernWrite(transKernel, 3) << "group_id -= batch_offset*" << permutationTable.size() << ";" << std::endl;
+
+	clKernWrite(transKernel, 3) << std::endl;
+	clKernWrite(transKernel, 3) << "int prev = swap_table[group_id][0];" <<std::endl;
+	clKernWrite(transKernel, 3) << "int next = 0;" << std::endl;
+
+	clKernWrite(transKernel, 3) << std::endl;
+	clKernWrite(transKernel, 3) << "__local float2 prevValue[" << smaller_dim << "];" << std::endl;//lds within each wg should be able to store a row block (smaller_dim) of element
+	clKernWrite(transKernel, 3) << "__local float2 nextValue[" << smaller_dim << "];" << std::endl;
+
+	clKernWrite(transKernel, 3) << std::endl;
+	clKernWrite(transKernel, 3) << "int group_offset = (prev/" << dim_ratio << ")*" << smaller_dim << "*" << dim_ratio
+		                        << " + (prev%" << dim_ratio << ")*" << smaller_dim << ";" << std::endl; //might look like: int group_offset = (prev/3)*729*3 + (prev%3)*729; 
+
+	clKernWrite(transKernel, 3) << std::endl;
+	//move to that row block and load that row block to LDS
+	for (int i = 0; i < smaller_dim; i = i + 256)
+	{
+		if(i + 256 < smaller_dim)
+			clKernWrite(transKernel, 3) << "prevValue[idx+" << i << "] = inputA[group_offset+idx+" << i << "];" << std::endl;
+		else
+		{
+			// need to handle boundary
+			clKernWrite(transKernel, 3) << "if(idx+" << i << "<" << smaller_dim << "){" << std::endl;
+			    clKernWrite(transKernel, 6) << "prevValue[idx+" << i << "] = inputA[group_offset+idx+" << i << "];" << std::endl;
+			clKernWrite(transKernel, 3) << "}" << std::endl;
+		}
+	}
+	clKernWrite(transKernel, 3) << "barrier(CLK_LOCAL_MEM_FENCE);" << std::endl;
+
+	clKernWrite(transKernel, 3) << std::endl;
+	clKernWrite(transKernel, 3) << "do{" << std::endl;//begining of do-while
+	//calculate the next location p(k) = (k*n)mod(m*n-1), if 0 < k < m*n-1
+	    clKernWrite(transKernel, 6) << "next = (prev*" << dim_ratio << ")%" << smaller_dim*dim_ratio - 1 << ";" << std::endl;
+		clKernWrite(transKernel, 6) << "group_offset = (next/" << dim_ratio << ")*" << smaller_dim << "*" << dim_ratio
+			<< " + (next%" << dim_ratio << ")*" << smaller_dim << ";" << std::endl; //might look like: group_offset = (next/3)*729*3 + (next%3)*729;
+
+		clKernWrite(transKernel, 3) << std::endl;
+		for (int i = 0; i < smaller_dim; i = i + 256)
+		{
+			if (i + 256 < smaller_dim)
+				clKernWrite(transKernel, 6) << "nextValue[idx+" << i << "] = inputA[group_offset+idx+" << i << "];" << std::endl;
+			else
+			{
+				// need to handle boundary
+				clKernWrite(transKernel, 6) << "if(idx+" << i << "<" << smaller_dim << "){" << std::endl;
+				clKernWrite(transKernel, 9) << "nextValue[idx+" << i << "] = inputA[group_offset+idx+" << i << "];" << std::endl;
+				clKernWrite(transKernel, 6) << "}" << std::endl;
+			}
+		}
+		clKernWrite(transKernel, 3) << "barrier(CLK_LOCAL_MEM_FENCE);" << std::endl;
+
+		clKernWrite(transKernel, 3) << std::endl;
+		for (int i = 0; i < smaller_dim; i = i + 256)
+		{
+			if (i + 256 < smaller_dim)
+				clKernWrite(transKernel, 6) << "inputA[group_offset+idx+" << i << "] = prevValue[idx+" << i << "];" << std::endl;
+			else
+			{
+				// need to handle boundary
+				clKernWrite(transKernel, 6) << "if(idx+" << i << "<" << smaller_dim << "){" << std::endl;
+				clKernWrite(transKernel, 9) << "inputA[group_offset+idx+" << i << "] = prevValue[idx+" << i << "];" << std::endl;
+				clKernWrite(transKernel, 6) << "}" << std::endl;
+			}
+		}
+		clKernWrite(transKernel, 6) << "barrier(CLK_LOCAL_MEM_FENCE);" << std::endl;
+
+		clKernWrite(transKernel, 3) << std::endl;
+		for (int i = 0; i < smaller_dim; i = i + 256)
+		{
+			if (i + 256 < smaller_dim)
+				clKernWrite(transKernel, 6) << "prevValue[idx+" << i << "] = nextValue[idx+" << i << "];" << std::endl;
+			else
+			{
+				// need to handle boundary
+				clKernWrite(transKernel, 6) << "if(idx+" << i << "<" << smaller_dim << "){" << std::endl;
+				clKernWrite(transKernel, 9) << "prevValue[idx + " << i << "] = nextValue[idx + " << i << "]; " << std::endl;
+				clKernWrite(transKernel, 6) << "}" << std::endl;
+			}
+		}
+		clKernWrite(transKernel, 6) << "barrier(CLK_LOCAL_MEM_FENCE);" << std::endl;
+
+		clKernWrite(transKernel, 3) << std::endl;
+		clKernWrite(transKernel, 3) << "prev = next;" << std::endl;
+	clKernWrite(transKernel, 3) << "}while(next!=swap_table[group_id][0]);" << std::endl;//end of do-while
+	clKernWrite(transKernel, 0) << "}" << std::endl;//end of kernel
+
+	//std::cout << transKernel.str();
+	//by now the kernel string is generated
+	strKernel = transKernel.str();
+	return CLFFT_SUCCESS;
+}
 
 //generate transepose kernel with sqaure 2d matrix of row major with arbitrary batch size
 /*
