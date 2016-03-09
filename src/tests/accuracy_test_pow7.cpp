@@ -7400,7 +7400,7 @@ namespace power7
                         is_1D_parameters_pushed = 1;
                         if (pow(7,(x + y + z)) <= (SP_MAX_LEN))
                         {
-                            data_sets.push_back(InpSizeParameters(pow(7 , x), pow(7 , y), pow(7 , z), CLFFT_SINGLE));
+                            data_sets.push_back(InpSizeParameters((unsigned int)pow(7 , x), (unsigned int)pow(7 , y), (unsigned int)pow(7 , z), CLFFT_SINGLE));
                         }
                         else
                         {
@@ -7408,7 +7408,7 @@ namespace power7
                         }
                         if (pow(7,(x + y + z)) <= (DP_MAX_LEN))
                         {
-                            data_sets.push_back(InpSizeParameters(pow(7 , x), pow(7 , y), pow(7 , z), CLFFT_DOUBLE));
+                            data_sets.push_back(InpSizeParameters((unsigned int)pow(7 , x), (unsigned int)pow(7 , y), (unsigned int)pow(7 , z), CLFFT_DOUBLE));
                         }          
                     }
                 }

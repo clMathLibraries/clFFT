@@ -2037,10 +2037,10 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 						{
 							//this should be in a function to avoide duplicate code TODO
 							//need to treat a non square matrix as a sqaure matrix with bigger batch size
-							int lengthX = trans1Plan->length[0];
-							int lengthY = trans1Plan->length[1];
+							size_t lengthX = trans1Plan->length[0];
+							size_t lengthY = trans1Plan->length[1];
 
-							int BatchFactor = (lengthX > lengthY) ? (lengthX / lengthY) : (lengthY / lengthX);
+							size_t BatchFactor = (lengthX > lengthY) ? (lengthX / lengthY) : (lengthY / lengthX);
 							trans1Plan->transposeMiniBatchSize = BatchFactor;
 							trans1Plan->batchsize *= BatchFactor;
 							trans1Plan->iDist = trans1Plan->iDist / BatchFactor;
@@ -2108,10 +2108,10 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 						if (trans2Plan->nonSquareKernelType == NON_SQUARE_TRANS_TRANSPOSE_BATCHED)
 						{
 							//need to treat a non square matrix as a sqaure matrix with bigger batch size
-							int lengthX = trans2Plan->length[0];
-							int lengthY = trans2Plan->length[1];
+							size_t lengthX = trans2Plan->length[0];
+							size_t lengthY = trans2Plan->length[1];
 
-							int BatchFactor = (lengthX > lengthY) ? (lengthX/lengthY) : (lengthY/lengthX);
+							size_t BatchFactor = (lengthX > lengthY) ? (lengthX/lengthY) : (lengthY/lengthX);
 							trans2Plan->transposeMiniBatchSize = BatchFactor;
 							trans2Plan->batchsize *= BatchFactor;
 							trans2Plan->iDist = trans2Plan->iDist / BatchFactor;

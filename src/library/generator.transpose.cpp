@@ -960,7 +960,7 @@ clfftStatus genTransposeKernelBatched(const FFTGeneratedTransposeSquareAction::S
 
 		// Generate kernel API
 		genTransposePrototype(params, lwSize, dtPlanar, dtComplex, funcName, transKernel, dtInput, dtOutput);
-		int wgPerBatch;
+		size_t wgPerBatch;
 		if (mult_of_16)
 			wgPerBatch = (params.fft_N[0] / 16 / reShapeFactor)*(params.fft_N[0] / 16 / reShapeFactor + 1) / 2;
 		else
@@ -1222,7 +1222,7 @@ clfftStatus genTransposeKernelBatched(const FFTGeneratedTransposeSquareAction::S
 					{
 						//assume tranpose is only two dimensional for now
 						//int actualBatchSize = params.transposeBatchSize / params.transposeMiniBatchSize;
-						int blockOffset = params.fft_inStride[2];
+						size_t blockOffset = params.fft_inStride[2];
 						clKernWrite(transKernel, 6) << params.fft_postCallback.funcname << "(outputA-" << blockOffset <<"*((get_group_id(0)/numGroupsY_1)%"<< params.transposeMiniBatchSize <<"), ((idy + loop*" << 16 / reShapeFactor << ")*"
 							<< params.fft_N[0] << " + idx + "<< blockOffset <<"*( (get_group_id(0)/numGroupsY_1 )%" << params.transposeMiniBatchSize <<") " << "), post_userdata, yx_s[index]";
 					}
@@ -1236,7 +1236,7 @@ clfftStatus genTransposeKernelBatched(const FFTGeneratedTransposeSquareAction::S
 						clKernWrite(transKernel, 6) << params.fft_postCallback.funcname << "(outputA, ((lidy + loop*" << 16 / reShapeFactor << ")*" << params.fft_N[0] << " + lidx + starting_index_yx), post_userdata, xy_s[index]";
 					else
 					{
-						int blockOffset = params.fft_inStride[2];
+						size_t blockOffset = params.fft_inStride[2];
 						//clKernWrite(transKernel, 6) << params.fft_postCallback.funcname << "(outputA-iOffset, ((lidy + loop*" << 16 / reShapeFactor << ")*" << params.fft_N[0] << " + lidx + starting_index_yx +iOffset), post_userdata, xy_s[index]";
 						//clKernWrite(transKernel, 0) << std::endl;
 						clKernWrite(transKernel, 6) << params.fft_postCallback.funcname << "(outputA-" << blockOffset << "*((get_group_id(0)/numGroupsY_1)%" << params.transposeMiniBatchSize << "), ((lidy + loop*" << 16 / reShapeFactor << ")*" 
@@ -1263,7 +1263,7 @@ clfftStatus genTransposeKernelBatched(const FFTGeneratedTransposeSquareAction::S
 					}
 					else
 					{
-						int blockOffset = params.fft_inStride[2];
+						size_t blockOffset = params.fft_inStride[2];
 						clKernWrite(transKernel, 6) << params.fft_postCallback.funcname << "(outputA_R - "<< blockOffset << "*((get_group_id(0)/numGroupsY_1)%" << params.transposeMiniBatchSize <<
 							"), outputA_I -" << blockOffset << "*((get_group_id(0)/numGroupsY_1)%" << params.transposeMiniBatchSize <<
 							"), ((idy + loop*" << 16 / reShapeFactor << ")*" << params.fft_N[0] << " + idx +"<< blockOffset << "*((get_group_id(0)/numGroupsY_1)%" << params.transposeMiniBatchSize <<
@@ -1281,7 +1281,7 @@ clfftStatus genTransposeKernelBatched(const FFTGeneratedTransposeSquareAction::S
 					}
 					else
 					{
-						int blockOffset = params.fft_inStride[2];
+						size_t blockOffset = params.fft_inStride[2];
 						clKernWrite(transKernel, 6) << params.fft_postCallback.funcname << "(outputA_R - " << blockOffset << "*((get_group_id(0)/numGroupsY_1)%" << params.transposeMiniBatchSize <<
 							"), outputA_I -" << blockOffset << "*((get_group_id(0)/numGroupsY_1)%" << params.transposeMiniBatchSize << 
 							"), ((lidy + loop*" << 16 / reShapeFactor << ")*" << params.fft_N[0] << " + lidx+ starting_index_yx +" << blockOffset << "*((get_group_id(0)/numGroupsY_1)%" << params.transposeMiniBatchSize << 

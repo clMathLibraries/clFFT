@@ -74,14 +74,14 @@ int main( void )
 
     /* print input array just using the
      * indices to fill the array with data */
-    printf("\nPerforming fft on an two dimensional array of size N0 x N1 : %ld x %ld\n", N0, N1);
-    int i, j;
+    printf("\nPerforming fft on an two dimensional array of size N0 x N1 : %ul x %ul\n", (unsigned long)N0, (unsigned long)N1);
+	size_t i, j;
     i = j = 0;
     for (i=0; i<N0; ++i) {
         for (j=0; j<N1; ++j) {
             float x = 0.5f;
             float y = 0.5f;
-            unsigned idx = 2*(j+i*N0);
+			size_t idx = 2*(j+i*N0);
             X[idx] = x;
             X[idx+1] = y;
             printf("(%f, %f) ", x, y);
@@ -119,7 +119,7 @@ int main( void )
     i = j = 0;
     for (i=0; i<N0; ++i) {
         for (j=0; j<N1; ++j) {
-            unsigned idx = 2*(j+i*N0);
+			size_t idx = 2*(j+i*N0);
             printf("(%f, %f) ", X[idx], X[idx+1]);
         }
         printf("\n");

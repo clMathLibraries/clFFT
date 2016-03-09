@@ -71,7 +71,7 @@ int main( void )
     X = (float *)malloc(N * 2 * sizeof(*X));
 
     /* print input array */
-    printf("\nPerforming fft on an one dimensional array of size N = %ld\n", N);
+    printf("\nPerforming fft on an one dimensional array of size N = %ul\n", (unsigned long)N);
     int print_iter = 0;
     while(print_iter<N) {
         float x = (float)print_iter;

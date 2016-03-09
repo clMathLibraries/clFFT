@@ -14,6 +14,9 @@
  * limitations under the License.
  * ************************************************************************/
 
+#ifdef _MSC_VER
+#pragma warning(disable : 4996)
+#endif
 
 #pragma once
 #if !defined( AMD_CLFFT_generator_stockham_H )

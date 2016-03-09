@@ -74,8 +74,8 @@ int main( void )
 
     /* print input array just using the
      * indices to fill the array with data */
-    printf("\nPerforming fft on an two dimensional array of size N0 x N1 x N2 : %ld x %ld x %ld\n", N0, N1, N2);
-    int i, j, k;
+    printf("\nPerforming fft on an two dimensional array of size N0 x N1 x N2 : %ul x %ul x %ul\n", (unsigned long)N0, (unsigned long)N1, (unsigned long)N2);
+    size_t i, j, k;
     i = j = k = 0;
     for (i=0; i<N0; ++i) {
         for (j=0; j<N1; ++j) {
@@ -85,7 +85,7 @@ int main( void )
                 if (i==0 && j==0 && k==0) {
                     x = y = 0.5f;
                 }
-                unsigned idx = 2*(k+j*N1+i*N0*N1);
+				size_t idx = 2*(k+j*N1+i*N0*N1);
                 X[idx] = x;
                 X[idx+1] = y;
                 printf("(%f, %f) ", X[idx], X[idx+1]);
@@ -126,7 +126,7 @@ int main( void )
     for (i=0; i<N0; ++i) {
         for (j=0; j<N1; ++j) {
             for (k=0; k<N2; ++k) {
-                unsigned idx = 2*(k+j*N1+i*N0*N1);
+				size_t idx = 2*(k+j*N1+i*N0*N1);
                 printf("(%f, %f) ", X[idx], X[idx+1]);
             }
             printf("\n");

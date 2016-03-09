@@ -14,6 +14,10 @@
  * limitations under the License.
  * ************************************************************************/
 
+#ifdef _MSC_VER
+#pragma warning(disable : 4996)
+#endif
+
 #include "fft_binary_lookup.h"
 
 #include <iostream>

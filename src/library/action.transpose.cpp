@@ -256,7 +256,7 @@ clfftStatus FFTGeneratedTransposeNonSquareAction::generateKernel(FFTRepo& fftRep
 
 			requestedCallbackLDS = this->signature.fft_preCallback.localMemSize;
 			//LDS usage of swap lines is exactly 2 lines
-			int lineSize = (this->signature.fft_N[0]) < (this->signature.fft_N[1]) ? this->signature.fft_N[0] : this->signature.fft_N[1];
+			size_t lineSize = (this->signature.fft_N[0]) < (this->signature.fft_N[1]) ? this->signature.fft_N[0] : this->signature.fft_N[1];
 			validLDSSize = ((2 * this->plan->ElementSize() * lineSize) + requestedCallbackLDS) < this->plan->envelope.limit_LocalMemSize;
 
 			if (!validLDSSize)
