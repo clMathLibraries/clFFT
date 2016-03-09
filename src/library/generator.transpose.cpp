@@ -361,7 +361,7 @@ void get_cycles(size_t *cycle_map, size_t num_reduced_row, size_t num_reduced_co
 calculate the permutation cycles consumed in swap kernels.
 each cycle is strored in a vecotor. hopfully there are mutliple independent vectors thus we use a vector of vecotor
 */
-void permutation_calculation(size_t m, size_t n, std::vector<std::vector<size_t>> &permutationVec)
+void permutation_calculation(size_t m, size_t n, std::vector<std::vector<size_t> > &permutationVec)
 {
 	/*
 	calculate inplace transpose permutation lists
@@ -394,7 +394,7 @@ void permutation_calculation(size_t m, size_t n, std::vector<std::vector<size_t>
 		std::vector<size_t> vec;
 		vec.push_back(i);
 		table[i] += 1;
-		auto temp = i;
+		size_t temp = i;
 
 		while (1)
 		{
@@ -1016,7 +1016,7 @@ clfftStatus genSwapKernelGeneral(const FFTGeneratedTransposeNonSquareAction::Sig
 	permutation_calculation(dim_ratio, smaller_dim, permutationTable);
 
 	clKernWrite(transKernel, 0) << "__constant int swap_table["<< permutationTable.size() <<"][1] = {" << std::endl;
-	for (auto itor = permutationTable.begin(); itor != permutationTable.end(); itor++)
+	for (std::vector<std::vector<size_t>>::iterator itor = permutationTable.begin(); itor != permutationTable.end(); itor++)
 	{
 		clKernWrite(transKernel, 0) << "{" << (*itor)[0] << "}";
 		if (itor == (permutationTable.end() - 1))//last vector
@@ -1041,7 +1041,24 @@ clfftStatus genSwapKernelGeneral(const FFTGeneratedTransposeNonSquareAction::Sig
 
 	clKernWrite(transKernel, 3) << std::endl;
 	clKernWrite(transKernel, 3) << "int batch_offset = group_id / num_wg_per_batch;" << std::endl;
-	clKernWrite(transKernel, 3) << "inputA += batch_offset*" << smaller_dim * bigger_dim << ";" << std::endl;
+    switch (params.fft_inputLayout)
+    {
+    case CLFFT_REAL:
+    case CLFFT_COMPLEX_INTERLEAVED:
+        clKernWrite(transKernel, 3) << "inputA += batch_offset*" << smaller_dim * bigger_dim << ";" << std::endl;
+        break;
+    case CLFFT_HERMITIAN_INTERLEAVED:
+    case CLFFT_HERMITIAN_PLANAR:
+        return CLFFT_TRANSPOSED_NOTIMPLEMENTED;
+    case CLFFT_COMPLEX_PLANAR:
+    {
+        clKernWrite(transKernel, 3) << "inputA_R += batch_offset*" << smaller_dim * bigger_dim << ";" << std::endl;
+        clKernWrite(transKernel, 3) << "inputA_I += batch_offset*" << smaller_dim * bigger_dim << ";" << std::endl;
+        break;
+    }
+    default:
+        return CLFFT_TRANSPOSED_NOTIMPLEMENTED;
+    }
 	clKernWrite(transKernel, 3) << "group_id -= batch_offset*" << permutationTable.size() << ";" << std::endl;
 
 	clKernWrite(transKernel, 3) << std::endl;
@@ -1049,8 +1066,27 @@ clfftStatus genSwapKernelGeneral(const FFTGeneratedTransposeNonSquareAction::Sig
 	clKernWrite(transKernel, 3) << "int next = 0;" << std::endl;
 
 	clKernWrite(transKernel, 3) << std::endl;
-	clKernWrite(transKernel, 3) << "__local float2 prevValue[" << smaller_dim << "];" << std::endl;//lds within each wg should be able to store a row block (smaller_dim) of element
-	clKernWrite(transKernel, 3) << "__local float2 nextValue[" << smaller_dim << "];" << std::endl;
+    switch (params.fft_inputLayout)
+    {
+    case CLFFT_REAL:
+    case CLFFT_COMPLEX_INTERLEAVED:
+    {
+        clKernWrite(transKernel, 3) << "__local " << dtInput << " prevValue[" << smaller_dim << "];" << std::endl;//lds within each wg should be able to store a row block (smaller_dim) of element
+        clKernWrite(transKernel, 3) << "__local " << dtInput << " nextValue[" << smaller_dim << "];" << std::endl;
+        break;
+    }
+    case CLFFT_COMPLEX_PLANAR:
+    {
+        clKernWrite(transKernel, 3) << "__local " << dtComplex << " prevValue[" << smaller_dim << "];" << std::endl;//lds within each wg should be able to store a row block (smaller_dim) of element
+        clKernWrite(transKernel, 3) << "__local " << dtComplex << " nextValue[" << smaller_dim << "];" << std::endl;
+        break;
+    }
+    case CLFFT_HERMITIAN_INTERLEAVED:
+    case CLFFT_HERMITIAN_PLANAR:
+        return CLFFT_TRANSPOSED_NOTIMPLEMENTED;
+    default:
+        return CLFFT_TRANSPOSED_NOTIMPLEMENTED;
+    }
 
 	clKernWrite(transKernel, 3) << std::endl;
 	clKernWrite(transKernel, 3) << "int group_offset = (prev/" << dim_ratio << ")*" << smaller_dim << "*" << dim_ratio
@@ -1058,18 +1094,51 @@ clfftStatus genSwapKernelGeneral(const FFTGeneratedTransposeNonSquareAction::Sig
 
 	clKernWrite(transKernel, 3) << std::endl;
 	//move to that row block and load that row block to LDS
-	for (int i = 0; i < smaller_dim; i = i + 256)
-	{
-		if(i + 256 < smaller_dim)
-			clKernWrite(transKernel, 3) << "prevValue[idx+" << i << "] = inputA[group_offset+idx+" << i << "];" << std::endl;
-		else
-		{
-			// need to handle boundary
-			clKernWrite(transKernel, 3) << "if(idx+" << i << "<" << smaller_dim << "){" << std::endl;
-			    clKernWrite(transKernel, 6) << "prevValue[idx+" << i << "] = inputA[group_offset+idx+" << i << "];" << std::endl;
-			clKernWrite(transKernel, 3) << "}" << std::endl;
-		}
-	}
+    switch (params.fft_inputLayout)
+    {
+    case CLFFT_REAL:
+    case CLFFT_COMPLEX_INTERLEAVED:
+    {
+        for (int i = 0; i < smaller_dim; i = i + 256)
+        {
+            if (i + 256 < smaller_dim)
+                clKernWrite(transKernel, 3) << "prevValue[idx+" << i << "] = inputA[group_offset+idx+" << i << "];" << std::endl;
+            else
+            {
+                // need to handle boundary
+                clKernWrite(transKernel, 3) << "if(idx+" << i << "<" << smaller_dim << "){" << std::endl;
+                clKernWrite(transKernel, 6) << "prevValue[idx+" << i << "] = inputA[group_offset+idx+" << i << "];" << std::endl;
+                clKernWrite(transKernel, 3) << "}" << std::endl;
+            }
+        }
+        break;
+    }
+    case CLFFT_HERMITIAN_INTERLEAVED:
+    case CLFFT_HERMITIAN_PLANAR:
+        return CLFFT_TRANSPOSED_NOTIMPLEMENTED;
+    case CLFFT_COMPLEX_PLANAR:
+    {
+        for (int i = 0; i < smaller_dim; i = i + 256)
+        {
+            if (i + 256 < smaller_dim)
+            {
+                clKernWrite(transKernel, 3) << "prevValue[idx+" << i << "].x = inputA_R[group_offset+idx+" << i << "];" << std::endl;
+                clKernWrite(transKernel, 3) << "prevValue[idx+" << i << "].y = inputA_I[group_offset+idx+" << i << "];" << std::endl;
+            }
+            else
+            {
+                // need to handle boundary
+                clKernWrite(transKernel, 3) << "if(idx+" << i << "<" << smaller_dim << "){" << std::endl;
+                clKernWrite(transKernel, 3) << "prevValue[idx+" << i << "].x = inputA_R[group_offset+idx+" << i << "];" << std::endl;
+                clKernWrite(transKernel, 3) << "prevValue[idx+" << i << "].y = inputA_I[group_offset+idx+" << i << "];" << std::endl;
+                clKernWrite(transKernel, 3) << "}" << std::endl;
+            }
+        }
+        break;
+    }
+    default:
+        return CLFFT_TRANSPOSED_NOTIMPLEMENTED;
+    }
 	clKernWrite(transKernel, 3) << "barrier(CLK_LOCAL_MEM_FENCE);" << std::endl;
 
 	clKernWrite(transKernel, 3) << std::endl;
@@ -1080,48 +1149,130 @@ clfftStatus genSwapKernelGeneral(const FFTGeneratedTransposeNonSquareAction::Sig
 			<< " + (next%" << dim_ratio << ")*" << smaller_dim << ";" << std::endl; //might look like: group_offset = (next/3)*729*3 + (next%3)*729;
 
 		clKernWrite(transKernel, 3) << std::endl;
-		for (int i = 0; i < smaller_dim; i = i + 256)
-		{
-			if (i + 256 < smaller_dim)
-				clKernWrite(transKernel, 6) << "nextValue[idx+" << i << "] = inputA[group_offset+idx+" << i << "];" << std::endl;
-			else
-			{
-				// need to handle boundary
-				clKernWrite(transKernel, 6) << "if(idx+" << i << "<" << smaller_dim << "){" << std::endl;
-				clKernWrite(transKernel, 9) << "nextValue[idx+" << i << "] = inputA[group_offset+idx+" << i << "];" << std::endl;
-				clKernWrite(transKernel, 6) << "}" << std::endl;
-			}
-		}
+        switch (params.fft_inputLayout)
+        {
+        case CLFFT_REAL:
+        case CLFFT_COMPLEX_INTERLEAVED:
+        {
+            for (int i = 0; i < smaller_dim; i = i + 256)
+            {
+                if (i + 256 < smaller_dim)
+                    clKernWrite(transKernel, 6) << "nextValue[idx+" << i << "] = inputA[group_offset+idx+" << i << "];" << std::endl;
+                else
+                {
+                    // need to handle boundary
+                    clKernWrite(transKernel, 6) << "if(idx+" << i << "<" << smaller_dim << "){" << std::endl;
+                    clKernWrite(transKernel, 9) << "nextValue[idx+" << i << "] = inputA[group_offset+idx+" << i << "];" << std::endl;
+                    clKernWrite(transKernel, 6) << "}" << std::endl;
+                }
+            }
+            break;
+        }
+        case CLFFT_HERMITIAN_INTERLEAVED:
+        case CLFFT_HERMITIAN_PLANAR:
+            return CLFFT_TRANSPOSED_NOTIMPLEMENTED;
+        case CLFFT_COMPLEX_PLANAR:
+        {
+            for (int i = 0; i < smaller_dim; i = i + 256)
+            {
+                if (i + 256 < smaller_dim)
+                {
+                    clKernWrite(transKernel, 6) << "nextValue[idx+" << i << "].x = inputA_R[group_offset+idx+" << i << "];" << std::endl;
+                    clKernWrite(transKernel, 6) << "nextValue[idx+" << i << "].y = inputA_I[group_offset+idx+" << i << "];" << std::endl;
+                }
+                else
+                {
+                    // need to handle boundary
+                    clKernWrite(transKernel, 6) << "if(idx+" << i << "<" << smaller_dim << "){" << std::endl;
+                    clKernWrite(transKernel, 6) << "nextValue[idx+" << i << "].x = inputA_R[group_offset+idx+" << i << "];" << std::endl;
+                    clKernWrite(transKernel, 6) << "nextValue[idx+" << i << "].y = inputA_I[group_offset+idx+" << i << "];" << std::endl;
+                    clKernWrite(transKernel, 6) << "}" << std::endl;
+                }
+            }
+            break;
+        }
+        default:
+            return CLFFT_TRANSPOSED_NOTIMPLEMENTED;
+        }
+
 		clKernWrite(transKernel, 3) << "barrier(CLK_LOCAL_MEM_FENCE);" << std::endl;
 
 		clKernWrite(transKernel, 3) << std::endl;
-		for (int i = 0; i < smaller_dim; i = i + 256)
-		{
-			if (i + 256 < smaller_dim)
-				clKernWrite(transKernel, 6) << "inputA[group_offset+idx+" << i << "] = prevValue[idx+" << i << "];" << std::endl;
-			else
-			{
-				// need to handle boundary
-				clKernWrite(transKernel, 6) << "if(idx+" << i << "<" << smaller_dim << "){" << std::endl;
-				clKernWrite(transKernel, 9) << "inputA[group_offset+idx+" << i << "] = prevValue[idx+" << i << "];" << std::endl;
-				clKernWrite(transKernel, 6) << "}" << std::endl;
-			}
-		}
+        switch (params.fft_inputLayout)
+        {
+        case CLFFT_REAL:
+        case CLFFT_COMPLEX_INTERLEAVED:
+        {
+            for (int i = 0; i < smaller_dim; i = i + 256)
+            {
+                if (i + 256 < smaller_dim)
+                    clKernWrite(transKernel, 6) << "inputA[group_offset+idx+" << i << "] = prevValue[idx+" << i << "];" << std::endl;
+                else
+                {
+                    // need to handle boundary
+                    clKernWrite(transKernel, 6) << "if(idx+" << i << "<" << smaller_dim << "){" << std::endl;
+                    clKernWrite(transKernel, 9) << "inputA[group_offset+idx+" << i << "] = prevValue[idx+" << i << "];" << std::endl;
+                    clKernWrite(transKernel, 6) << "}" << std::endl;
+                }
+            }
+            break;
+        }
+        case CLFFT_HERMITIAN_INTERLEAVED:
+        case CLFFT_HERMITIAN_PLANAR:
+            return CLFFT_TRANSPOSED_NOTIMPLEMENTED;
+        case CLFFT_COMPLEX_PLANAR:
+        {
+            for (int i = 0; i < smaller_dim; i = i + 256)
+            {
+                if (i + 256 < smaller_dim)
+                {
+                    clKernWrite(transKernel, 6) << "inputA_R[group_offset+idx+" << i << "] = prevValue[idx+" << i << "].x;" << std::endl;
+                    clKernWrite(transKernel, 6) << "inputA_I[group_offset+idx+" << i << "] = prevValue[idx+" << i << "].y;" << std::endl;
+                }
+                else
+                {
+                    // need to handle boundary
+                    clKernWrite(transKernel, 6) << "if(idx+" << i << "<" << smaller_dim << "){" << std::endl;
+                    clKernWrite(transKernel, 6) << "inputA_R[group_offset+idx+" << i << "] = prevValue[idx+" << i << "].x;" << std::endl;
+                    clKernWrite(transKernel, 6) << "inputA_I[group_offset+idx+" << i << "] = prevValue[idx+" << i << "].y;" << std::endl;
+                    clKernWrite(transKernel, 6) << "}" << std::endl;
+                }
+            }
+            break;
+        }
+        default:
+            return CLFFT_TRANSPOSED_NOTIMPLEMENTED;
+        }
 		clKernWrite(transKernel, 6) << "barrier(CLK_LOCAL_MEM_FENCE);" << std::endl;
 
 		clKernWrite(transKernel, 3) << std::endl;
-		for (int i = 0; i < smaller_dim; i = i + 256)
-		{
-			if (i + 256 < smaller_dim)
-				clKernWrite(transKernel, 6) << "prevValue[idx+" << i << "] = nextValue[idx+" << i << "];" << std::endl;
-			else
-			{
-				// need to handle boundary
-				clKernWrite(transKernel, 6) << "if(idx+" << i << "<" << smaller_dim << "){" << std::endl;
-				clKernWrite(transKernel, 9) << "prevValue[idx + " << i << "] = nextValue[idx + " << i << "]; " << std::endl;
-				clKernWrite(transKernel, 6) << "}" << std::endl;
-			}
-		}
+        switch (params.fft_inputLayout)
+        {
+        case CLFFT_REAL:
+        case CLFFT_COMPLEX_INTERLEAVED:
+        case CLFFT_COMPLEX_PLANAR:
+        {
+            for (int i = 0; i < smaller_dim; i = i + 256)
+            {
+                if (i + 256 < smaller_dim)
+                    clKernWrite(transKernel, 6) << "prevValue[idx+" << i << "] = nextValue[idx+" << i << "];" << std::endl;
+                else
+                {
+                    // need to handle boundary
+                    clKernWrite(transKernel, 6) << "if(idx+" << i << "<" << smaller_dim << "){" << std::endl;
+                    clKernWrite(transKernel, 9) << "prevValue[idx + " << i << "] = nextValue[idx + " << i << "]; " << std::endl;
+                    clKernWrite(transKernel, 6) << "}" << std::endl;
+                }
+            }
+            break;
+        }
+        case CLFFT_HERMITIAN_INTERLEAVED:
+        case CLFFT_HERMITIAN_PLANAR:
+            return CLFFT_TRANSPOSED_NOTIMPLEMENTED;
+        default:
+            return CLFFT_TRANSPOSED_NOTIMPLEMENTED;
+        }
+
 		clKernWrite(transKernel, 6) << "barrier(CLK_LOCAL_MEM_FENCE);" << std::endl;
 
 		clKernWrite(transKernel, 3) << std::endl;
@@ -1980,20 +2131,24 @@ clfftStatus genTransposeKernelLeadingDimensionBatched(const FFTGeneratedTranspos
 		clKernWrite(transKernel, 0) << std::endl;
 	}
 
+    size_t smaller_dim = (params.fft_N[0] < params.fft_N[1]) ? params.fft_N[0] : params.fft_N[1];
+    size_t bigger_dim = (params.fft_N[0] >= params.fft_N[1]) ? params.fft_N[0] : params.fft_N[1];
+    size_t dim_ratio = bigger_dim / smaller_dim;
 
 	// This detects whether the input matrix is rectangle of ratio 1:2
 
-	if ((params.fft_N[0] != 2 * params.fft_N[1]) && (params.fft_N[1] != 2 * params.fft_N[0]))
-	{
-		return CLFFT_TRANSPOSED_NOTIMPLEMENTED;
-	}
+    if ((params.fft_N[0] != 2 * params.fft_N[1]) && (params.fft_N[1] != 2 * params.fft_N[0]) &&
+        (params.fft_N[0] != 3 * params.fft_N[1]) && (params.fft_N[1] != 3 * params.fft_N[0]) &&
+        (params.fft_N[0] != 5 * params.fft_N[1]) && (params.fft_N[1] != 5 * params.fft_N[0]) &&
+        (params.fft_N[0] != 10 * params.fft_N[1]) && (params.fft_N[1] != 10 * params.fft_N[0]))
+    {
+        return CLFFT_TRANSPOSED_NOTIMPLEMENTED;
+    }
 
 	if (params.fft_placeness == CLFFT_OUTOFPLACE)
 	{
 		return CLFFT_TRANSPOSED_NOTIMPLEMENTED;
 	}
-
-	size_t smaller_dim = (params.fft_N[0] < params.fft_N[1]) ? params.fft_N[0] : params.fft_N[1];
 
 	// This detects whether the input matrix is a multiple of 16*reshapefactor or not
 
@@ -2028,12 +2183,12 @@ clfftStatus genTransposeKernelLeadingDimensionBatched(const FFTGeneratedTranspos
 		// Generate kernel API
 		genTransposePrototypeLeadingDimensionBatched(params, lwSize, dtPlanar, dtComplex, funcName, transKernel, dtInput, dtOutput);
 
-		if (mult_of_16)
+		if (mult_of_16)//number of WG per sub square block
 			clKernWrite(transKernel, 3) << "const int numGroups_square_matrix_Y_1 = " << (smaller_dim / 16 / reShapeFactor)*(smaller_dim / 16 / reShapeFactor + 1) / 2 << ";" << std::endl;
 		else
 			clKernWrite(transKernel, 3) << "const int numGroups_square_matrix_Y_1 = " << (smaller_dim / (16 * reShapeFactor) + 1)*(smaller_dim / (16 * reShapeFactor) + 1 + 1) / 2 << ";" << std::endl;
 
-		clKernWrite(transKernel, 3) << "const int numGroupsY_1 =  numGroups_square_matrix_Y_1 * 2 ;" << std::endl;
+		clKernWrite(transKernel, 3) << "const int numGroupsY_1 =  numGroups_square_matrix_Y_1 * "<< dim_ratio <<";" << std::endl;
 
 		for (int i = 2; i < params.fft_DataDim - 1; i++)
 		{

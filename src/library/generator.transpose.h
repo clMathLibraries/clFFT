@@ -59,7 +59,7 @@ clfftStatus genSwapKernelGeneral(const FFTGeneratedTransposeNonSquareAction::Sig
 
 void get_cycles(size_t *cycle_map, size_t num_reduced_row, size_t num_reduced_col);
 
-void permutation_calculation(size_t m, size_t n, std::vector<std::vector<size_t>> &permutationVec);
+void permutation_calculation(size_t m, size_t n, std::vector<std::vector<size_t> > &permutationVec);
 }//end of namespace clfft_transpose_generator
 
 #endif

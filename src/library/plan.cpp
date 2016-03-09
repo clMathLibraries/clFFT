@@ -1998,13 +1998,14 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 							}
 							else
 							{
-								currKernelOrder = TRANSPOSE_AND_SWAP;
+								currKernelOrder = TRANSPOSE_AND_SWAP;//TRANSPOSE_AND_SWAP TIMMY TEMP
 							}
 						}
 						//if the original input data is more than 1d only TRANSPOSE_LEADING_AND_SWAP order is supported
 						//TODO need to fix this here. related to multi dim batch size.
 						if (fftPlan->length.size() > 2)
 							currKernelOrder = TRANSPOSE_LEADING_AND_SWAP;
+                        std::cout << "transpose kernel order is " << currKernelOrder << std::endl;
 						//ends tranpose kernel order
 
 						//Transpose stage 1 

@@ -654,7 +654,7 @@ clfftStatus FFTGeneratedTransposeSquareAction::generateKernel(FFTRepo& fftRepo, 
 	{
 		OPENCL_V(fftRepo.setProgramEntryPoints(Transpose_SQUARE, this->getSignatureData(), "transpose_square", "transpose_square", Device, QueueContext), _T("fftRepo.setProgramEntryPoint() failed!"));
 	}
-
+    std::cout << programCode << std::endl;//TIMMY
 	return CLFFT_SUCCESS;
 }
 
