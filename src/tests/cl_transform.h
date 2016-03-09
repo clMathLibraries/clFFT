@@ -672,7 +672,7 @@ public:
 	void set_input_precallback_userdatatype() {
 		cl_int status = 0;
 
-		char* precallbackstr = STRINGIFY(PRE_MULVAL_UDT);
+		const char* precallbackstr = STRINGIFY(PRE_MULVAL_UDT);
 
 		size_t totalPts = input.total_number_of_points_including_data_and_intervening();
 
