@@ -2249,13 +2249,20 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 				clLengths[0] = fftPlan->length[0];
 				clLengths[1] = fftPlan->length[1];
 
-				// bool xyflag = (clLengths[0]==clLengths[1]) ? false : true;
-				bool xyflag = true;
+				size_t biggerDim = clLengths[0] > clLengths[1] ? clLengths[0] : clLengths[1];
+				size_t smallerDim = biggerDim == clLengths[0] ? clLengths[1] : clLengths[0];
+				size_t padding = 0;
+
+				bool xyflag = (clLengths[0]==clLengths[1]) ? false : true;
 				if (xyflag && fftPlan->tmpBufSize==0 && fftPlan->length.size()<=2)
 				{
+					if ((smallerDim % 64 == 0) || (biggerDim % 64 == 0))
+						if(biggerDim > 512)
+							padding = 64;
+
 					// we need tmp buffer for x!=y case
 					// we assume the tmp buffer is packed interleaved
-					fftPlan->tmpBufSize = length0 * length1 *
+					fftPlan->tmpBufSize = (smallerDim + padding) * biggerDim *
 						fftPlan->batchsize * fftPlan->ElementSize();
 				}
 
@@ -2269,7 +2276,7 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 				transPlanX->inputLayout     = fftPlan->outputLayout;
 				transPlanX->precision       = fftPlan->precision;
 				transPlanX->tmpBufSize      = 0;
-				transPlanX->gen = Transpose_GCN;
+
 				transPlanX->envelope		= fftPlan->envelope;
 				transPlanX->batchsize       = fftPlan->batchsize;
 				transPlanX->inStride[0]     = fftPlan->outStride[0];
@@ -2279,14 +2286,16 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 
 				if (xyflag)
 				{
+					transPlanX->gen = Transpose_GCN;
 					transPlanX->outputLayout    = CLFFT_COMPLEX_INTERLEAVED;
 					transPlanX->placeness       = CLFFT_OUTOFPLACE;
 					transPlanX->outStride[0]    = 1;
-					transPlanX->outStride[1]    = clLengths[1];
-					transPlanX->oDist           = clLengths[0] * clLengths[1];
+					transPlanX->outStride[1]    = clLengths[1] + padding;
+					transPlanX->oDist           = clLengths[0] * transPlanX->outStride[1];
 				}
 				else
 				{
+					transPlanX->gen = Transpose_SQUARE;
 					transPlanX->outputLayout    = fftPlan->outputLayout;
 					transPlanX->placeness       = CLFFT_INPLACE;
 					transPlanX->outStride[0]    = fftPlan->outStride[0];
@@ -2311,15 +2320,15 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 				{
 					colPlan->inputLayout     = CLFFT_COMPLEX_INTERLEAVED;
 					colPlan->inStride[0]     = 1;
-					colPlan->inStride.push_back(clLengths[1]);
-					colPlan->iDist           = clLengths[0] * clLengths[1];
+					colPlan->inStride.push_back(clLengths[1] + padding);
+					colPlan->iDist           = clLengths[0] * colPlan->inStride[1];
 
 					if (fftPlan->transposed == CLFFT_NOTRANSPOSE)
 					{
 						colPlan->outputLayout    = CLFFT_COMPLEX_INTERLEAVED;
 						colPlan->outStride[0]    = 1;
-						colPlan->outStride.push_back(clLengths[1]);
-						colPlan->oDist           = clLengths[0] * clLengths[1];
+						colPlan->outStride.push_back(clLengths[1] + padding);
+						colPlan->oDist           = clLengths[0] * colPlan->outStride[1];
 						colPlan->placeness       = CLFFT_INPLACE;
 					}
 					else
@@ -2365,9 +2374,8 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 
 				//Create transpose plan for second transpose
 				//x!=y case tmp->In or Out, x=y case In->In or Out->out
-				clLengths[0] = fftPlan->length[1];
-				clLengths[1] = fftPlan->length[0];
-				OPENCL_V(clfftCreateDefaultPlanInternal( &fftPlan->planTY, fftPlan->context, CLFFT_2D, clLengths ),
+				size_t clLengthsY[2] = { clLengths[1], clLengths[0] };
+				OPENCL_V(clfftCreateDefaultPlanInternal( &fftPlan->planTY, fftPlan->context, CLFFT_2D, clLengthsY ),
 					_T( "CreateDefaultPlan for planTY failed" ) );
 
 				FFTPlan* transPlanY	= NULL;
@@ -2376,14 +2384,17 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 
 				if (xyflag)
 				{
+					transPlanY->gen = Transpose_GCN;
 					transPlanY->inputLayout     = CLFFT_COMPLEX_INTERLEAVED;
 					transPlanY->placeness       = CLFFT_OUTOFPLACE;
 					transPlanY->inStride[0]     = 1;
-					transPlanY->inStride[1]     = clLengths[0];
-					transPlanY->iDist           = clLengths[0] * clLengths[1];
+					transPlanY->inStride[1]     = clLengths[1] + padding;
+					transPlanY->iDist           = clLengths[0] * transPlanY->inStride[1];
+					transPlanY->transOutHorizontal = true;
 				}
 				else
 				{
+					transPlanY->gen = Transpose_SQUARE;
 					transPlanY->inputLayout     = fftPlan->outputLayout;
 					transPlanY->placeness       = CLFFT_INPLACE;
 					transPlanY->inStride[0]     = fftPlan->outStride[0];
@@ -2396,7 +2407,7 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 				transPlanY->oDist           = fftPlan->oDist;
 				transPlanY->precision       = fftPlan->precision;
 				transPlanY->tmpBufSize      = 0;
-				transPlanY->gen = Transpose_GCN;
+
 				transPlanY->envelope		= fftPlan->envelope;
 				transPlanY->batchsize       = fftPlan->batchsize;
 				transPlanY->transflag       = true;
