@@ -190,7 +190,6 @@ const size_t small3 = 9;
 const size_t normal3 = 729;
 const size_t large3 = 6561;
 const size_t dlarge3 = 2187;
-const size_t huge3 = 729 * 729 * 3;
 
 const size_t small5 = 25;
 const size_t normal5 = 625;

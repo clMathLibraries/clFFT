@@ -335,6 +335,7 @@ clfftStatus FFTGeneratedTransposeNonSquareAction::getWorkSizes(std::vector< size
     if (this->signature.nonSquareKernelType == NON_SQUARE_TRANS_TRANSPOSE_BATCHED_LEADING  
         || this->signature.nonSquareKernelType == NON_SQUARE_TRANS_TRANSPOSE_BATCHED)
     {
+        std::cout << "TIMMY"<< std::endl;
         if (smaller_dim % (16 * reShapeFactor) == 0)
             wg_slice = smaller_dim / 16 / reShapeFactor;
         else
@@ -350,7 +351,7 @@ clfftStatus FFTGeneratedTransposeNonSquareAction::getWorkSizes(std::vector< size
         /*Push the data required for the transpose kernels*/
         globalWS.clear();
 		if(this->signature.nonSquareKernelType == NON_SQUARE_TRANS_TRANSPOSE_BATCHED_LEADING)
-			globalWS.push_back(global_item_size * 2);
+			globalWS.push_back(global_item_size * dim_ratio);
 		else if (this->signature.nonSquareKernelType == NON_SQUARE_TRANS_TRANSPOSE_BATCHED)
 			globalWS.push_back(global_item_size);
 
@@ -441,10 +442,11 @@ clfftStatus FFTGeneratedTransposeNonSquareAction::getWorkSizes(std::vector< size
 			{
 				//1:3 ratio
 				size_t local_work_size_swap = 256;
-				std::vector<std::vector<size_t>> permutationTable;
+				std::vector<std::vector<size_t> > permutationTable;
 				clfft_transpose_generator::permutation_calculation(dim_ratio, smaller_dim, permutationTable);
 				size_t global_item_size = permutationTable.size() * local_work_size_swap * this->plan->batchsize;
-
+                for (int i = 2; i < this->plan->length.size(); i++)
+                    global_item_size *= this->plan->length[i];
 				globalWS.push_back(global_item_size);
 				localWS.push_back(local_work_size_swap);
 			}
