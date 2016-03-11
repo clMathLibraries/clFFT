@@ -656,6 +656,7 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 						transGen = Transpose_SQUARE;
 					}
 
+
 					if ( (fftPlan->tmpBufSize==0 ) && !fftPlan->allOpsInplace)
 					{
 						fftPlan->tmpBufSize = (smallerDim + padding) * biggerDim *
@@ -1998,14 +1999,14 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 							}
 							else
 							{
-								currKernelOrder = TRANSPOSE_AND_SWAP;//TRANSPOSE_AND_SWAP TIMMY TEMP
+								currKernelOrder = TRANSPOSE_AND_SWAP;
 							}
 						}
 						//if the original input data is more than 1d only TRANSPOSE_LEADING_AND_SWAP order is supported
 						//TODO need to fix this here. related to multi dim batch size.
 						if (fftPlan->length.size() > 2)
 							currKernelOrder = TRANSPOSE_LEADING_AND_SWAP;
-                        std::cout << "transpose kernel order is " << currKernelOrder << std::endl;
+						std::cout << "currKernelOrder = " << currKernelOrder << std::endl;
 						//ends tranpose kernel order
 
 						//Transpose stage 1 

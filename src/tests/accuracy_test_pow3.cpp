@@ -1809,6 +1809,69 @@ TEST_F(accuracy_test_pow3_double, large_1D_out_of_place_hermitian_planar_to_real
 }
 
 // ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ //
+// ^^^^^^^^^^^^^^^^^^^^^^^ huge 1D ^^^^^^^^^^^^^^^^^^^^^^ //
+// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ //
+
+// *****************************************************
+// *****************************************************
+
+template< class T, class cl_T, class fftw_T>
+void huge_1D_forward_in_place_complex_planar_to_complex_planar()
+{
+	std::vector<size_t> lengths;
+	lengths.push_back( huge3 );
+	size_t batch = 1;
+	std::vector<size_t> input_strides;
+	std::vector<size_t> output_strides;
+	size_t input_distance = 0;
+	size_t output_distance = 0;
+	layout::buffer_layout_t in_layout = layout::complex_planar;
+	layout::buffer_layout_t out_layout = layout::complex_planar;
+	placeness::placeness_t placeness = placeness::in_place;
+	direction::direction_t direction = direction::forward;
+
+	data_pattern pattern = sawtooth;
+	complex_to_complex<T, cl_T, fftw_T>(pattern, direction, lengths, batch, input_strides, output_strides, input_distance, output_distance, in_layout, out_layout, placeness);
+}
+
+TEST_F(accuracy_test_pow3_single, huge_1D_forward_in_place_complex_planar_to_complex_planar)
+{
+	try { huge_1D_forward_in_place_complex_planar_to_complex_planar< float, cl_float, fftwf_complex >(); }
+	catch (const std::exception& err) { handle_exception(err); }
+}
+
+template< class T, class cl_T, class fftw_T>
+void huge_1D_forward_in_place_complex_interleaved_to_complex_interleaved()
+{
+	std::vector<size_t> lengths;
+	lengths.push_back(huge3);
+	size_t batch = 1;
+	std::vector<size_t> input_strides;
+	std::vector<size_t> output_strides;
+	size_t input_distance = 0;
+	size_t output_distance = 0;
+	layout::buffer_layout_t in_layout = layout::complex_interleaved;
+	layout::buffer_layout_t out_layout = layout::complex_interleaved;
+	placeness::placeness_t placeness = placeness::in_place;
+	direction::direction_t direction = direction::forward;
+
+	data_pattern pattern = sawtooth;
+	complex_to_complex<T, cl_T, fftw_T>(pattern, direction, lengths, batch, input_strides, output_strides, input_distance, output_distance, in_layout, out_layout, placeness);
+}
+
+TEST_F(accuracy_test_pow3_single, huge_1D_forward_in_place_complex_interleaved_to_complex_interleaved)
+{
+	try { huge_1D_forward_in_place_complex_interleaved_to_complex_interleaved< float, cl_float, fftwf_complex >(); }
+	catch (const std::exception& err) { handle_exception(err); }
+}
+
+TEST_F(accuracy_test_pow3_double, huge_1D_forward_in_place_complex_interleaved_to_complex_interleaved)
+{
+	try { huge_1D_forward_in_place_complex_interleaved_to_complex_interleaved< double, cl_double, fftw_complex >(); }
+	catch (const std::exception& err) { handle_exception(err); }
+}
+
+// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ //
 // ^^^^^^^^^^^^^^^^^^^^^^^ normal 2D ^^^^^^^^^^^^^^^^^^^^^^ //
 // ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ //
 

@@ -1012,11 +1012,11 @@ clfftStatus genSwapKernelGeneral(const FFTGeneratedTransposeNonSquareAction::Sig
 	//if post-callback is set for the plan
 
 	//generate the swap_table
-	std::vector<std::vector<size_t>> permutationTable;
+	std::vector<std::vector<size_t> > permutationTable;
 	permutation_calculation(dim_ratio, smaller_dim, permutationTable);
 
 	clKernWrite(transKernel, 0) << "__constant int swap_table["<< permutationTable.size() <<"][1] = {" << std::endl;
-	for (std::vector<std::vector<size_t>>::iterator itor = permutationTable.begin(); itor != permutationTable.end(); itor++)
+	for (std::vector<std::vector<size_t> >::iterator itor = permutationTable.begin(); itor != permutationTable.end(); itor++)
 	{
 		clKernWrite(transKernel, 0) << "{" << (*itor)[0] << "}";
 		if (itor == (permutationTable.end() - 1))//last vector
@@ -1025,7 +1025,14 @@ clfftStatus genSwapKernelGeneral(const FFTGeneratedTransposeNonSquareAction::Sig
 			clKernWrite(transKernel, 0) << "," << std::endl;
 	}
 
-	std::string funcName = "swap_nonsquare_" + std::to_string(smaller_dim) + "_" + std::to_string(dim_ratio);
+	//std::string funcName = "swap_nonsquare_" + std::to_string(smaller_dim) + "_" + std::to_string(dim_ratio);
+	std::string funcName = "swap_nonsquare_";
+	std::string smaller_dim_str = static_cast<std::ostringstream*>(&(std::ostringstream() << smaller_dim))->str();
+	std::string dim_ratio_str = static_cast<std::ostringstream*>(&(std::ostringstream() << dim_ratio))->str();
+	if(params.fft_N[0] > params.fft_N[1])
+		funcName = funcName + smaller_dim_str + "_" + dim_ratio_str;
+	else
+		funcName = funcName + dim_ratio_str + "_" + smaller_dim_str;
 
 	KernelFuncName = funcName;
 	size_t local_work_size_swap = 256;
@@ -1089,8 +1096,15 @@ clfftStatus genSwapKernelGeneral(const FFTGeneratedTransposeNonSquareAction::Sig
     }
 
 	clKernWrite(transKernel, 3) << std::endl;
-	clKernWrite(transKernel, 3) << "int group_offset = (prev/" << dim_ratio << ")*" << smaller_dim << "*" << dim_ratio
-		                        << " + (prev%" << dim_ratio << ")*" << smaller_dim << ";" << std::endl; //might look like: int group_offset = (prev/3)*729*3 + (prev%3)*729; 
+	if (params.fft_N[0] > params.fft_N[1])//decides whether we have a tall or wide rectangle
+	{
+		clKernWrite(transKernel, 3) << "int group_offset = (prev/" << dim_ratio << ")*" << smaller_dim << "*" << dim_ratio
+			<< " + (prev%" << dim_ratio << ")*" << smaller_dim << ";" << std::endl; //might look like: int group_offset = (prev/3)*729*3 + (prev%3)*729; 
+	}
+	else
+	{
+		clKernWrite(transKernel, 3) << "int group_offset = (prev*"<< smaller_dim << ");" << std::endl; //might look like: int group_offset = prev*729; 
+	}
 
 	clKernWrite(transKernel, 3) << std::endl;
 	//move to that row block and load that row block to LDS
@@ -1144,9 +1158,17 @@ clfftStatus genSwapKernelGeneral(const FFTGeneratedTransposeNonSquareAction::Sig
 	clKernWrite(transKernel, 3) << std::endl;
 	clKernWrite(transKernel, 3) << "do{" << std::endl;//begining of do-while
 	//calculate the next location p(k) = (k*n)mod(m*n-1), if 0 < k < m*n-1
-	    clKernWrite(transKernel, 6) << "next = (prev*" << dim_ratio << ")%" << smaller_dim*dim_ratio - 1 << ";" << std::endl;
-		clKernWrite(transKernel, 6) << "group_offset = (next/" << dim_ratio << ")*" << smaller_dim << "*" << dim_ratio
-			<< " + (next%" << dim_ratio << ")*" << smaller_dim << ";" << std::endl; //might look like: group_offset = (next/3)*729*3 + (next%3)*729;
+		if (params.fft_N[0] > params.fft_N[1])//decides whether we have a tall or wide rectangle
+		{
+			clKernWrite(transKernel, 6) << "next = (prev*" << smaller_dim << ")%" << smaller_dim*dim_ratio - 1 << ";" << std::endl;
+			clKernWrite(transKernel, 6) << "group_offset = (next/" << dim_ratio << ")*" << smaller_dim << "*" << dim_ratio
+				<< " + (next%" << dim_ratio << ")*" << smaller_dim << ";" << std::endl; //might look like: group_offset = (next/3)*729*3 + (next%3)*729;
+		}
+		else
+		{
+			clKernWrite(transKernel, 6) << "next = (prev*" << dim_ratio << ")%" << smaller_dim*dim_ratio - 1 << ";" << std::endl;
+			clKernWrite(transKernel, 3) << "group_offset = (next*" << smaller_dim << ");" << std::endl; //might look like: int group_offset = prev*729; 
+		}
 
 		clKernWrite(transKernel, 3) << std::endl;
         switch (params.fft_inputLayout)
