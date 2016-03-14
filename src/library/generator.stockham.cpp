@@ -870,7 +870,7 @@ namespace StockhamGenerator
 								{
 									RegBaseAndCountAndPos("", i*radix + r, regIndex); 
 									
-									hid = (i * radix + r) / (tIter / 2);
+									hid = (i * radix + r) / ( tIter > 1 ? (tIter / 2) : 1 );
 									swapElement = swapElement && hid != 0;
 									swapElement = (oddt && ((i * radix + r) >= (tIter - 1))) ? false : swapElement;  //for c2r odd size don't swap for last register
 									if (swapElement)
