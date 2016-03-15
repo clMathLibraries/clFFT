@@ -2529,7 +2529,7 @@ namespace StockhamGenerator
 			}
 
 
-			passStr += "\n\n\tbarrier(CLK_LOCAL_MEM_FENCE);\n";
+			if(!halfLds) passStr += "\n\n\tbarrier(CLK_LOCAL_MEM_FENCE);\n";
 			passStr += "\n\n";
 
 			// 3-step twiddle multiplies
