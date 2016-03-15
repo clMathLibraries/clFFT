@@ -470,6 +470,9 @@ public:
 	// Allocate no extra memory
 	bool allOpsInplace;
 
+	// flag to indicate transpose placeness in 2D breakdown
+	bool transpose_in_2d_inplace;
+
 
 	// A flag to say that blocked FFTs are going to be performed
 	// It can only be one of these: column to row, row to column or column to column
@@ -531,6 +534,7 @@ public:
 	,	realSpecial_Nr(0)
 	,	userPlan(false)
 	,	allOpsInplace(false)
+	,	transpose_in_2d_inplace(false)
 	,	blockCompute(false)
 	,	blockComputeType(BCT_C2C)
 	,   planTX( 0 )

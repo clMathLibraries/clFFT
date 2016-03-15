@@ -693,9 +693,8 @@ clfftStatus clfftEnqueueTransform(
 
 				cl_event transXOutEvents = NULL;
 				cl_event colOutEvents = NULL;
-				bool xyflag = (fftPlan->length[0] == fftPlan->length[1]) ? false : true;
 
-				if (xyflag)
+				if (!fftPlan->transpose_in_2d_inplace)
 				{
 					//First transpose
 					OPENCL_V( clfftEnqueueTransform( fftPlan->planTX, dir, numQueuesAndEvents, commQueues, 1, &rowOutEvents,

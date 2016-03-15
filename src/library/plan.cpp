@@ -2190,8 +2190,8 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 				//if (fftPlan->large2D) break;
 				//Performance show 512 is the good case with transpose
 				//if user want the result to be transposed, then we will.
-				if (fftPlan->length[0] < 512 && fftPlan->transposed == CLFFT_NOTRANSPOSE) break;
-				if (fftPlan->length[0] < 32) break;
+
+				if (fftPlan->length[0] < 64) break;
 				//x!=y case, we need tmp buffer, currently temp buffer only support interleaved format
 				//if (fftPlan->length[0] != fftPlan->length[1] && fftPlan->outputLayout == CLFFT_COMPLEX_PLANAR) break;
 				if (fftPlan->inStride[0] != 1 || fftPlan->outStride[0] != 1 ||
@@ -2253,8 +2253,8 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 				size_t smallerDim = biggerDim == clLengths[0] ? clLengths[1] : clLengths[0];
 				size_t padding = 0;
 
-				bool xyflag = (clLengths[0]==clLengths[1]) ? false : true;
-				if (xyflag && fftPlan->tmpBufSize==0 && fftPlan->length.size()<=2)
+				fftPlan->transpose_in_2d_inplace = (clLengths[0]==clLengths[1]) ? true : false;
+				if ( (!fftPlan->transpose_in_2d_inplace) && fftPlan->tmpBufSize==0 && fftPlan->length.size()<=2 )
 				{
 					if ((smallerDim % 64 == 0) || (biggerDim % 64 == 0))
 						if(biggerDim > 512)
@@ -2284,7 +2284,7 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 				transPlanX->iDist           = fftPlan->oDist;
 				transPlanX->transflag       = true;
 
-				if (xyflag)
+				if (!fftPlan->transpose_in_2d_inplace)
 				{
 					transPlanX->gen = Transpose_GCN;
 					transPlanX->outputLayout    = CLFFT_COMPLEX_INTERLEAVED;
@@ -2316,7 +2316,7 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 				lockRAII* colLock	= NULL;
 				OPENCL_V( fftRepo.getPlan( fftPlan->planY, colPlan, colLock ), _T( "fftRepo.getPlan failed" ) );
 
-				if (xyflag)
+				if (!fftPlan->transpose_in_2d_inplace)
 				{
 					colPlan->inputLayout     = CLFFT_COMPLEX_INTERLEAVED;
 					colPlan->inStride[0]     = 1;
@@ -2382,7 +2382,7 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 				lockRAII* transLockY	= NULL;
 				OPENCL_V( fftRepo.getPlan( fftPlan->planTY, transPlanY, transLockY ), _T( "fftRepo.getPlan failed" ) );
 
-				if (xyflag)
+				if (!fftPlan->transpose_in_2d_inplace)
 				{
 					transPlanY->gen = Transpose_GCN;
 					transPlanY->inputLayout     = CLFFT_COMPLEX_INTERLEAVED;
