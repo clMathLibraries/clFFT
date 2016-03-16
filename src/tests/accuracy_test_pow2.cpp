@@ -1298,7 +1298,7 @@ TEST_F(accuracy_test_pow2_double, large_1D_forward_in_place_complex_planar_to_co
 // *****************************************************
 // *****************************************************
 
-//#define CLFFT_TEST_HUGE
+#define CLFFT_TEST_HUGE
 #ifdef CLFFT_TEST_HUGE
 
 #define HUGE_TEST_MAKE(test_name, len, bat) \

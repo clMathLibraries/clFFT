@@ -35,7 +35,6 @@ void OffsetCalc(std::stringstream& transKernel, const FFTKernelGenKeyParams& par
 	clKernWrite(transKernel, 3) << "size_t " << offset << " = 0;" << std::endl;
 	clKernWrite(transKernel, 3) << "g_index = get_group_id(0);" << std::endl;
 
-
 	for (size_t i = params.fft_DataDim - 2; i > 0; i--)
 	{
 		clKernWrite(transKernel, 3) << offset << " += (g_index/numGroupsY_" << i << ")*" << stride[i + 1] << ";" << std::endl;
@@ -90,6 +89,7 @@ clfftStatus genTwiddleMath(const FFTKernelGenKeyParams& params, std::stringstrea
 
 	clKernWrite(transKernel, 9) << dtComplex << " Wm = TW3step( (t_gx_p*32 + lidx) * (t_gy_p*32 + lidy + loop*8) );" << std::endl;
 	clKernWrite(transKernel, 9) << dtComplex << " Wt = TW3step( (t_gy_p*32 + lidx) * (t_gx_p*32 + lidy + loop*8) );" << std::endl;
+
 	clKernWrite(transKernel, 9) << dtComplex << " Tm, Tt;" << std::endl;
 
 	if (fwd)
@@ -1011,11 +1011,16 @@ clfftStatus genSwapKernelGeneral(const FFTGeneratedTransposeNonSquareAction::Sig
 	//if pre-callback is set for the plan
 	//if post-callback is set for the plan
 
+	//twiddle in swap kernel
+	bool twiddleSwapKernel = params.fft_3StepTwiddle && (dim_ratio > 1);
+
 	//generate the swap_table
 	std::vector<std::vector<size_t> > permutationTable;
 	permutation_calculation(dim_ratio, smaller_dim, permutationTable);
 
-	clKernWrite(transKernel, 0) << "__constant int swap_table["<< permutationTable.size() <<"][1] = {" << std::endl;
+	clKernWrite(transKernel, 0) << "__constant int swap_table["<< permutationTable.size()+2 <<"][1] = {" << std::endl;
+	clKernWrite(transKernel, 0) << "{0}," << std::endl;
+	clKernWrite(transKernel, 0) << "{"<< smaller_dim * dim_ratio - 1 <<"}," << std::endl;
 	for (std::vector<std::vector<size_t> >::iterator itor = permutationTable.begin(); itor != permutationTable.end(); itor++)
 	{
 		clKernWrite(transKernel, 0) << "{" << (*itor)[0] << "}";
@@ -1023,6 +1028,19 @@ clfftStatus genSwapKernelGeneral(const FFTGeneratedTransposeNonSquareAction::Sig
 			clKernWrite(transKernel, 0) << std::endl << "};" << std::endl;
 		else
 			clKernWrite(transKernel, 0) << "," << std::endl;
+	}
+
+	//twiddle in swap kernel
+	if (twiddleSwapKernel)
+	{
+		std::string str;
+		StockhamGenerator::TwiddleTableLarge twLarge(smaller_dim * smaller_dim * dim_ratio);
+		if ((params.fft_precision == CLFFT_SINGLE) || (params.fft_precision == CLFFT_SINGLE_FAST))
+			twLarge.GenerateTwiddleTable<StockhamGenerator::P_SINGLE>(str);
+		else
+			twLarge.GenerateTwiddleTable<StockhamGenerator::P_DOUBLE>(str);
+		clKernWrite(transKernel, 0) << str << std::endl;
+		clKernWrite(transKernel, 0) << std::endl;
 	}
 
 	//std::string funcName = "swap_nonsquare_" + std::to_string(smaller_dim) + "_" + std::to_string(dim_ratio);
@@ -1042,7 +1060,7 @@ clfftStatus genSwapKernelGeneral(const FFTGeneratedTransposeNonSquareAction::Sig
 	genTransposePrototypeLeadingDimensionBatched(params, local_work_size_swap, dtPlanar, dtComplex, funcName, transKernel, dtInput, dtOutput);
 
 	clKernWrite(transKernel, 3) << "//each wg handles one row of " << smaller_dim << " in memory" << std::endl;
-	clKernWrite(transKernel, 3) << "const int num_wg_per_batch = " << permutationTable.size() << ";" << std::endl; // number of wg per batch = number of independent cycles
+	clKernWrite(transKernel, 3) << "const int num_wg_per_batch = " << permutationTable.size() + 2 << ";" << std::endl; // number of wg per batch = number of independent cycles
 	clKernWrite(transKernel, 3) << "int group_id = get_group_id(0);" << std::endl;
 	clKernWrite(transKernel, 3) << "int idx = get_local_id(0);" << std::endl;
 
@@ -1066,7 +1084,7 @@ clfftStatus genSwapKernelGeneral(const FFTGeneratedTransposeNonSquareAction::Sig
     default:
         return CLFFT_TRANSPOSED_NOTIMPLEMENTED;
     }
-	clKernWrite(transKernel, 3) << "group_id -= batch_offset*" << permutationTable.size() << ";" << std::endl;
+	clKernWrite(transKernel, 3) << "group_id -= batch_offset*" << permutationTable.size() + 2 << ";" << std::endl;
 
 	clKernWrite(transKernel, 3) << std::endl;
 	clKernWrite(transKernel, 3) << "int prev = swap_table[group_id][0];" <<std::endl;
@@ -1161,14 +1179,27 @@ clfftStatus genSwapKernelGeneral(const FFTGeneratedTransposeNonSquareAction::Sig
 		if (params.fft_N[0] > params.fft_N[1])//decides whether we have a tall or wide rectangle
 		{
 			clKernWrite(transKernel, 6) << "next = (prev*" << smaller_dim << ")%" << smaller_dim*dim_ratio - 1 << ";" << std::endl;
+			//ugly
+			clKernWrite(transKernel, 6) << "if (prev == " << smaller_dim * dim_ratio - 1 << ")" << std::endl;
+			clKernWrite(transKernel, 9) << "next = " << smaller_dim * dim_ratio - 1 << ";" << std::endl;
+
 			clKernWrite(transKernel, 6) << "group_offset = (next/" << dim_ratio << ")*" << smaller_dim << "*" << dim_ratio
 				<< " + (next%" << dim_ratio << ")*" << smaller_dim << ";" << std::endl; //might look like: group_offset = (next/3)*729*3 + (next%3)*729;
+			if (twiddleSwapKernel)
+			{
+				//TODO
+			}
 		}
 		else
 		{
 			clKernWrite(transKernel, 6) << "next = (prev*" << dim_ratio << ")%" << smaller_dim*dim_ratio - 1 << ";" << std::endl;
-			clKernWrite(transKernel, 3) << "group_offset = (next*" << smaller_dim << ");" << std::endl; //might look like: int group_offset = prev*729; 
+			//ugly
+			clKernWrite(transKernel, 6) << "if (prev == " << smaller_dim * dim_ratio - 1 << ")" << std::endl;
+			clKernWrite(transKernel, 9) << "next = " << smaller_dim * dim_ratio - 1 << ";" << std::endl;
+
+			clKernWrite(transKernel, 6) << "group_offset = (next*" << smaller_dim << ");" << std::endl; //might look like: int group_offset = prev*729; 
 		}
+
 
 		clKernWrite(transKernel, 3) << std::endl;
         switch (params.fft_inputLayout)
@@ -1244,22 +1275,74 @@ clfftStatus genSwapKernelGeneral(const FFTGeneratedTransposeNonSquareAction::Sig
             return CLFFT_TRANSPOSED_NOTIMPLEMENTED;
         case CLFFT_COMPLEX_PLANAR:
         {
-            for (int i = 0; i < smaller_dim; i = i + 256)
-            {
-                if (i + 256 < smaller_dim)
-                {
-                    clKernWrite(transKernel, 6) << "inputA_R[group_offset+idx+" << i << "] = prevValue[idx+" << i << "].x;" << std::endl;
-                    clKernWrite(transKernel, 6) << "inputA_I[group_offset+idx+" << i << "] = prevValue[idx+" << i << "].y;" << std::endl;
-                }
-                else
-                {
-                    // need to handle boundary
-                    clKernWrite(transKernel, 6) << "if(idx+" << i << "<" << smaller_dim << "){" << std::endl;
-                    clKernWrite(transKernel, 6) << "inputA_R[group_offset+idx+" << i << "] = prevValue[idx+" << i << "].x;" << std::endl;
-                    clKernWrite(transKernel, 6) << "inputA_I[group_offset+idx+" << i << "] = prevValue[idx+" << i << "].y;" << std::endl;
-                    clKernWrite(transKernel, 6) << "}" << std::endl;
-                }
-            }
+			if (twiddleSwapKernel)
+			{
+				clKernWrite(transKernel, 6) << "size_t p;" << std::endl;
+				clKernWrite(transKernel, 6) << "size_t q;" << std::endl;
+				clKernWrite(transKernel, 6) << dtComplex  <<" twiddle_factor;" << std::endl;
+				for (int i = 0; i < smaller_dim; i = i + 256)
+				{
+					if (i + 256 < smaller_dim)
+					{
+						if (params.fft_N[0] > params.fft_N[1])//decides whether we have a tall or wide rectangle
+						{
+							//input is wide; output is tall
+							clKernWrite(transKernel, 6) << "p = (group_offset+idx+" << i << ")/" << smaller_dim << ";" << std::endl;
+							clKernWrite(transKernel, 6) << "q = (group_offset+idx+" << i << ")%" << smaller_dim << ";" << std::endl;
+						}
+						else
+						{
+							//input is tall; output is wide
+							clKernWrite(transKernel, 6) << "p = (group_offset+idx+" << i << ")/" << bigger_dim << ";" << std::endl;
+							clKernWrite(transKernel, 6) << "q = (group_offset+idx+" << i << ")%" << bigger_dim << ";" << std::endl;
+						}
+						clKernWrite(transKernel, 6) << "twiddle_factor = TW3step(p*q);" << std::endl;
+						clKernWrite(transKernel, 6) << "inputA_R[group_offset+idx+" << i << "] = prevValue[idx+" << i << "].x * twiddle_factor.x - prevValue[idx+" << i << "].y * twiddle_factor.y;" << std::endl;
+						clKernWrite(transKernel, 6) << "inputA_I[group_offset+idx+" << i << "] = prevValue[idx+" << i << "].x * twiddle_factor.y + prevValue[idx+" << i << "].y * twiddle_factor.x;" << std::endl;
+					}
+					else
+					{
+						// need to handle boundary
+						clKernWrite(transKernel, 6) << "if(idx+" << i << "<" << smaller_dim << "){" << std::endl;
+						if (params.fft_N[0] > params.fft_N[1])//decides whether we have a tall or wide rectangle
+						{
+							//input is wide; output is tall
+							clKernWrite(transKernel, 6) << "p = (group_offset+idx+" << i << ")/" << smaller_dim << ";" << std::endl;
+							clKernWrite(transKernel, 6) << "q = (group_offset+idx+" << i << ")%" << smaller_dim << ";" << std::endl;
+						}
+						else
+						{
+							//input is tall; output is wide
+							clKernWrite(transKernel, 6) << "p = (group_offset+idx+" << i << ")/" << bigger_dim << ";" << std::endl;
+							clKernWrite(transKernel, 6) << "q = (group_offset+idx+" << i << ")%" << bigger_dim << ";" << std::endl;
+						}
+						clKernWrite(transKernel, 6) << "twiddle_factor = TW3step(p*q);" << std::endl;
+						clKernWrite(transKernel, 6) << "inputA_R[group_offset+idx+" << i << "] = prevValue[idx+" << i << "].x * twiddle_factor.x - prevValue[idx+" << i << "].y * twiddle_factor.y;" << std::endl;
+						clKernWrite(transKernel, 6) << "inputA_I[group_offset+idx+" << i << "] = prevValue[idx+" << i << "].x * twiddle_factor.y + prevValue[idx+" << i << "].y * twiddle_factor.x;" << std::endl;
+						clKernWrite(transKernel, 6) << "}" << std::endl;
+					}
+					clKernWrite(transKernel, 3) << std::endl;
+				}
+			}
+			else
+			{
+				for (int i = 0; i < smaller_dim; i = i + 256)
+				{
+					if (i + 256 < smaller_dim)
+					{
+						clKernWrite(transKernel, 6) << "inputA_R[group_offset+idx+" << i << "] = prevValue[idx+" << i << "].x;" << std::endl;
+						clKernWrite(transKernel, 6) << "inputA_I[group_offset+idx+" << i << "] = prevValue[idx+" << i << "].y;" << std::endl;
+					}
+					else
+					{
+						// need to handle boundary
+						clKernWrite(transKernel, 6) << "if(idx+" << i << "<" << smaller_dim << "){" << std::endl;
+						clKernWrite(transKernel, 6) << "inputA_R[group_offset+idx+" << i << "] = prevValue[idx+" << i << "].x;" << std::endl;
+						clKernWrite(transKernel, 6) << "inputA_I[group_offset+idx+" << i << "] = prevValue[idx+" << i << "].y;" << std::endl;
+						clKernWrite(transKernel, 6) << "}" << std::endl;
+					}
+				}
+			}
             break;
         }
         default:
@@ -1359,9 +1442,12 @@ clfftStatus genTransposeKernelBatched(const FFTGeneratedTransposeSquareAction::S
 		break;
 	}
 
-
+	//  it is a better idea to do twiddle in swap kernel if we will have a swap kernel. 
+	//  for pure square transpose, twiddle will be done in transpose kernel
+	bool twiddleTransposeKernel = params.fft_3StepTwiddle && (params.transposeMiniBatchSize == 1);//when transposeMiniBatchSize == 1 it is guaranteed to be a sqaure matrix transpose
 	//	If twiddle computation has been requested, generate the lookup function
-	if (params.fft_3StepTwiddle)
+	
+	if (twiddleTransposeKernel)
 	{
 		std::string str;
 		StockhamGenerator::TwiddleTableLarge twLarge(params.fft_N[0] * params.fft_N[1]);
@@ -1372,7 +1458,7 @@ clfftStatus genTransposeKernelBatched(const FFTGeneratedTransposeSquareAction::S
 		clKernWrite(transKernel, 0) << str << std::endl;
 		clKernWrite(transKernel, 0) << std::endl;
 	}
-
+	
 
 
 	// This detects whether the input matrix is square
@@ -1407,7 +1493,7 @@ clfftStatus genTransposeKernelBatched(const FFTGeneratedTransposeSquareAction::S
 		}
 
 		std::string funcName;
-		if (params.fft_3StepTwiddle) // TODO
+		if (twiddleTransposeKernel) // it makes more sense to do twiddling in swap kernel
 			funcName = fwd ? "transpose_square_tw_fwd" : "transpose_square_tw_back";
 		else
 			funcName = "transpose_square";
@@ -1431,6 +1517,7 @@ clfftStatus genTransposeKernelBatched(const FFTGeneratedTransposeSquareAction::S
 		clKernWrite(transKernel, 3) << std::endl;
 
 		OffsetCalc(transKernel, params, true);
+
 
 		if (params.fft_placeness == CLFFT_OUTOFPLACE)
 			OffsetCalc(transKernel, params, false);
@@ -1644,8 +1731,9 @@ clfftStatus genTransposeKernelBatched(const FFTGeneratedTransposeSquareAction::S
 				return CLFFT_TRANSPOSED_NOTIMPLEMENTED;
 			}
 
+			// it makes more sense to do twiddling in swap kernel
 			// If requested, generate the Twiddle math to multiply constant values
-			if (params.fft_3StepTwiddle)
+			if (twiddleTransposeKernel)
 				genTwiddleMath(params, transKernel, dtComplex, fwd);
 
 			clKernWrite(transKernel, 6) << "xy_s[index] = tmpm; " << std::endl;
@@ -1835,8 +1923,9 @@ clfftStatus genTransposeKernelBatched(const FFTGeneratedTransposeSquareAction::S
 				return CLFFT_TRANSPOSED_NOTIMPLEMENTED;
 			}
 
+			// it makes more sense to do twiddling in swap kernel
 			// If requested, generate the Twiddle math to multiply constant values
-			if (params.fft_3StepTwiddle)
+			if (twiddleTransposeKernel)
 				genTwiddleMath(params, transKernel, dtComplex, fwd);
 
 			clKernWrite(transKernel, 9) << "xy_s[index] = tmpm;" << std::endl;
@@ -1915,7 +2004,7 @@ clfftStatus genTransposeKernelBatched(const FFTGeneratedTransposeSquareAction::S
 
 
 			// If requested, generate the Twiddle math to multiply constant values
-			if (params.fft_3StepTwiddle)
+			if (twiddleTransposeKernel)
 				genTwiddleMath(params, transKernel, dtComplex, fwd);
 
 			clKernWrite(transKernel, 9) << "xy_s[index] = tmpm;" << std::endl;
@@ -2083,8 +2172,9 @@ clfftStatus genTransposeKernelBatched(const FFTGeneratedTransposeSquareAction::S
 
 		strKernel = transKernel.str();
 
-		if (!params.fft_3StepTwiddle)
-			break;
+		
+		if (!twiddleTransposeKernel)
+			break; // break for bothDir
 	}
 
 	return CLFFT_SUCCESS;

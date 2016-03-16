@@ -269,6 +269,7 @@ clfftStatus FFTGeneratedTransposeNonSquareAction::generateKernel(FFTRepo& fftRep
 			}
 		}
 		//here we should decide generate what kind of swap kernel. 1:2 and 1:3 probably need different swap kernels
+		/*
 		if (this->signature.fft_N[0] == 2 * this->signature.fft_N[1] || 2 * this->signature.fft_N[0] == this->signature.fft_N[1])
 		{
 			OPENCL_V(clfft_transpose_generator::genSwapKernel(this->signature, programCode, kernelFuncName, lwSize, reShapeFactor), _T("genSwapKernel() failed!"));
@@ -277,6 +278,9 @@ clfftStatus FFTGeneratedTransposeNonSquareAction::generateKernel(FFTRepo& fftRep
 		{
 			OPENCL_V(clfft_transpose_generator::genSwapKernelGeneral(this->signature, programCode, kernelFuncName, lwSize, reShapeFactor), _T("genSwapKernel() failed!"));
 		}
+		*/
+		//general swap kernel takes care of all ratio
+		OPENCL_V(clfft_transpose_generator::genSwapKernelGeneral(this->signature, programCode, kernelFuncName, lwSize, reShapeFactor), _T("genSwapKernel() failed!"));
 		std::cout << programCode << std::endl;//TIMMY
     }
 
@@ -305,7 +309,7 @@ clfftStatus FFTGeneratedTransposeNonSquareAction::generateKernel(FFTRepo& fftRep
     }
 	else if(this->signature.nonSquareKernelType == NON_SQUARE_TRANS_TRANSPOSE_BATCHED)
 	{
-		if (this->signature.fft_3StepTwiddle)
+		if (this->signature.fft_3StepTwiddle && (this->signature.transposeMiniBatchSize == 1)) //if miniBatchSize > 1 twiddling is done in swap kernel
 		{
 			OPENCL_V(fftRepo.setProgramEntryPoints(Transpose_NONSQUARE, this->getSignatureData(), "transpose_square_tw_fwd", "transpose_square_tw_back", Device, QueueContext), _T("fftRepo.setProgramEntryPoint() failed!"));
 		}
@@ -362,8 +366,8 @@ clfftStatus FFTGeneratedTransposeNonSquareAction::getWorkSizes(std::vector< size
     else
     {
         /*Now calculate the data for the swap kernels */
-
-		if(dim_ratio == 2){
+		// general swap kernel takes care of all ratio. need clean up here
+		if(dim_ratio == 2 && 0){
 			//1:2 ratio
 			size_t input_elm_size_in_bytes;
 			switch (this->signature.fft_precision)
@@ -438,18 +442,24 @@ clfftStatus FFTGeneratedTransposeNonSquareAction::getWorkSizes(std::vector< size
 		}
 		else
 		{
-			if (dim_ratio == 3 || dim_ratio == 5 || dim_ratio == 10)
+			if (dim_ratio == 2 || dim_ratio == 3 || dim_ratio == 5 || dim_ratio == 10)
 			{
 				//1:3 ratio
 				size_t local_work_size_swap = 256;
 				std::vector<std::vector<size_t> > permutationTable;
 				clfft_transpose_generator::permutation_calculation(dim_ratio, smaller_dim, permutationTable);
-				size_t global_item_size = permutationTable.size() * local_work_size_swap * this->plan->batchsize;
-                for (int i = 2; i < this->plan->length.size(); i++)
-                    global_item_size *= this->plan->length[i];
+				size_t global_item_size;
+				if(this->plan->large1D && (dim_ratio > 1))
+					global_item_size = (permutationTable.size() + 2) * local_work_size_swap * this->plan->batchsize;
+				else
+					global_item_size = (permutationTable.size() + 2) * local_work_size_swap * this->plan->batchsize;
+				for (int i = 2; i < this->plan->length.size(); i++)
+					global_item_size *= this->plan->length[i];
 				globalWS.push_back(global_item_size);
 				localWS.push_back(local_work_size_swap);
 			}
+			else
+				return CLFFT_NOTIMPLEMENTED;
 		}
     }
     return CLFFT_SUCCESS;

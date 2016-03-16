@@ -609,7 +609,9 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 						}
 					}
 				}
-
+				// add some special cases
+				if (fftPlan->length[0] == 100000)
+					clLengths[1] = 100;
 				clLengths[0] = fftPlan->length[0]/clLengths[1];
 
                 // Start of block where transposes are generated; 1D FFT
@@ -781,7 +783,7 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 					trans2Plan->oDist         = clLengths[1] * trans2Plan->outStride[1];
                     trans2Plan->gen           = transGen;
 
-					if(transGen != Transpose_NONSQUARE)//TIMMY twiddle
+					if (transGen != Transpose_NONSQUARE)//TIMMY twiddle
 						trans2Plan->large1D		  = fftPlan->length[0];
 
 					trans2Plan->transflag     = true;
@@ -837,7 +839,7 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 						row2Plan->oDist *= fftPlan->length[index];
 					}
 					
-					if (transGen == Transpose_NONSQUARE)//TIMMY twiddle
+					if (transGen != Transpose_NONSQUARE)//TIMMY twiddle in transform
 					{
 						row2Plan->large1D = fftPlan->length[0];
 						row2Plan->twiddleFront = true;
@@ -1991,7 +1993,7 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 						}
 						else
 						{
-							if (fftPlan->large1D != 0)
+							if (fftPlan->large1D != 0 && 0)
 							{
 								//currently tranpose twiddling is only supported in below case
 								//TODO support tranpose twiddling for all cases.
@@ -2004,8 +2006,8 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 						}
 						//if the original input data is more than 1d only TRANSPOSE_LEADING_AND_SWAP order is supported
 						//TODO need to fix this here. related to multi dim batch size.
-						if (fftPlan->length.size() > 2)
-							currKernelOrder = TRANSPOSE_LEADING_AND_SWAP;
+						//if (fftPlan->length.size() > 2) //Timmy test
+						//	currKernelOrder = TRANSPOSE_LEADING_AND_SWAP;
 						std::cout << "currKernelOrder = " << currKernelOrder << std::endl;
 						//ends tranpose kernel order
 
@@ -2038,7 +2040,7 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 						else
 							trans1Plan->nonSquareKernelType = NON_SQUARE_TRANS_TRANSPOSE_BATCHED_LEADING;
 						trans1Plan->transflag = true;
-                        trans1Plan->large1D = fftPlan->large1D;
+                        trans1Plan->large1D = fftPlan->large1D;//twiddling may happen in this kernel
 
 						if (trans1Plan->nonSquareKernelType == NON_SQUARE_TRANS_TRANSPOSE_BATCHED)
 						{
@@ -2111,6 +2113,7 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 						else
 							trans2Plan->nonSquareKernelType = NON_SQUARE_TRANS_SWAP;
 						trans2Plan->transflag = true;
+						trans2Plan->large1D = fftPlan->large1D;//twiddling may happen in this kernel
 
 						if (trans2Plan->nonSquareKernelType == NON_SQUARE_TRANS_TRANSPOSE_BATCHED)
 						{
