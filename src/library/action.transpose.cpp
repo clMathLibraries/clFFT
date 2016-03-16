@@ -135,6 +135,8 @@ clfftStatus FFTGeneratedTransposeNonSquareAction::initParams()
     }
 
     this->signature.fft_DataDim = this->plan->length.size() + 1;
+	//if (this->plan->length.back() == 729 && this->plan->length.size() > 2)//silly Timmy delete
+	//	this->signature.fft_DataDim--;
     int i = 0;
     for (i = 0; i < (this->signature.fft_DataDim - 1); i++)
     {
@@ -336,8 +338,7 @@ clfftStatus FFTGeneratedTransposeNonSquareAction::getWorkSizes(std::vector< size
 	size_t dim_ratio = bigger_dim / smaller_dim;
     size_t global_item_size;
 
-    if (this->signature.nonSquareKernelType == NON_SQUARE_TRANS_TRANSPOSE_BATCHED_LEADING  
-        || this->signature.nonSquareKernelType == NON_SQUARE_TRANS_TRANSPOSE_BATCHED)
+    if (this->signature.nonSquareKernelType == NON_SQUARE_TRANS_TRANSPOSE_BATCHED_LEADING)
     {
         std::cout << "TIMMY"<< std::endl;
         if (smaller_dim % (16 * reShapeFactor) == 0)
@@ -363,6 +364,29 @@ clfftStatus FFTGeneratedTransposeNonSquareAction::getWorkSizes(std::vector< size
         localWS.clear();
         localWS.push_back(lwSize);
     }
+	else if (this->signature.nonSquareKernelType == NON_SQUARE_TRANS_TRANSPOSE_BATCHED)
+	{
+		std::cout << "TIMMY" << std::endl;
+		if (smaller_dim % (16 * reShapeFactor) == 0)
+			wg_slice = smaller_dim / 16 / reShapeFactor;
+		else
+			wg_slice = (smaller_dim / (16 * reShapeFactor)) + 1;
+
+		global_item_size = wg_slice*(wg_slice + 1) / 2 * 16 * 16 * this->plan->batchsize;
+
+		for (int i = 2; i < this->plan->length.size(); i++)//Timmy delete
+		{
+			global_item_size *= this->plan->length[i];
+		}
+
+		/*Push the data required for the transpose kernels*/
+		globalWS.clear();
+		globalWS.push_back(global_item_size);
+
+
+		localWS.clear();
+		localWS.push_back(lwSize);
+	}
     else
     {
         /*Now calculate the data for the swap kernels */

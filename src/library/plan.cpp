@@ -697,7 +697,9 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 
 					for (size_t index = 1; index < fftPlan->length.size(); index++)
 					{
-						trans1Plan->length.push_back(fftPlan->length[index]);
+						//trans1Plan->length.push_back(fftPlan->length[index]);
+						trans1Plan->batchsize = trans1Plan->batchsize * fftPlan->length[index];//Timmy
+						trans1Plan->iDist = trans1Plan->iDist / fftPlan->length[index];//Timmy
 						trans1Plan->inStride.push_back(fftPlan->inStride[index]);
 						trans1Plan->outStride.push_back(trans1Plan->oDist);
 						trans1Plan->oDist *= fftPlan->length[index];
@@ -783,14 +785,16 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 					trans2Plan->oDist         = clLengths[1] * trans2Plan->outStride[1];
                     trans2Plan->gen           = transGen;
 
-					if (transGen != Transpose_NONSQUARE)//TIMMY twiddle
+					//if (transGen != Transpose_NONSQUARE)//TIMMY twiddle
 						trans2Plan->large1D		  = fftPlan->length[0];
 
 					trans2Plan->transflag     = true;
 
 					for (size_t index = 1; index < fftPlan->length.size(); index++)
 					{
-						trans2Plan->length.push_back(fftPlan->length[index]);
+						//trans2Plan->length.push_back(fftPlan->length[index]);
+						trans2Plan->batchsize = trans2Plan->batchsize * fftPlan->length[index];//Timmy
+						trans2Plan->iDist = trans2Plan->iDist / fftPlan->length[index];//Timmy
 						trans2Plan->inStride.push_back(fftPlan->outStride[index]);
 						trans2Plan->outStride.push_back(trans2Plan->oDist);
 						trans2Plan->oDist *= fftPlan->length[index];
@@ -839,11 +843,11 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 						row2Plan->oDist *= fftPlan->length[index];
 					}
 					
-					if (transGen != Transpose_NONSQUARE)//TIMMY twiddle in transform
-					{
-						row2Plan->large1D = fftPlan->length[0];
-						row2Plan->twiddleFront = true;
-					}
+					//if (transGen != Transpose_NONSQUARE)//TIMMY twiddle in transform
+					//{
+					//	row2Plan->large1D = fftPlan->length[0];
+					//	row2Plan->twiddleFront = true;
+					//}
 
 					OPENCL_V(clfftBakePlan(fftPlan->planY, numQueues, commQueueFFT, NULL, NULL ),
 						_T( "BakePlan large1d second row plan failed" ) );
@@ -876,7 +880,9 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 
 					for (size_t index = 1; index < fftPlan->length.size(); index++)
 					{
-						trans3Plan->length.push_back(fftPlan->length[index]);
+						//trans3Plan->length.push_back(fftPlan->length[index]);
+						trans3Plan->batchsize = trans3Plan->batchsize * fftPlan->length[index];//Timmy for 2D
+						trans3Plan->iDist = trans3Plan->iDist / fftPlan->length[index];//Timmy
 						trans3Plan->inStride.push_back(trans3Plan->iDist);
 						trans3Plan->iDist *= fftPlan->length[index];
 						trans3Plan->outStride.push_back(fftPlan->outStride[index]);

@@ -2038,6 +2038,16 @@ TEST_F(accuracy_test_pow3_double, huge_1D_forward_in_place_complex_planar_to_com
 	try { huge_1D_forward_in_place_complex_to_complex< double, cl_double, fftw_complex >(1594323, 1, layout::complex_planar, direction::forward); }
 	catch (const std::exception& err) { handle_exception(err); }
 }
+TEST_F(accuracy_test_pow3_double, huge_1D_forward_in_place_complex_planar_to_complex_planar_1594323_2)
+{
+	try { huge_1D_forward_in_place_complex_to_complex< double, cl_double, fftw_complex >(1594323, 2, layout::complex_planar, direction::forward); }
+	catch (const std::exception& err) { handle_exception(err); }
+}
+TEST_F(accuracy_test_pow3_double, huge_1D_forward_in_place_complex_planar_to_complex_planar_2187_1)
+{
+	try { huge_1D_forward_in_place_complex_to_complex< double, cl_double, fftw_complex >(2187, 1, layout::complex_planar, direction::forward); }
+	catch (const std::exception& err) { handle_exception(err); }
+}
 
 //interleaved
 TEST_F(accuracy_test_pow3_single, huge_1D_forward_in_place_complex_interleaved_to_complex_interleaved_1594323_1)

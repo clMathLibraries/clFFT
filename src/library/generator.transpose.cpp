@@ -38,7 +38,6 @@ void OffsetCalc(std::stringstream& transKernel, const FFTKernelGenKeyParams& par
 	for (size_t i = params.fft_DataDim - 2; i > 0; i--)
 	{
 		clKernWrite(transKernel, 3) << offset << " += (g_index/numGroupsY_" << i << ")*" << stride[i + 1] << ";" << std::endl;
-		//clKernWrite(transKernel, 3) << offset << " += (g_index/numGroupsY_" << i << ")*" << 1048576 << ";" << std::endl;
 		clKernWrite(transKernel, 3) << "g_index = g_index % numGroupsY_" << i << ";" << std::endl;
 	}
 
