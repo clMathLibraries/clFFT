@@ -533,7 +533,7 @@ namespace ParameterizedTest {
 			the_seed( seed_in )
 		{
 			random_parameter_generator.seed( static_cast<boost::uint32_t>( the_seed ) );
-			::testing::Test::RecordProperty("parameter seed", static_cast<unsigned int>(the_seed));
+			::testing::Test::RecordProperty("parameter_seed", static_cast<unsigned int>(the_seed));
 			std::cout << "Random test's seed is " << the_seed << std::endl;
 		}
 	};
