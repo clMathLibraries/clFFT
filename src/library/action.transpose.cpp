@@ -311,7 +311,9 @@ clfftStatus FFTGeneratedTransposeNonSquareAction::generateKernel(FFTRepo& fftRep
     }
 	else if(this->signature.nonSquareKernelType == NON_SQUARE_TRANS_TRANSPOSE_BATCHED)
 	{
-		if (this->signature.fft_3StepTwiddle && (this->signature.transposeMiniBatchSize == 1)) //if miniBatchSize > 1 twiddling is done in swap kernel
+        //for non square we do twiddling in swap kernel
+        /*
+		if (this->signature.fft_3StepTwiddle && (this->signature.transposeMiniBatchSize == 1))
 		{
 			OPENCL_V(fftRepo.setProgramEntryPoints(Transpose_NONSQUARE, this->getSignatureData(), "transpose_square_tw_fwd", "transpose_square_tw_back", Device, QueueContext), _T("fftRepo.setProgramEntryPoint() failed!"));
 		}
@@ -319,11 +321,19 @@ clfftStatus FFTGeneratedTransposeNonSquareAction::generateKernel(FFTRepo& fftRep
 		{
 			OPENCL_V(fftRepo.setProgramEntryPoints(Transpose_NONSQUARE, this->getSignatureData(), "transpose_square", "transpose_square", Device, QueueContext), _T("fftRepo.setProgramEntryPoint() failed!"));
 		}
+        */
+        OPENCL_V(fftRepo.setProgramEntryPoints(Transpose_NONSQUARE, this->getSignatureData(), "transpose_square", "transpose_square", Device, QueueContext), _T("fftRepo.setProgramEntryPoint() failed!"));
 	}
     else
     {
-		//this should be modified as well
-        OPENCL_V(fftRepo.setProgramEntryPoints(Transpose_NONSQUARE, this->getSignatureData(), kernelFuncName.c_str(), kernelFuncName.c_str(), Device, QueueContext), _T("fftRepo.setProgramEntryPoint() failed!"));
+        if (this->signature.fft_3StepTwiddle)//if miniBatchSize > 1 twiddling is done in swap kernel
+        {
+            std::string kernelFwdFuncName = kernelFuncName + "_tw_fwd";
+            std::string kernelBwdFuncName = kernelFuncName + "_tw_back";
+            OPENCL_V(fftRepo.setProgramEntryPoints(Transpose_NONSQUARE, this->getSignatureData(), kernelFwdFuncName.c_str(), kernelBwdFuncName.c_str(), Device, QueueContext), _T("fftRepo.setProgramEntryPoint() failed!"));
+        }
+        else
+            OPENCL_V(fftRepo.setProgramEntryPoints(Transpose_NONSQUARE, this->getSignatureData(), kernelFuncName.c_str(), kernelFuncName.c_str(), Device, QueueContext), _T("fftRepo.setProgramEntryPoint() failed!"));
     }
     return CLFFT_SUCCESS;
 }
