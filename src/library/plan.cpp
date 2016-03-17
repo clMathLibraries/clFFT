@@ -698,8 +698,15 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 					for (size_t index = 1; index < fftPlan->length.size(); index++)
 					{
 						//trans1Plan->length.push_back(fftPlan->length[index]);
-						trans1Plan->batchsize = trans1Plan->batchsize * fftPlan->length[index];//Timmy
-						trans1Plan->iDist = trans1Plan->iDist / fftPlan->length[index];//Timmy
+                        /*
+                        replacing the line above with the two lines below since:
+                        fftPlan is still 1D, thus the broken down transpose should be 2D not 3D
+                        the batchSize for the transpose should increase accordingly. 
+                        the iDist should decrease accordingly. Push back to length will cause a 3D transpose 
+                        */
+						trans1Plan->batchsize = trans1Plan->batchsize * fftPlan->length[index];
+						trans1Plan->iDist = trans1Plan->iDist / fftPlan->length[index];
+
 						trans1Plan->inStride.push_back(fftPlan->inStride[index]);
 						trans1Plan->outStride.push_back(trans1Plan->oDist);
 						trans1Plan->oDist *= fftPlan->length[index];
@@ -785,7 +792,7 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 					trans2Plan->oDist         = clLengths[1] * trans2Plan->outStride[1];
                     trans2Plan->gen           = transGen;
 
-					//if (transGen != Transpose_NONSQUARE)//TIMMY twiddle
+					//if (transGen != Transpose_NONSQUARE)//twiddle
 						trans2Plan->large1D		  = fftPlan->length[0];
 
 					trans2Plan->transflag     = true;
@@ -793,8 +800,14 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 					for (size_t index = 1; index < fftPlan->length.size(); index++)
 					{
 						//trans2Plan->length.push_back(fftPlan->length[index]);
-						trans2Plan->batchsize = trans2Plan->batchsize * fftPlan->length[index];//Timmy
-						trans2Plan->iDist = trans2Plan->iDist / fftPlan->length[index];//Timmy
+                        /*
+                        replacing the line above with the two lines below since:
+                        fftPlan is still 1D, thus the broken down transpose should be 2D not 3D
+                        the batchSize for the transpose should increase accordingly.
+                        the iDist should decrease accordingly. Push back to length will cause a 3D transpose
+                        */
+						trans2Plan->batchsize = trans2Plan->batchsize * fftPlan->length[index];
+						trans2Plan->iDist = trans2Plan->iDist / fftPlan->length[index];
 						trans2Plan->inStride.push_back(fftPlan->outStride[index]);
 						trans2Plan->outStride.push_back(trans2Plan->oDist);
 						trans2Plan->oDist *= fftPlan->length[index];
@@ -843,7 +856,7 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 						row2Plan->oDist *= fftPlan->length[index];
 					}
 					
-					//if (transGen != Transpose_NONSQUARE)//TIMMY twiddle in transform
+					//if (transGen != Transpose_NONSQUARE)//twiddle in transform
 					//{
 					//	row2Plan->large1D = fftPlan->length[0];
 					//	row2Plan->twiddleFront = true;
@@ -881,8 +894,14 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 					for (size_t index = 1; index < fftPlan->length.size(); index++)
 					{
 						//trans3Plan->length.push_back(fftPlan->length[index]);
-						trans3Plan->batchsize = trans3Plan->batchsize * fftPlan->length[index];//Timmy for 2D
-						trans3Plan->iDist = trans3Plan->iDist / fftPlan->length[index];//Timmy
+                        /*
+                        replacing the line above with the two lines below since:
+                        fftPlan is still 1D, thus the broken down transpose should be 2D not 3D
+                        the batchSize for the transpose should increase accordingly.
+                        the iDist should decrease accordingly. Push back to length will cause a 3D transpose
+                        */
+						trans3Plan->batchsize = trans3Plan->batchsize * fftPlan->length[index];
+						trans3Plan->iDist = trans3Plan->iDist / fftPlan->length[index];
 						trans3Plan->inStride.push_back(trans3Plan->iDist);
 						trans3Plan->iDist *= fftPlan->length[index];
 						trans3Plan->outStride.push_back(fftPlan->outStride[index]);
@@ -1993,20 +2012,21 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 						NON_SQUARE_KERNEL_ORDER currKernelOrder;
 						// controling the transpose and swap kernel order
 						// if leading dim is larger than the other dim it makes sense to swap and transpose
-						if (clLengths[0] > clLengths[1])
+						if (clLengths[0] > clLengths[1] && fftPlan->large1D == 0)
 						{
+                            //twidding can be done in swap when swap is the second kernel for now
 							currKernelOrder = SWAP_AND_TRANSPOSE;
 						}
 						else
 						{
 							if (fftPlan->large1D != 0 && 0)
 							{
-								//currently tranpose twiddling is only supported in below case
-								//TODO support tranpose twiddling for all cases.
+                                //this is not going to happen
 								currKernelOrder = TRANSPOSE_LEADING_AND_SWAP;
 							}
 							else
 							{
+                                //twiddling can be done in swap
 								currKernelOrder = TRANSPOSE_AND_SWAP;
 							}
 						}
