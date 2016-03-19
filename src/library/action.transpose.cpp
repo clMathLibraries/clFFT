@@ -476,9 +476,9 @@ clfftStatus FFTGeneratedTransposeNonSquareAction::getWorkSizes(std::vector< size
 		}
 		else
 		{
-			if (dim_ratio == 2 || dim_ratio == 3 || dim_ratio == 5 || dim_ratio == 10)
+			//if (dim_ratio == 2 || dim_ratio == 3 || dim_ratio == 5 || dim_ratio == 10)
+			if (dim_ratio % 2 == 0 || dim_ratio % 3 == 0 || dim_ratio % 5 == 0 || dim_ratio % 10 == 0)
 			{
-				//1:3 ratio
 				size_t local_work_size_swap = 256;
 				std::vector<std::vector<size_t> > permutationTable;
 				clfft_transpose_generator::permutation_calculation(dim_ratio, smaller_dim, permutationTable);
@@ -487,8 +487,31 @@ clfftStatus FFTGeneratedTransposeNonSquareAction::getWorkSizes(std::vector< size
 					global_item_size = (permutationTable.size() + 2) * local_work_size_swap * this->plan->batchsize;
 				else
 					global_item_size = (permutationTable.size() + 2) * local_work_size_swap * this->plan->batchsize;
-				for (int i = 2; i < this->plan->length.size(); i++)
-					global_item_size *= this->plan->length[i];
+				//for (int i = 2; i < this->plan->length.size(); i++)
+				//	global_item_size *= this->plan->length[i];
+				size_t LDS_per_WG = smaller_dim;
+				while (LDS_per_WG > 1024)//avoiding using too much lds memory. the biggest LDS memory we will allocate would be 1024*sizeof(float2/double2)*2
+				{
+					if (LDS_per_WG % 2 == 0)
+					{
+						LDS_per_WG /= 2;
+						continue;
+					}
+					if (LDS_per_WG % 3 == 0)
+					{
+						LDS_per_WG /= 3;
+						continue;
+					}
+					if (LDS_per_WG % 5 == 0)
+					{
+						LDS_per_WG /= 5;
+						continue;
+					}
+					return CLFFT_NOTIMPLEMENTED;
+				}
+
+				size_t WG_per_line = smaller_dim / LDS_per_WG;
+				global_item_size *= WG_per_line;
 				globalWS.push_back(global_item_size);
 				localWS.push_back(local_work_size_swap);
 			}

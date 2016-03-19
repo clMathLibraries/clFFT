@@ -612,7 +612,15 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 				// add some special cases
 				if (fftPlan->length[0] == 100000)
 					clLengths[1] = 100;
+
 				clLengths[0] = fftPlan->length[0]/clLengths[1];
+				//timmy delete ensure clLengths[0] > clLengths[1] only when inplace is enabled
+				if (clLengths[0] < clLengths[1] && clfftGetRequestLibNoMemAlloc() && fftPlan->placeness == CLFFT_INPLACE)
+				{
+					size_t temp = clLengths[0];
+					clLengths[0] = clLengths[1];
+					clLengths[1] = temp;
+				}
 
                 // Start of block where transposes are generated; 1D FFT
 				while (1 && (fftPlan->inputLayout != CLFFT_REAL) && (fftPlan->outputLayout != CLFFT_REAL))
@@ -637,11 +645,20 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 					
 					//non square in-place tranpose currently support 1:2 ratio
 					//TODO: expand the support to 1:3, 1:5 and 1:10 ratio
+					/*
 					if (clfftGetRequestLibNoMemAlloc() &&
 						((clLengths[0] == 2*clLengths[1]) || 
 						 (clLengths[0] == 3*clLengths[1]) ||
 						 (clLengths[0] == 5*clLengths[1]) ||
 						 (clLengths[0] == 10 * clLengths[1])) &&
+						fftPlan->placeness == CLFFT_INPLACE)
+						*/
+					size_t dim_ratio = clLengths[1] / clLengths[0];
+					if (clfftGetRequestLibNoMemAlloc() &&
+						((dim_ratio % 2 == 0) ||
+						 (dim_ratio % 3 == 0) ||
+						 (dim_ratio % 5 == 0) ||
+						 (dim_ratio % 10 == 0)) &&
 						fftPlan->placeness == CLFFT_INPLACE)
 					{
 						padding = 0;
@@ -695,21 +712,35 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 					trans1Plan->gen           = transGen;
 					trans1Plan->transflag     = true;
 
-					for (size_t index = 1; index < fftPlan->length.size(); index++)
+					if (trans1Plan->gen == Transpose_NONSQUARE || 1)
 					{
-						//trans1Plan->length.push_back(fftPlan->length[index]);
-                        /*
-                        replacing the line above with the two lines below since:
-                        fftPlan is still 1D, thus the broken down transpose should be 2D not 3D
-                        the batchSize for the transpose should increase accordingly. 
-                        the iDist should decrease accordingly. Push back to length will cause a 3D transpose 
-                        */
-						trans1Plan->batchsize = trans1Plan->batchsize * fftPlan->length[index];
-						trans1Plan->iDist = trans1Plan->iDist / fftPlan->length[index];
+						for (size_t index = 1; index < fftPlan->length.size(); index++)
+						{
+							//trans1Plan->length.push_back(fftPlan->length[index]);
+							/*
+							replacing the line above with the two lines below since:
+							fftPlan is still 1D, thus the broken down transpose should be 2D not 3D
+							the batchSize for the transpose should increase accordingly.
+							the iDist should decrease accordingly. Push back to length will cause a 3D transpose
+							*/
+							trans1Plan->batchsize = trans1Plan->batchsize * fftPlan->length[index];
+							trans1Plan->iDist = trans1Plan->iDist / fftPlan->length[index];
 
-						trans1Plan->inStride.push_back(fftPlan->inStride[index]);
-						trans1Plan->outStride.push_back(trans1Plan->oDist);
-						trans1Plan->oDist *= fftPlan->length[index];
+							trans1Plan->inStride.push_back(fftPlan->inStride[index]);
+							trans1Plan->outStride.push_back(trans1Plan->oDist);
+							trans1Plan->oDist *= fftPlan->length[index];
+						}
+					}
+					else
+					{
+						for (size_t index = 1; index < fftPlan->length.size(); index++)
+						{
+							trans1Plan->length.push_back(fftPlan->length[index]);
+
+							trans1Plan->inStride.push_back(fftPlan->inStride[index]);
+							trans1Plan->outStride.push_back(trans1Plan->oDist);
+							trans1Plan->oDist *= fftPlan->length[index];
+						}
 					}
 
 					//Set callback data if set on top level plan
@@ -797,20 +828,34 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 
 					trans2Plan->transflag     = true;
 
-					for (size_t index = 1; index < fftPlan->length.size(); index++)
+					if (trans2Plan->gen == Transpose_NONSQUARE || 1)// TIMMY delete
 					{
-						//trans2Plan->length.push_back(fftPlan->length[index]);
-                        /*
-                        replacing the line above with the two lines below since:
-                        fftPlan is still 1D, thus the broken down transpose should be 2D not 3D
-                        the batchSize for the transpose should increase accordingly.
-                        the iDist should decrease accordingly. Push back to length will cause a 3D transpose
-                        */
-						trans2Plan->batchsize = trans2Plan->batchsize * fftPlan->length[index];
-						trans2Plan->iDist = trans2Plan->iDist / fftPlan->length[index];
-						trans2Plan->inStride.push_back(fftPlan->outStride[index]);
-						trans2Plan->outStride.push_back(trans2Plan->oDist);
-						trans2Plan->oDist *= fftPlan->length[index];
+						for (size_t index = 1; index < fftPlan->length.size(); index++)
+						{
+							//trans2Plan->length.push_back(fftPlan->length[index]);
+							/*
+							replacing the line above with the two lines below since:
+							fftPlan is still 1D, thus the broken down transpose should be 2D not 3D
+							the batchSize for the transpose should increase accordingly.
+							the iDist should decrease accordingly. Push back to length will cause a 3D transpose
+							*/
+							trans2Plan->batchsize = trans2Plan->batchsize * fftPlan->length[index];
+							trans2Plan->iDist = trans2Plan->iDist / fftPlan->length[index];
+							trans2Plan->inStride.push_back(fftPlan->outStride[index]);
+							trans2Plan->outStride.push_back(trans2Plan->oDist);
+							trans2Plan->oDist *= fftPlan->length[index];
+						}
+					}
+					else
+					{
+						for (size_t index = 1; index < fftPlan->length.size(); index++)
+						{
+							trans2Plan->length.push_back(fftPlan->length[index]);
+
+							trans2Plan->inStride.push_back(fftPlan->outStride[index]);
+							trans2Plan->outStride.push_back(trans2Plan->oDist);
+							trans2Plan->oDist *= fftPlan->length[index];
+						}
 					}
 
 					OPENCL_V(clfftBakePlan(fftPlan->planTY, numQueues, commQueueFFT, NULL, NULL ),
@@ -891,20 +936,36 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 					trans3Plan->transflag     = true;
 					trans3Plan->transOutHorizontal = true;
 
-					for (size_t index = 1; index < fftPlan->length.size(); index++)
+
+					if (trans3Plan->gen == Transpose_NONSQUARE || 1)
 					{
-						//trans3Plan->length.push_back(fftPlan->length[index]);
-                        /*
-                        replacing the line above with the two lines below since:
-                        fftPlan is still 1D, thus the broken down transpose should be 2D not 3D
-                        the batchSize for the transpose should increase accordingly.
-                        the iDist should decrease accordingly. Push back to length will cause a 3D transpose
-                        */
-						trans3Plan->batchsize = trans3Plan->batchsize * fftPlan->length[index];
-						trans3Plan->iDist = trans3Plan->iDist / fftPlan->length[index];
-						trans3Plan->inStride.push_back(trans3Plan->iDist);
-						trans3Plan->iDist *= fftPlan->length[index];
-						trans3Plan->outStride.push_back(fftPlan->outStride[index]);
+						for (size_t index = 1; index < fftPlan->length.size(); index++)
+						{
+							//trans3Plan->length.push_back(fftPlan->length[index]);
+							/*
+							replacing the line above with the two lines below since:
+							fftPlan is still 1D, thus the broken down transpose should be 2D not 3D
+							the batchSize for the transpose should increase accordingly.
+							the iDist should decrease accordingly. Push back to length will cause a 3D transpose
+							*/
+							trans3Plan->batchsize = trans3Plan->batchsize * fftPlan->length[index];
+							trans3Plan->iDist = trans3Plan->iDist / fftPlan->length[index];
+							//trans3Plan->inStride.push_back(trans3Plan->iDist);//Timmy for square
+							trans3Plan->inStride.push_back(fftPlan->inStride[index]);
+							trans3Plan->iDist *= fftPlan->length[index];
+							trans3Plan->outStride.push_back(fftPlan->outStride[index]);
+						}
+					}
+					else
+					{
+						for (size_t index = 1; index < fftPlan->length.size(); index++)
+						{
+							trans3Plan->length.push_back(fftPlan->length[index]);
+
+							trans3Plan->inStride.push_back(trans3Plan->iDist);
+							trans3Plan->iDist *= fftPlan->length[index];
+							trans3Plan->outStride.push_back(fftPlan->outStride[index]);
+						}
 					}
 
 					//Set callback data if set on top level plan
