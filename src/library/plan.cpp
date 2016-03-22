@@ -614,9 +614,11 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 					clLengths[1] = 100;
 
 				clLengths[0] = fftPlan->length[0]/clLengths[1];
-				//timmy delete ensure clLengths[0] > clLengths[1] only when inplace is enabled
+				//timmy ensure clLengths[0] > clLengths[1] only when inplace is enabled 
+				//so that swap kernel is launched after the square transpose kernel since twiddling is only enabled as the second kernel
 				if (clLengths[0] < clLengths[1] && clfftGetRequestLibNoMemAlloc() && fftPlan->placeness == CLFFT_INPLACE)
 				{
+					std::cout << "switch lengths" << std::endl;
 					size_t temp = clLengths[0];
 					clLengths[0] = clLengths[1];
 					clLengths[1] = temp;
@@ -712,7 +714,7 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 					trans1Plan->gen           = transGen;
 					trans1Plan->transflag     = true;
 
-					if (trans1Plan->gen == Transpose_NONSQUARE || 1)
+					if (trans1Plan->gen == Transpose_NONSQUARE || trans1Plan->gen == Transpose_SQUARE)// inplace transpose
 					{
 						for (size_t index = 1; index < fftPlan->length.size(); index++)
 						{
@@ -828,7 +830,7 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 
 					trans2Plan->transflag     = true;
 
-					if (trans2Plan->gen == Transpose_NONSQUARE || 1)// TIMMY delete
+					if (trans2Plan->gen == Transpose_NONSQUARE || trans2Plan->gen == Transpose_SQUARE)// inplace transpose
 					{
 						for (size_t index = 1; index < fftPlan->length.size(); index++)
 						{
@@ -937,7 +939,7 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 					trans3Plan->transOutHorizontal = true;
 
 
-					if (trans3Plan->gen == Transpose_NONSQUARE || 1)
+					if (trans3Plan->gen == Transpose_NONSQUARE)// inplace transpose
 					{
 						for (size_t index = 1; index < fftPlan->length.size(); index++)
 						{
@@ -950,9 +952,21 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 							*/
 							trans3Plan->batchsize = trans3Plan->batchsize * fftPlan->length[index];
 							trans3Plan->iDist = trans3Plan->iDist / fftPlan->length[index];
-							//trans3Plan->inStride.push_back(trans3Plan->iDist);//Timmy for square
+							//trans3Plan->inStride.push_back(trans3Plan->iDist);
 							trans3Plan->inStride.push_back(fftPlan->inStride[index]);
 							trans3Plan->iDist *= fftPlan->length[index];
+							trans3Plan->outStride.push_back(fftPlan->outStride[index]);
+						}
+					}
+					else if (trans3Plan->gen == Transpose_SQUARE)
+					{
+						for (size_t index = 1; index < fftPlan->length.size(); index++)
+						{
+							trans3Plan->batchsize = trans3Plan->batchsize * fftPlan->length[index];
+							//trans3Plan->iDist = trans3Plan->iDist / fftPlan->length[index];
+							//trans3Plan->inStride.push_back(trans3Plan->iDist);
+							trans3Plan->inStride.push_back(fftPlan->inStride[index]);
+							//trans3Plan->iDist *= fftPlan->length[index];
 							trans3Plan->outStride.push_back(fftPlan->outStride[index]);
 						}
 					}
@@ -2076,6 +2090,7 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 						if (clLengths[0] > clLengths[1] && fftPlan->large1D == 0)
 						{
                             //twidding can be done in swap when swap is the second kernel for now
+							//TODO enable twiddling in swap here as well
 							currKernelOrder = SWAP_AND_TRANSPOSE;
 						}
 						else
@@ -2093,7 +2108,7 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 						}
 						//if the original input data is more than 1d only TRANSPOSE_LEADING_AND_SWAP order is supported
 						//TODO need to fix this here. related to multi dim batch size.
-						//if (fftPlan->length.size() > 2) //Timmy test
+						//if (fftPlan->length.size() > 2) 
 						//	currKernelOrder = TRANSPOSE_LEADING_AND_SWAP;
 						std::cout << "currKernelOrder = " << currKernelOrder << std::endl;
 						//ends tranpose kernel order

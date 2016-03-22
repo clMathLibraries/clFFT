@@ -135,8 +135,7 @@ clfftStatus FFTGeneratedTransposeNonSquareAction::initParams()
     }
 
     this->signature.fft_DataDim = this->plan->length.size() + 1;
-	//if (this->plan->length.back() == 729 && this->plan->length.size() > 2)//silly Timmy delete
-	//	this->signature.fft_DataDim--;
+
     int i = 0;
     for (i = 0; i < (this->signature.fft_DataDim - 1); i++)
     {
@@ -700,7 +699,6 @@ clfftStatus FFTGeneratedTransposeSquareAction::generateKernel(FFTRepo& fftRepo, 
 
 	std::string programCode;
 	OPENCL_V(clfft_transpose_generator::genTransposeKernelBatched(this->signature, programCode, lwSize, reShapeFactor), _T("GenerateTransposeKernel() failed!"));
-	//std::cout << programCode << std::endl;//TIMMY
 
 	cl_int status = CL_SUCCESS;
 	cl_device_id Device = NULL;
