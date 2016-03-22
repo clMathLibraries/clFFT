@@ -28,6 +28,7 @@ set( clFFT.Test.Source
 	 accuracy_test_pow7.cpp
 	 accuracy_test_mixed_radices.cpp
 	 accuracy_test_random.cpp
+	 accuracy_test_directed.cpp
 	 accuracy_test_mixed_callback.cpp
 	 accuracy_test_pow2_precallback.cpp
 	 accuracy_test_pow3_precallback.cpp
