@@ -610,8 +610,16 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 					}
 				}
 				// add some special cases
+				if (fftPlan->length[0] == 10000)
+					clLengths[1] = 100;//100 x 100
 				if (fftPlan->length[0] == 100000)
-					clLengths[1] = 100;
+					clLengths[1] = 100;//100 x 1,000
+				if (fftPlan->length[0] == 10000000)
+					clLengths[1] = 1000;//1,000 x 10,000
+				if (fftPlan->length[0] == 100000000)
+					clLengths[1] = 10000;//10,000 x 10,000
+				if (fftPlan->length[0] == 1000000000)
+					clLengths[1] = 10000;//10,000 x 100,000
 
 				clLengths[0] = fftPlan->length[0]/clLengths[1];
 				//timmy ensure clLengths[0] > clLengths[1] only when inplace is enabled 
@@ -655,8 +663,10 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 						 (clLengths[0] == 10 * clLengths[1])) &&
 						fftPlan->placeness == CLFFT_INPLACE)
 						*/
-					size_t dim_ratio = clLengths[1] / clLengths[0];
+					size_t dim_ratio = biggerDim / smallerDim;
+					size_t dim_residue = biggerDim % smallerDim;
 					if (clfftGetRequestLibNoMemAlloc() &&
+						dim_residue == 0 &&
 						((dim_ratio % 2 == 0) ||
 						 (dim_ratio % 3 == 0) ||
 						 (dim_ratio % 5 == 0) ||
