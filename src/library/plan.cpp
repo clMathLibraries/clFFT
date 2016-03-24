@@ -623,7 +623,7 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 
 				clLengths[0] = fftPlan->length[0]/clLengths[1];
 				//timmy ensure clLengths[0] > clLengths[1] only when inplace is enabled 
-				//so that swap kernel is launched after the square transpose kernel since twiddling is only enabled as the second kernel
+				//so that swap kernel is launched after the square transpose kernel since twiddling is only enabled in swap kernel if it is the second kernel
 				if (clLengths[0] < clLengths[1] && clfftGetRequestLibNoMemAlloc() && fftPlan->placeness == CLFFT_INPLACE)
 				{
 					std::cout << "switch lengths" << std::endl;
@@ -2107,7 +2107,7 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 						{
 							if (fftPlan->large1D != 0 && 0)
 							{
-                                //this is not going to happen
+                                //this is not going to happen anymore
 								currKernelOrder = TRANSPOSE_LEADING_AND_SWAP;
 							}
 							else

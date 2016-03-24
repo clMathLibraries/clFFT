@@ -222,7 +222,7 @@ clfftStatus FFTGeneratedTransposeNonSquareAction::generateKernel(FFTRepo& fftRep
 			}
 		}
         OPENCL_V(clfft_transpose_generator::genTransposeKernelLeadingDimensionBatched(this->signature, programCode, lwSize, reShapeFactor), _T("genTransposeKernel() failed!"));
-		std::cout << programCode << std::endl;//TIMMY
+		//std::cout << programCode << std::endl;//TIMMY
     }
 	else if (this->signature.nonSquareKernelType == NON_SQUARE_TRANS_TRANSPOSE_BATCHED)
 	{
@@ -246,7 +246,7 @@ clfftStatus FFTGeneratedTransposeNonSquareAction::generateKernel(FFTRepo& fftRep
 			}
 		}
 		OPENCL_V(clfft_transpose_generator::genTransposeKernelBatched(this->signature, programCode, lwSize, reShapeFactor), _T("genTransposeKernel() failed!"));
-		std::cout << programCode << std::endl;//TIMMY
+		//std::cout << programCode << std::endl;//TIMMY
 	}
     else
     {
@@ -282,7 +282,7 @@ clfftStatus FFTGeneratedTransposeNonSquareAction::generateKernel(FFTRepo& fftRep
 		*/
 		//general swap kernel takes care of all ratio
 		OPENCL_V(clfft_transpose_generator::genSwapKernelGeneral(this->signature, programCode, kernelFuncName, lwSize, reShapeFactor), _T("genSwapKernel() failed!"));
-		std::cout << programCode << std::endl;//TIMMY
+		//std::cout << programCode << std::endl;//TIMMY
     }
 
     cl_int status = CL_SUCCESS;
@@ -349,7 +349,6 @@ clfftStatus FFTGeneratedTransposeNonSquareAction::getWorkSizes(std::vector< size
 
     if (this->signature.nonSquareKernelType == NON_SQUARE_TRANS_TRANSPOSE_BATCHED_LEADING)
     {
-        std::cout << "TIMMY"<< std::endl;
         if (smaller_dim % (16 * reShapeFactor) == 0)
             wg_slice = smaller_dim / 16 / reShapeFactor;
         else
@@ -375,7 +374,6 @@ clfftStatus FFTGeneratedTransposeNonSquareAction::getWorkSizes(std::vector< size
     }
 	else if (this->signature.nonSquareKernelType == NON_SQUARE_TRANS_TRANSPOSE_BATCHED)
 	{
-		std::cout << "TIMMY" << std::endl;
 		if (smaller_dim % (16 * reShapeFactor) == 0)
 			wg_slice = smaller_dim / 16 / reShapeFactor;
 		else
@@ -383,7 +381,7 @@ clfftStatus FFTGeneratedTransposeNonSquareAction::getWorkSizes(std::vector< size
 
 		global_item_size = wg_slice*(wg_slice + 1) / 2 * 16 * 16 * this->plan->batchsize;
 
-		for (int i = 2; i < this->plan->length.size(); i++)//Timmy delete
+		for (int i = 2; i < this->plan->length.size(); i++)
 		{
 			global_item_size *= this->plan->length[i];
 		}
@@ -721,7 +719,7 @@ clfftStatus FFTGeneratedTransposeSquareAction::generateKernel(FFTRepo& fftRepo, 
 	{
 		OPENCL_V(fftRepo.setProgramEntryPoints(Transpose_SQUARE, this->getSignatureData(), "transpose_square", "transpose_square", Device, QueueContext), _T("fftRepo.setProgramEntryPoint() failed!"));
 	}
-    std::cout << programCode << std::endl;//TIMMY
+    //std::cout << programCode << std::endl;//TIMMY
 	return CLFFT_SUCCESS;
 }
 
