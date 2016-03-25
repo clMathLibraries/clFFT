@@ -163,12 +163,12 @@ namespace DirectedTest {
 
 	class TestListGenerator
 	{
-	private:
+	protected:
 		std::vector<ParametersPackedRealInplaceInterleaved> data_sets;
 		const size_t *supported_length;
 		size_t size_supported_length;
 
-		void supported_length_data()
+		virtual void supported_length_data()
 		{
 			// This array must be kept sorted in the ascending order
 			static const size_t supported_length_array[] = {
@@ -194,28 +194,28 @@ namespace DirectedTest {
 			size_supported_length = sizeof(supported_length_array) / sizeof(supported_length_array[0]);
 		}
 
-		void generate_1d(clfftDirection dir)
+		virtual void generate_1d(clfftDirection dir, clfftPrecision precision)
 		{
 			for (size_t i = 0; i < size_supported_length; i++)
 			{
 				std::vector<size_t> length;
 				length.push_back(supported_length[i]);
-				data_sets.push_back(ParametersPackedRealInplaceInterleaved(CLFFT_SINGLE, dir, CLFFT_1D, length, 1));
+				data_sets.push_back(ParametersPackedRealInplaceInterleaved(precision, dir, CLFFT_1D, length, 3));
 			}
 		}
 
-		void generate_2d(clfftDirection dir)
+		virtual void generate_2d(clfftDirection dir, clfftPrecision precision)
 		{
 			for (size_t i = 0; i < size_supported_length; i++)
 			{
 				std::vector<size_t> length;
 				length.push_back(supported_length[i]);
 				length.push_back(supported_length[i]);
-				data_sets.push_back(ParametersPackedRealInplaceInterleaved(CLFFT_SINGLE, dir, CLFFT_2D, length, 1));
+				data_sets.push_back(ParametersPackedRealInplaceInterleaved(precision, dir, CLFFT_2D, length, 1));
 			}
 		}
 
-		void generate_3d(clfftDirection dir)
+		virtual void generate_3d(clfftDirection dir, clfftPrecision precision)
 		{
 			for (size_t i = 0; i < size_supported_length; i++)
 			{
@@ -223,7 +223,7 @@ namespace DirectedTest {
 				length.push_back(supported_length[i]);
 				length.push_back(supported_length[i]);
 				length.push_back(supported_length[i]);
-				data_sets.push_back(ParametersPackedRealInplaceInterleaved(CLFFT_SINGLE, dir, CLFFT_3D, length, 1));
+				data_sets.push_back(ParametersPackedRealInplaceInterleaved(precision, dir, CLFFT_3D, length, 1));
 
 				const size_t max_3d_length = 256;
 				if (supported_length[i] == max_3d_length) break;
@@ -231,23 +231,40 @@ namespace DirectedTest {
 		}
 
 	public:
-		TestListGenerator(clfftDim dimension, clfftDirection direction)
+		TestListGenerator() : supported_length(NULL), size_supported_length(0)
+		{}
+
+		virtual std::vector<ParametersPackedRealInplaceInterleaved> & parameter_sets
+			(clfftDim dimension, clfftDirection direction, clfftPrecision precision)
 		{
-			supported_length = NULL;
-			size_supported_length = 0;
 			supported_length_data();
 
 			switch (dimension)
 			{
-			case CLFFT_1D: generate_1d(direction); break;
-			case CLFFT_2D: generate_2d(direction); break;
-			case CLFFT_3D: generate_3d(direction); break;
+			case CLFFT_1D: generate_1d(direction, precision); break;
+			case CLFFT_2D: generate_2d(direction, precision); break;
+			case CLFFT_3D: generate_3d(direction, precision); break;
 			}
+
+			return data_sets;
 		}
 
-		std::vector<ParametersPackedRealInplaceInterleaved> & parameter_sets() { return data_sets; }
-
 	}; //class TestListGenerator
+
+	class TestListGenerator_Pow2 : public TestListGenerator
+	{
+	protected:
+		virtual void supported_length_data()
+		{
+			// This array must be kept sorted in the ascending order
+			static const size_t supported_length_array[] = {
+				8192, 16384, 32768, 65536, 131072, 262144, 524288,
+				1048576, 2097152, 4194304};
+
+			supported_length = supported_length_array;
+			size_supported_length = sizeof(supported_length_array) / sizeof(supported_length_array[0]);
+		}
+	};
 
 } //namespace DirectedTest
 
@@ -380,38 +397,54 @@ TEST_P(accuracy_test_directed, real_inplace) { accuracy_test_directed_packed_rea
 
 
 INSTANTIATE_TEST_CASE_P(
-	clfft_DirectedTest_fwd_1d,
+	clfft_DirectedTest_single_1d_fwd,
 	accuracy_test_directed,
-	::testing::ValuesIn(DirectedTest::TestListGenerator(CLFFT_1D, CLFFT_FORWARD).parameter_sets())
+	::testing::ValuesIn(DirectedTest::TestListGenerator().parameter_sets(CLFFT_1D, CLFFT_FORWARD, CLFFT_SINGLE))
 	);
 
 INSTANTIATE_TEST_CASE_P(
-	clfft_DirectedTest_inv_1d,
+	clfft_DirectedTest_single_1d_inv,
 	accuracy_test_directed,
-	::testing::ValuesIn(DirectedTest::TestListGenerator(CLFFT_1D, CLFFT_BACKWARD).parameter_sets())
+	::testing::ValuesIn(DirectedTest::TestListGenerator().parameter_sets(CLFFT_1D, CLFFT_BACKWARD, CLFFT_SINGLE))
 	);
 
 INSTANTIATE_TEST_CASE_P(
-	clfft_DirectedTest_fwd_2d,
+	clfft_DirectedTest_single_2d_fwd,
 	accuracy_test_directed,
-	::testing::ValuesIn(DirectedTest::TestListGenerator(CLFFT_2D, CLFFT_FORWARD).parameter_sets())
+	::testing::ValuesIn(DirectedTest::TestListGenerator().parameter_sets(CLFFT_2D, CLFFT_FORWARD, CLFFT_SINGLE))
 	);
 
 INSTANTIATE_TEST_CASE_P(
-	clfft_DirectedTest_inv_2d,
+	clfft_DirectedTest_single_2d_inv,
 	accuracy_test_directed,
-	::testing::ValuesIn(DirectedTest::TestListGenerator(CLFFT_2D, CLFFT_BACKWARD).parameter_sets())
+	::testing::ValuesIn(DirectedTest::TestListGenerator().parameter_sets(CLFFT_2D, CLFFT_BACKWARD, CLFFT_SINGLE))
 	);
 
 INSTANTIATE_TEST_CASE_P(
-	clfft_DirectedTest_fwd_3d,
+	clfft_DirectedTest_single_3d_fwd,
 	accuracy_test_directed,
-	::testing::ValuesIn(DirectedTest::TestListGenerator(CLFFT_3D, CLFFT_FORWARD).parameter_sets())
+	::testing::ValuesIn(DirectedTest::TestListGenerator().parameter_sets(CLFFT_3D, CLFFT_FORWARD, CLFFT_SINGLE))
 	);
 
 INSTANTIATE_TEST_CASE_P(
-	clfft_DirectedTest_inv_3d,
+	clfft_DirectedTest_single_3d_inv,
 	accuracy_test_directed,
-	::testing::ValuesIn(DirectedTest::TestListGenerator(CLFFT_3D, CLFFT_BACKWARD).parameter_sets())
+	::testing::ValuesIn(DirectedTest::TestListGenerator().parameter_sets(CLFFT_3D, CLFFT_BACKWARD, CLFFT_SINGLE))
 	);
 
+
+#if 1
+
+INSTANTIATE_TEST_CASE_P(
+	clfft_DirectedTest_pow2_single_1d_fwd,
+	accuracy_test_directed,
+	::testing::ValuesIn(DirectedTest::TestListGenerator_Pow2().parameter_sets(CLFFT_1D, CLFFT_FORWARD, CLFFT_SINGLE))
+	);
+
+INSTANTIATE_TEST_CASE_P(
+	clfft_DirectedTest_pow2_double_1d_fwd,
+	accuracy_test_directed,
+	::testing::ValuesIn(DirectedTest::TestListGenerator_Pow2().parameter_sets(CLFFT_1D, CLFFT_FORWARD, CLFFT_DOUBLE))
+	);
+
+#endif
