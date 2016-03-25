@@ -4286,7 +4286,7 @@ namespace StockhamGenerator
 				{
 					size_t Nt = 1 + length/2;
 					str += 	"\n\t\tif( (bt == 0) || (2*bt == ";
-					str += SztToStr(params.fft_realSpecial_Nr); str += ") ) break;\n";
+					str += SztToStr(params.fft_realSpecial_Nr); str += ") ) { rw = 0; }\n";
 
 					str += "\t\tlwbOut += ("; str += SztToStr(params.fft_realSpecial_Nr);
 					str += " - 2*bt)*"; str += SztToStr(Nt); str += ";\n";

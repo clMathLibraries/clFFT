@@ -84,29 +84,37 @@ void handle_exception( const std::exception& except )
 /*****************************************************/
 size_t max_mem_available_on_cl_device(size_t device_index) {
 
-	std::vector< cl_device_id >	device_id;
-	cl_context tempContext = NULL;
-	device_id = initializeCL(
-		g_device_type,
-		(cl_int)device_index,
-		g_platform_id,
-		tempContext,
-		false
-		);
+	static size_t g_device_max_mem_size  = 0;
 
-	cl_ulong device_max_to_allocate = 0;
-	if( device_id.size() == 0 || device_index > device_id.size() )
+	// this is not thread-safe using globals, it is just quick fix for now, todo proper fix
+	if (g_device_max_mem_size == 0)
 	{
-	}
-	else
-	{
-		OPENCL_V_THROW( ::clGetDeviceInfo( device_id[device_index], CL_DEVICE_MAX_MEM_ALLOC_SIZE, sizeof( cl_ulong ), &device_max_to_allocate, NULL ),
-			"Getting CL_DEVICE_MAX_MEM_ALLOC_SIZE device info ( ::clGetDeviceInfo() )" );
+		std::vector< cl_device_id >	device_id;
+		cl_context tempContext = NULL;
+		device_id = initializeCL(
+			g_device_type,
+			(cl_int)device_index,
+			g_platform_id,
+			tempContext,
+			false
+			);
+
+		cl_ulong device_max_to_allocate = 0;
+		if (device_id.size() == 0 || device_index > device_id.size())
+		{
+		}
+		else
+		{
+			OPENCL_V_THROW(::clGetDeviceInfo(device_id[device_index], CL_DEVICE_MAX_MEM_ALLOC_SIZE, sizeof(cl_ulong), &device_max_to_allocate, NULL),
+				"Getting CL_DEVICE_MAX_MEM_ALLOC_SIZE device info ( ::clGetDeviceInfo() )");
+		}
+
+		cl_command_queue tempQueue = NULL;
+		cl_event tempEvent = NULL;
+		::cleanupCL(&tempContext, &tempQueue, 0, NULL, 0, NULL, &tempEvent);
+
+		g_device_max_mem_size = static_cast<size_t>(device_max_to_allocate);
 	}
 
-	cl_command_queue tempQueue = NULL;
-	cl_event tempEvent = NULL;
-	::cleanupCL( &tempContext, &tempQueue, 0, NULL, 0, NULL, &tempEvent );
-
-	return static_cast<size_t>(device_max_to_allocate);
+	return g_device_max_mem_size;
 }

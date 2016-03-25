@@ -456,7 +456,6 @@ static clfftStatus genTransposeKernel( const FFTGeneratedTransposeGCNAction::Sig
 		clKernWrite( transKernel, 3 ) << "const size_t reShapeFactor = " << reShapeFactor << ";" << std::endl;
 		clKernWrite( transKernel, 3 ) << "const size_t wgUnroll = " << loopCount << ";" << std::endl;
 		clKernWrite( transKernel, 3 ) << "const Tile wgTileExtent = { localExtent.x * reShapeFactor, localExtent.y / reShapeFactor };" << std::endl;
-		clKernWrite( transKernel, 3 ) << "const size_t tileSizeinUnits = wgTileExtent.x * wgTileExtent.y * wgUnroll;" << std::endl << std::endl;
 
 
 		// This is the size of a matrix in the y dimension in units of group size; used to calculate stride[2] indexing
@@ -906,6 +905,8 @@ static clfftStatus genTransposeKernel( const FFTGeneratedTransposeGCNAction::Sig
 			}
 			else if(branchingInAny)
 			{
+				std::string limitToWGForRealSpecial = params.transOutHorizontal ? "groupIndex.x" : "currDimIndex";
+
 				if(i == 0)
 				{
 					if(branchingInGroupX)
@@ -914,7 +915,7 @@ static clfftStatus genTransposeKernel( const FFTGeneratedTransposeGCNAction::Sig
 						if(params.fft_realSpecial)
 						{
 							clKernWrite( transKernel, 9 ) << "if( ((" << wIndexY << " == " << wIndexXEnd - 1 << ") && (" <<
-								wIndexX << " < 1)) ";
+								wIndexX << " < 1) && (" << limitToWGForRealSpecial << " == " << cornerGroupX << ")) ";
 							if(wIndexXEnd > 1)
 							{
 								clKernWrite( transKernel, 0 ) << "|| (" << wIndexY << " < " << wIndexXEnd - 1 << ") )" << std::endl;
@@ -936,7 +937,7 @@ static clfftStatus genTransposeKernel( const FFTGeneratedTransposeGCNAction::Sig
 						if(params.fft_realSpecial)
 						{
 							clKernWrite( transKernel, 9 ) << "if( ((" << wIndexX << " == " << wIndexYEnd - 1 << ") && (" <<
-								wIndexY << " < 1)) ";
+								wIndexY << " < 1) && (" << limitToWGForRealSpecial << " == " << cornerGroupY << ")) ";
 							if(wIndexYEnd > 1)
 							{
 								clKernWrite( transKernel, 0 ) << "|| (" << wIndexX << " < " << wIndexYEnd - 1 << ") )" << std::endl;

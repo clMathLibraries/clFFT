@@ -453,7 +453,7 @@ private:
 			const size_t max_mismatches_output = default_number_of_mismatches_to_output;
 
 			if( mismatched_point_indices.size() != 0 && max_mismatches_output != 0 && suppress_output == false) {
-				std::cout << std::endl << std::dec << mismatched_point_indices.size() << " of " << number_of_data_points_single_batch()
+				std::cout << std::endl << std::dec << mismatched_point_indices.size() << " of " << batch_size() * number_of_data_points_single_batch()
 					<<" data points did not match.  The first " << max_mismatches_output << " (max) mismatching points follow:" << std::endl;
 
 				std::cout << std::endl << "(array index)(index) ";
