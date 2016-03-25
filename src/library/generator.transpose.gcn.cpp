@@ -756,20 +756,20 @@ static clfftStatus genTransposeKernel( const FFTGeneratedTransposeGCNAction::Sig
 				break;
 			}
 
-			if(branchingInAny)
-			{
-				clKernWrite( transKernel, 9 ) << "}" << std::endl;
-				clKernWrite( transKernel, 9 ) << std::endl;
-			}
-
 			clKernWrite( transKernel, 9 ) << "// Transpose of Tile data happens here" << std::endl;
-
 
 			// If requested, generate the Twiddle math to multiply constant values
 			if( params.fft_3StepTwiddle )
 				genTwiddleMath( params, transKernel, dtComplex, fwd );
 
 			clKernWrite( transKernel, 9 ) << "lds[ xInd ][ yInd ] = tmp; " << std::endl;
+
+			if (branchingInAny)
+			{
+				clKernWrite(transKernel, 9) << "}" << std::endl;
+				clKernWrite(transKernel, 9) << std::endl;
+			}
+
 			clKernWrite( transKernel, 6 ) << "}" << std::endl;
 
 			if(branchingInAny)
@@ -915,7 +915,7 @@ static clfftStatus genTransposeKernel( const FFTGeneratedTransposeGCNAction::Sig
 						if(params.fft_realSpecial)
 						{
 							clKernWrite( transKernel, 9 ) << "if( ((" << wIndexY << " == " << wIndexXEnd - 1 << ") && (" <<
-								wIndexX << " < 1) && (" << limitToWGForRealSpecial << " == " << cornerGroupX << ")) ";
+								wIndexX << " < 1) && (" << limitToWGForRealSpecial << " == 0)) ";
 							if(wIndexXEnd > 1)
 							{
 								clKernWrite( transKernel, 0 ) << "|| (" << wIndexY << " < " << wIndexXEnd - 1 << ") )" << std::endl;
@@ -937,7 +937,7 @@ static clfftStatus genTransposeKernel( const FFTGeneratedTransposeGCNAction::Sig
 						if(params.fft_realSpecial)
 						{
 							clKernWrite( transKernel, 9 ) << "if( ((" << wIndexX << " == " << wIndexYEnd - 1 << ") && (" <<
-								wIndexY << " < 1) && (" << limitToWGForRealSpecial << " == " << cornerGroupY << ")) ";
+								wIndexY << " < 1) && (" << limitToWGForRealSpecial << " == 0)) ";
 							if(wIndexYEnd > 1)
 							{
 								clKernWrite( transKernel, 0 ) << "|| (" << wIndexX << " < " << wIndexYEnd - 1 << ") )" << std::endl;

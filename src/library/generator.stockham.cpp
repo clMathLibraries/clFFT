@@ -4010,7 +4010,7 @@ namespace StockhamGenerator
 				std::string rw, me;
 
 				if(r2c2r && !rcSimple)	rw = "rw, b, ";
-				else					rw = (numTrans > 1) ? "rw, b, " : "1, b, ";
+				else					rw = ((numTrans > 1) || realSpecial) ? "rw, b, " : "1, b, ";
 
 				if(numTrans > 1)	{ me += "me%"; me += SztToStr(workGroupSizePerTrans); me += ", "; }
 				else				{ me += "me, "; }
