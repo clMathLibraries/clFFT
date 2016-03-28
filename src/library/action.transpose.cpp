@@ -183,6 +183,7 @@ clfftStatus FFTGeneratedTransposeNonSquareAction::initParams()
 	this->signature.limit_LocalMemSize = this->plan->envelope.limit_LocalMemSize;
 
 	this->signature.transposeMiniBatchSize = this->plan->transposeMiniBatchSize;
+	this->signature.nonSquareKernelOrder = this->plan->nonSquareKernelOrder;
 	this->signature.transposeBatchSize = this->plan->batchsize;
 
     return CLFFT_SUCCESS;

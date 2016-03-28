@@ -96,6 +96,27 @@ enum NonSquareTransposeKernelType
     NON_SQUARE_TRANS_SWAP
 };
 
+/*
+There are three ways of conducting inplace transpose with 1:2 (or 2:1) dimension ratio.
+A. first conduct line swapping kernels for the whole non square matrix
+then conduct batched square transpose along column dim (a 'real' batched transpose)
+B. first conduct batched square transpose along column dim (a 'real' batched transpose)
+then conduct line swapping kernels for the whole non square matrix (for 2:1 case)
+C. first conduct batched square transpose along leading dim (row dim)
+then conduct line swapping kernels for the whole non square matrix
+Note that the twiddle computation has to go at the begining of the first kernel or the end of the second kernel
+
+if leading dimension is bigger, it makes more sense (faster) to swap line first and then conduct batched square transpose
+if leading dimension is smaller, it makes more sense (faster) to conduct batched transpose and then swap lines.
+*/
+enum NON_SQUARE_KERNEL_ORDER
+{
+	NOT_A_TRANSPOSE,
+	SWAP_AND_TRANSPOSE, // A.
+	TRANSPOSE_AND_SWAP, // B.
+	TRANSPOSE_LEADING_AND_SWAP, // C.
+};
+
 #define CLFFT_CB_SIZE 32
 #define CLFFT_MAX_INTERNAL_DIM 16
 
@@ -163,6 +184,8 @@ struct FFTKernelGenKeyParams {
 	// transposeBatchSize is the number of batchs times transposeMiniBatchSzie
 	// no user of the library should set its value
 	size_t transposeBatchSize;
+	// no user of the library should set its value 
+	NON_SQUARE_KERNEL_ORDER nonSquareKernelOrder;
 
 	bool fft_hasPreCallback;
 	clfftCallbackParam fft_preCallback;
@@ -500,6 +523,7 @@ public:
 	// let's call this number transposeMiniBatchSize
 	// no user of the library should set its value
 	size_t transposeMiniBatchSize;
+	NON_SQUARE_KERNEL_ORDER nonSquareKernelOrder;
 
 	FFTPlan ()
 	:	baked (false)
@@ -547,6 +571,7 @@ public:
     ,   action(0)
     ,   nonSquareKernelType(NON_SQUARE_TRANS_PARENT)
 	,   transposeMiniBatchSize(1)
+	,   nonSquareKernelOrder(NOT_A_TRANSPOSE)
     ,   plHandle(0)
 	,   hasPreCallback(false)
 	,   hasPostCallback(false)
