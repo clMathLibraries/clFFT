@@ -16,8 +16,8 @@ Pre-built binaries are available [here][binary_release].
 ## What's New
 
 -   Support for power-of-7 size transforms
--   Pre-callback feature that enables custom pre-processing
-    of input data directly by the library with user callback function
+-   Pre-callback & post-callback feature that enables custom pre-processing
+    of input/output data directly by the library with user callback function
 -   Support for 1D large size transforms with no extra memory allocation
     requirement for certain sizes
 -   Significant uplift of 1D complex transform performance
@@ -25,7 +25,6 @@ Pre-built binaries are available [here][binary_release].
 -   1D large size limit relaxation for complex transforms
 -   2D/3D size limit relaxation on real and complex transforms
 -   Binary caching feature
--   Several minor fixes and improvements
 
 ## Note
 
