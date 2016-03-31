@@ -1833,6 +1833,13 @@ void huge_1D_forward_in_place_complex_to_complex(size_t lenSize, size_t batchSiz
 	data_pattern pattern = sawtooth;
 	complex_to_complex<T, cl_T, fftw_T>(pattern, direction, lengths, batch, input_strides, output_strides, input_distance, output_distance, in_layout, out_layout, placeness);
 }
+
+TEST_F(accuracy_test_pow3_double, huge_1D_forward_in_place_complex_planar_to_complex_planar_5292_10)
+{
+	try { huge_1D_forward_in_place_complex_to_complex< double, cl_double, fftw_complex >(5292, 10, layout::complex_planar, direction::backward); }
+	catch (const std::exception& err) { handle_exception(err); }
+}
+
 //177147 = 243 * 243 * 3, backward and forward, planar and interleaved, single and double, batch size 1 and 3
 TEST_F(accuracy_test_pow3_single, huge_1D_forward_in_place_complex_planar_to_complex_planar_177147_1)
 {

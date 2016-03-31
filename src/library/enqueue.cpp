@@ -625,6 +625,15 @@ clfftStatus FFTAction::enqueue(clfftPlanHandle plHandle,
     std::vector< size_t > lWorkSize;
     clfftStatus result = this->getWorkSizes (gWorkSize, lWorkSize);
 	//std::cout << "work sizes are " << gWorkSize[0] << ", " << lWorkSize[0] << std::endl;
+	/*
+	std::cout << "work sizes are ";
+	for (auto itor = gWorkSize.begin(); itor != gWorkSize.end(); itor++)
+		std::cout << *itor << " ";
+	std::cout << ", ";
+	for (auto itor = lWorkSize.begin(); itor != lWorkSize.end(); itor++)
+		std::cout << *itor << " ";
+	std::cout << std::endl;
+	*/
     // TODO:  if getWorkSizes returns CLFFT_INVALID_GLOBAL_WORK_SIZE, that means
     // that this multidimensional input data array is too large to be transformed
     // with a single call to clEnqueueNDRangeKernel.  For now, we will just return

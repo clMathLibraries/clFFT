@@ -961,10 +961,10 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 							the iDist should decrease accordingly. Push back to length will cause a 3D transpose
 							*/
 							trans3Plan->batchsize = trans3Plan->batchsize * fftPlan->length[index];
-							trans3Plan->iDist = trans3Plan->iDist / fftPlan->length[index];
+							//trans3Plan->iDist = trans3Plan->iDist / fftPlan->length[index];//silly Timmy
 							//trans3Plan->inStride.push_back(trans3Plan->iDist);
 							trans3Plan->inStride.push_back(fftPlan->inStride[index]);
-							trans3Plan->iDist *= fftPlan->length[index];
+							//trans3Plan->iDist *= fftPlan->length[index];//silly Timmy
 							trans3Plan->outStride.push_back(fftPlan->outStride[index]);
 						}
 					}
