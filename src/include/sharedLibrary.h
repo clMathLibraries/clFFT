@@ -52,7 +52,7 @@ inline void* LoadSharedLibrary( std::string unixPrefix, std::string libraryName,
   {
           std::cerr << ::dlerror( ) << std::endl;
   }
-#elif defined(__FreeBSD__)
+#elif defined(__FreeBSD_kernel__)
         tstring freebsdName = unixPrefix;
         freebsdName += libraryName += ".so";
         void* fileHandle = ::dlopen( freebsdName.c_str( ), RTLD_NOW );
