@@ -1931,7 +1931,6 @@ clfftStatus genSwapKernelGeneral(const FFTGeneratedTransposeNonSquareAction::Sig
     }//end of for (size_t bothDir = 0; bothDir < 2; bothDir++)
 	
 
-	//std::cout << transKernel.str();
 	//by now the kernel string is generated
 	strKernel = transKernel.str();
 	return CLFFT_SUCCESS;

@@ -1833,182 +1833,185 @@ void huge_1D_forward_in_place_complex_to_complex(size_t lenSize, size_t batchSiz
 	data_pattern pattern = sawtooth;
 	complex_to_complex<T, cl_T, fftw_T>(pattern, direction, lengths, batch, input_strides, output_strides, input_distance, output_distance, in_layout, out_layout, placeness);
 }
-
-TEST_F(accuracy_test_pow3_double, huge_1D_forward_in_place_complex_planar_to_complex_planar_5292_10)
+//TESTS disabled by default since they take a long time to execute
+//TO enable this tests
+//1. make sure ENV CLFFT_REQUEST_LIB_NOMEMALLOC=1
+//2. pass --gtest_also_run_disabled_tests to TEST.exe
+TEST_F(accuracy_test_pow3_double, DISABLED_huge_1D_forward_in_place_complex_planar_to_complex_planar_5292_10)
 {
 	try { huge_1D_forward_in_place_complex_to_complex< double, cl_double, fftw_complex >(5292, 10, layout::complex_planar, direction::backward); }
 	catch (const std::exception& err) { handle_exception(err); }
 }
 
 //177147 = 243 * 243 * 3, backward and forward, planar and interleaved, single and double, batch size 1 and 3
-TEST_F(accuracy_test_pow3_single, huge_1D_forward_in_place_complex_planar_to_complex_planar_177147_1)
+TEST_F(accuracy_test_pow3_single, DISABLED_huge_1D_forward_in_place_complex_planar_to_complex_planar_177147_1)
 {
 	try { huge_1D_forward_in_place_complex_to_complex< float, cl_float, fftwf_complex >(177147, 1, layout::complex_planar, direction::forward); }
 	catch (const std::exception& err) { handle_exception(err); }
 }
-TEST_F(accuracy_test_pow3_single, huge_1D_backward_in_place_complex_planar_to_complex_planar_177147_1)
+TEST_F(accuracy_test_pow3_single, DISABLED_huge_1D_backward_in_place_complex_planar_to_complex_planar_177147_1)
 {
     try { huge_1D_forward_in_place_complex_to_complex< float, cl_float, fftwf_complex >(177147, 1, layout::complex_planar, direction::backward); }
     catch (const std::exception& err) { handle_exception(err); }
 }
 
-TEST_F(accuracy_test_pow3_single, huge_1D_forward_in_place_complex_planar_to_complex_planar_177147_3)
+TEST_F(accuracy_test_pow3_single, DISABLED_huge_1D_forward_in_place_complex_planar_to_complex_planar_177147_3)
 {
     try { huge_1D_forward_in_place_complex_to_complex< float, cl_float, fftwf_complex >(177147, 3, layout::complex_planar, direction::forward); }
     catch (const std::exception& err) { handle_exception(err); }
 }
-TEST_F(accuracy_test_pow3_single, huge_1D_backward_in_place_complex_planar_to_complex_planar_177147_3)
+TEST_F(accuracy_test_pow3_single, DISABLED_huge_1D_backward_in_place_complex_planar_to_complex_planar_177147_3)
 {
     try { huge_1D_forward_in_place_complex_to_complex< float, cl_float, fftwf_complex >(177147, 3, layout::complex_planar, direction::backward); }
     catch (const std::exception& err) { handle_exception(err); }
 }
 
-TEST_F(accuracy_test_pow3_double, huge_1D_forward_in_place_complex_planar_to_complex_planar_177147_1)
+TEST_F(accuracy_test_pow3_double, DISABLED_huge_1D_forward_in_place_complex_planar_to_complex_planar_177147_1)
 {
     try { huge_1D_forward_in_place_complex_to_complex< double, cl_double, fftw_complex >(177147, 1, layout::complex_planar, direction::forward); }
     catch (const std::exception& err) { handle_exception(err); }
 }
-TEST_F(accuracy_test_pow3_double, huge_1D_backward_in_place_complex_planar_to_complex_planar_177147_1)
+TEST_F(accuracy_test_pow3_double, DISABLED_huge_1D_backward_in_place_complex_planar_to_complex_planar_177147_1)
 {
     try { huge_1D_forward_in_place_complex_to_complex< double, cl_double, fftw_complex >(177147, 1, layout::complex_planar, direction::backward); }
     catch (const std::exception& err) { handle_exception(err); }
 }
 
-TEST_F(accuracy_test_pow3_double, huge_1D_forward_in_place_complex_planar_to_complex_planar_177147_3)
+TEST_F(accuracy_test_pow3_double, DISABLED_huge_1D_forward_in_place_complex_planar_to_complex_planar_177147_3)
 {
     try { huge_1D_forward_in_place_complex_to_complex< double, cl_double, fftw_complex >(177147, 3, layout::complex_planar, direction::forward); }
     catch (const std::exception& err) { handle_exception(err); }
 }
-TEST_F(accuracy_test_pow3_double, huge_1D_backward_in_place_complex_planar_to_complex_planar_177147_3)
+TEST_F(accuracy_test_pow3_double, DISABLED_huge_1D_backward_in_place_complex_planar_to_complex_planar_177147_3)
 {
     try { huge_1D_forward_in_place_complex_to_complex< double, cl_double, fftw_complex >(177147, 3, layout::complex_planar, direction::backward); }
     catch (const std::exception& err) { handle_exception(err); }
 }
 //interleaved
-TEST_F(accuracy_test_pow3_single, huge_1D_forward_in_place_complex_interleaved_to_complex_interleaved_177147_1)
+TEST_F(accuracy_test_pow3_single, DISABLED_huge_1D_forward_in_place_complex_interleaved_to_complex_interleaved_177147_1)
 {
     try { huge_1D_forward_in_place_complex_to_complex< float, cl_float, fftwf_complex >(177147, 1, layout::complex_interleaved, direction::forward); }
     catch (const std::exception& err) { handle_exception(err); }
 }
-TEST_F(accuracy_test_pow3_single, huge_1D_backward_in_place_complex_interleaved_to_complex_interleaved_177147_1)
+TEST_F(accuracy_test_pow3_single, DISABLED_huge_1D_backward_in_place_complex_interleaved_to_complex_interleaved_177147_1)
 {
     try { huge_1D_forward_in_place_complex_to_complex< float, cl_float, fftwf_complex >(177147, 1, layout::complex_interleaved, direction::backward); }
     catch (const std::exception& err) { handle_exception(err); }
 }
 
-TEST_F(accuracy_test_pow3_single, huge_1D_forward_in_place_complex_interleaved_to_complex_interleaved_177147_3)
+TEST_F(accuracy_test_pow3_single, DISABLED_huge_1D_forward_in_place_complex_interleaved_to_complex_interleaved_177147_3)
 {
     try { huge_1D_forward_in_place_complex_to_complex< float, cl_float, fftwf_complex >(177147, 3, layout::complex_interleaved, direction::forward); }
     catch (const std::exception& err) { handle_exception(err); }
 }
-TEST_F(accuracy_test_pow3_single, huge_1D_backward_in_place_complex_interleaved_to_complex_interleaved_177147_3)
+TEST_F(accuracy_test_pow3_single, DISABLED_huge_1D_backward_in_place_complex_interleaved_to_complex_interleaved_177147_3)
 {
     try { huge_1D_forward_in_place_complex_to_complex< float, cl_float, fftwf_complex >(177147, 3, layout::complex_interleaved, direction::backward); }
     catch (const std::exception& err) { handle_exception(err); }
 }
 
-TEST_F(accuracy_test_pow3_double, huge_1D_forward_in_place_complex_interleaved_to_complex_interleaved_177147_1)
+TEST_F(accuracy_test_pow3_double, DISABLED_huge_1D_forward_in_place_complex_interleaved_to_complex_interleaved_177147_1)
 {
     try { huge_1D_forward_in_place_complex_to_complex< double, cl_double, fftw_complex >(177147, 1, layout::complex_interleaved, direction::forward); }
     catch (const std::exception& err) { handle_exception(err); }
 }
-TEST_F(accuracy_test_pow3_double, huge_1D_backward_in_place_complex_interleaved_to_complex_interleaved_177147_1)
+TEST_F(accuracy_test_pow3_double, DISABLED_huge_1D_backward_in_place_complex_interleaved_to_complex_interleaved_177147_1)
 {
     try { huge_1D_forward_in_place_complex_to_complex< double, cl_double, fftw_complex >(177147, 1, layout::complex_interleaved, direction::backward); }
     catch (const std::exception& err) { handle_exception(err); }
 }
 
-TEST_F(accuracy_test_pow3_double, huge_1D_forward_in_place_complex_interleaved_to_complex_interleaved_177147_3)
+TEST_F(accuracy_test_pow3_double, DISABLED_huge_1D_forward_in_place_complex_interleaved_to_complex_interleaved_177147_3)
 {
     try { huge_1D_forward_in_place_complex_to_complex< double, cl_double, fftw_complex >(177147, 3, layout::complex_interleaved, direction::forward); }
     catch (const std::exception& err) { handle_exception(err); }
 }
-TEST_F(accuracy_test_pow3_double, huge_1D_backward_in_place_complex_interleaved_to_complex_interleaved_177147_3)
+TEST_F(accuracy_test_pow3_double, DISABLED_huge_1D_backward_in_place_complex_interleaved_to_complex_interleaved_177147_3)
 {
     try { huge_1D_forward_in_place_complex_to_complex< double, cl_double, fftw_complex >(177147, 3, layout::complex_interleaved, direction::backward); }
     catch (const std::exception& err) { handle_exception(err); }
 }
 
 //1594323 = 729 * 729 * 3 backward and forward, planar and interleaved, single and double, batch size 1 and 3
-TEST_F(accuracy_test_pow3_single, huge_1D_forward_in_place_complex_planar_to_complex_planar_1594323_1)
+TEST_F(accuracy_test_pow3_single, DISABLED_huge_1D_forward_in_place_complex_planar_to_complex_planar_1594323_1)
 {
 	try { huge_1D_forward_in_place_complex_to_complex< float, cl_float, fftwf_complex >(1594323, 1, layout::complex_planar, direction::forward); }
 	catch (const std::exception& err) { handle_exception(err); }
 }
-TEST_F(accuracy_test_pow3_single, huge_1D_backward_in_place_complex_planar_to_complex_planar_1594323_1)
+TEST_F(accuracy_test_pow3_single, DISABLED_huge_1D_backward_in_place_complex_planar_to_complex_planar_1594323_1)
 {
 	try { huge_1D_forward_in_place_complex_to_complex< float, cl_float, fftwf_complex >(1594323, 1, layout::complex_planar, direction::backward); }
 	catch (const std::exception& err) { handle_exception(err); }
 }
 
-TEST_F(accuracy_test_pow3_single, huge_1D_forward_in_place_complex_planar_to_complex_planar_1594323_3)
+TEST_F(accuracy_test_pow3_single, DISABLED_huge_1D_forward_in_place_complex_planar_to_complex_planar_1594323_3)
 {
 	try { huge_1D_forward_in_place_complex_to_complex< float, cl_float, fftwf_complex >(1594323, 3, layout::complex_planar, direction::forward); }
 	catch (const std::exception& err) { handle_exception(err); }
 }
-TEST_F(accuracy_test_pow3_single, huge_1D_backward_in_place_complex_planar_to_complex_planar_1594323_3)
+TEST_F(accuracy_test_pow3_single, DISABLED_huge_1D_backward_in_place_complex_planar_to_complex_planar_1594323_3)
 {
 	try { huge_1D_forward_in_place_complex_to_complex< float, cl_float, fftwf_complex >(1594323, 3, layout::complex_planar, direction::backward); }
 	catch (const std::exception& err) { handle_exception(err); }
 }
-TEST_F(accuracy_test_pow3_double, huge_1D_forward_in_place_complex_planar_to_complex_planar_1594323_1)
+TEST_F(accuracy_test_pow3_double, DISABLED_huge_1D_forward_in_place_complex_planar_to_complex_planar_1594323_1)
 {
 	try { huge_1D_forward_in_place_complex_to_complex< double, cl_double, fftw_complex >(1594323, 1, layout::complex_planar, direction::forward); }
 	catch (const std::exception& err) { handle_exception(err); }
 }
-TEST_F(accuracy_test_pow3_double, huge_1D_backward_in_place_complex_planar_to_complex_planar_1594323_1)
+TEST_F(accuracy_test_pow3_double, DISABLED_huge_1D_backward_in_place_complex_planar_to_complex_planar_1594323_1)
 {
     try { huge_1D_forward_in_place_complex_to_complex< double, cl_double, fftw_complex >(1594323, 1, layout::complex_planar, direction::backward); }
     catch (const std::exception& err) { handle_exception(err); }
 }
-TEST_F(accuracy_test_pow3_double, huge_1D_forward_in_place_complex_planar_to_complex_planar_1594323_3)
+TEST_F(accuracy_test_pow3_double, DISABLED_huge_1D_forward_in_place_complex_planar_to_complex_planar_1594323_3)
 {
 	try { huge_1D_forward_in_place_complex_to_complex< double, cl_double, fftw_complex >(1594323, 3, layout::complex_planar, direction::forward); }
 	catch (const std::exception& err) { handle_exception(err); }
 }
-TEST_F(accuracy_test_pow3_double, huge_1D_backward_in_place_complex_planar_to_complex_planar_1594323_3)
+TEST_F(accuracy_test_pow3_double, DISABLED_huge_1D_backward_in_place_complex_planar_to_complex_planar_1594323_3)
 {
     try { huge_1D_forward_in_place_complex_to_complex< double, cl_double, fftw_complex >(1594323, 3, layout::complex_planar, direction::backward); }
     catch (const std::exception& err) { handle_exception(err); }
 }
 
 //interleaved
-TEST_F(accuracy_test_pow3_single, huge_1D_forward_in_place_complex_interleaved_to_complex_interleaved_1594323_1)
+TEST_F(accuracy_test_pow3_single, DISABLED_huge_1D_forward_in_place_complex_interleaved_to_complex_interleaved_1594323_1)
 {
 	try { huge_1D_forward_in_place_complex_to_complex< float, cl_float, fftwf_complex >(1594323, 1, layout::complex_interleaved, direction::forward); }
 	catch (const std::exception& err) { handle_exception(err); }
 }
-TEST_F(accuracy_test_pow3_single, huge_1D_backward_in_place_complex_interleaved_to_complex_interleaved_1594323_1)
+TEST_F(accuracy_test_pow3_single, DISABLED_huge_1D_backward_in_place_complex_interleaved_to_complex_interleaved_1594323_1)
 {
 	try { huge_1D_forward_in_place_complex_to_complex< float, cl_float, fftwf_complex >(1594323, 1, layout::complex_interleaved, direction::backward); }
 	catch (const std::exception& err) { handle_exception(err); }
 }
-TEST_F(accuracy_test_pow3_single, huge_1D_forward_in_place_complex_interleaved_to_complex_interleaved_1594323_3)
+TEST_F(accuracy_test_pow3_single, DISABLED_huge_1D_forward_in_place_complex_interleaved_to_complex_interleaved_1594323_3)
 {
 	try { huge_1D_forward_in_place_complex_to_complex< float, cl_float, fftwf_complex >(1594323, 3, layout::complex_interleaved, direction::forward); }
 	catch (const std::exception& err) { handle_exception(err); }
 }
-TEST_F(accuracy_test_pow3_single, huge_1D_backward_in_place_complex_interleaved_to_complex_interleaved_1594323_3)
+TEST_F(accuracy_test_pow3_single, DISABLED_huge_1D_backward_in_place_complex_interleaved_to_complex_interleaved_1594323_3)
 {
 	try { huge_1D_forward_in_place_complex_to_complex< float, cl_float, fftwf_complex >(1594323, 3, layout::complex_interleaved, direction::backward); }
 	catch (const std::exception& err) { handle_exception(err); }
 }
-TEST_F(accuracy_test_pow3_double, huge_1D_forward_in_place_complex_interleaved_to_complex_interleaved_1594323_1)
+TEST_F(accuracy_test_pow3_double, DISABLED_huge_1D_forward_in_place_complex_interleaved_to_complex_interleaved_1594323_1)
 {
     try { huge_1D_forward_in_place_complex_to_complex< double, cl_double, fftw_complex >(1594323, 1, layout::complex_interleaved, direction::forward); }
     catch (const std::exception& err) { handle_exception(err); }
 }
-TEST_F(accuracy_test_pow3_double, huge_1D_backward_in_place_complex_interleaved_to_complex_interleaved_1594323_1)
+TEST_F(accuracy_test_pow3_double, DISABLED_huge_1D_backward_in_place_complex_interleaved_to_complex_interleaved_1594323_1)
 {
     try { huge_1D_forward_in_place_complex_to_complex< double, cl_double, fftw_complex >(1594323, 1, layout::complex_interleaved, direction::backward); }
     catch (const std::exception& err) { handle_exception(err); }
 }
-TEST_F(accuracy_test_pow3_double, huge_1D_forward_in_place_complex_interleaved_to_complex_interleaved_1594323_3)
+TEST_F(accuracy_test_pow3_double, DISABLED_huge_1D_forward_in_place_complex_interleaved_to_complex_interleaved_1594323_3)
 {
     try { huge_1D_forward_in_place_complex_to_complex< double, cl_double, fftw_complex >(1594323, 3, layout::complex_interleaved, direction::forward); }
     catch (const std::exception& err) { handle_exception(err); }
 }
-TEST_F(accuracy_test_pow3_double, huge_1D_backward_in_place_complex_interleaved_to_complex_interleaved_1594323_3)
+TEST_F(accuracy_test_pow3_double, DISABLED_huge_1D_backward_in_place_complex_interleaved_to_complex_interleaved_1594323_3)
 {
     try { huge_1D_forward_in_place_complex_to_complex< double, cl_double, fftw_complex >(1594323, 3, layout::complex_interleaved, direction::backward); }
     catch (const std::exception& err) { handle_exception(err); }
@@ -2016,89 +2019,89 @@ TEST_F(accuracy_test_pow3_double, huge_1D_backward_in_place_complex_interleaved_
 
 //14348907 = 2187 * 2187 * 3 backward and forward, planar and interleaved, single and double, batch size 1 and 3
 
-TEST_F(accuracy_test_pow3_single, huge_1D_forward_in_place_complex_planar_to_complex_planar_14348907_1)
+TEST_F(accuracy_test_pow3_single, DISABLED_huge_1D_forward_in_place_complex_planar_to_complex_planar_14348907_1)
 {
     try { huge_1D_forward_in_place_complex_to_complex< float, cl_float, fftwf_complex >(14348907, 1, layout::complex_planar, direction::forward); }
     catch (const std::exception& err) { handle_exception(err); }
 }
-TEST_F(accuracy_test_pow3_single, huge_1D_backward_in_place_complex_planar_to_complex_planar_14348907_1)
+TEST_F(accuracy_test_pow3_single, DISABLED_huge_1D_backward_in_place_complex_planar_to_complex_planar_14348907_1)
 {
 	try { huge_1D_forward_in_place_complex_to_complex< float, cl_float, fftwf_complex >(14348907, 1, layout::complex_planar, direction::backward); }
 	catch (const std::exception& err) { handle_exception(err); }
 }
 
-TEST_F(accuracy_test_pow3_single, huge_1D_forward_in_place_complex_planar_to_complex_planar_14348907_3)
+TEST_F(accuracy_test_pow3_single, DISABLED_huge_1D_forward_in_place_complex_planar_to_complex_planar_14348907_3)
 {
 	try { huge_1D_forward_in_place_complex_to_complex< float, cl_float, fftwf_complex >(14348907, 1, layout::complex_planar, direction::forward); }
 	catch (const std::exception& err) { handle_exception(err); }
 }
-TEST_F(accuracy_test_pow3_single, huge_1D_backward_in_place_complex_planar_to_complex_planar_14348907_3)
+TEST_F(accuracy_test_pow3_single, DISABLED_huge_1D_backward_in_place_complex_planar_to_complex_planar_14348907_3)
 {
 	try { huge_1D_forward_in_place_complex_to_complex< float, cl_float, fftwf_complex >(14348907, 1, layout::complex_planar, direction::backward); }
 	catch (const std::exception& err) { handle_exception(err); }
 }
 
-TEST_F(accuracy_test_pow3_double, huge_1D_forward_in_place_complex_planar_to_complex_planar_14348907_1)
+TEST_F(accuracy_test_pow3_double, DISABLED_huge_1D_forward_in_place_complex_planar_to_complex_planar_14348907_1)
 {
 	try { huge_1D_forward_in_place_complex_to_complex< double, cl_double, fftw_complex >(14348907, 1, layout::complex_planar, direction::forward); }
 	catch (const std::exception& err) { handle_exception(err); }
 }
-TEST_F(accuracy_test_pow3_double, huge_1D_backward_in_place_complex_planar_to_complex_planar_14348907_1)
+TEST_F(accuracy_test_pow3_double, DISABLED_huge_1D_backward_in_place_complex_planar_to_complex_planar_14348907_1)
 {
 	try { huge_1D_forward_in_place_complex_to_complex< double, cl_double, fftw_complex >(14348907, 1, layout::complex_planar, direction::backward); }
 	catch (const std::exception& err) { handle_exception(err); }
 }
 
-TEST_F(accuracy_test_pow3_double, huge_1D_forward_in_place_complex_planar_to_complex_planar_14348907_3)
+TEST_F(accuracy_test_pow3_double, DISABLED_huge_1D_forward_in_place_complex_planar_to_complex_planar_14348907_3)
 {
 	try { huge_1D_forward_in_place_complex_to_complex< double, cl_double, fftw_complex >(14348907, 1, layout::complex_planar, direction::forward); }
 	catch (const std::exception& err) { handle_exception(err); }
 }
-TEST_F(accuracy_test_pow3_double, huge_1D_backward_in_place_complex_planar_to_complex_planar_14348907_3)
+TEST_F(accuracy_test_pow3_double, DISABLED_huge_1D_backward_in_place_complex_planar_to_complex_planar_14348907_3)
 {
 	try { huge_1D_forward_in_place_complex_to_complex< double, cl_double, fftw_complex >(14348907, 1, layout::complex_planar, direction::backward); }
 	catch (const std::exception& err) { handle_exception(err); }
 }
 //interleaved
-TEST_F(accuracy_test_pow3_single, huge_1D_forward_in_place_complex_interleaved_to_complex_interleaved_14348907_1)
+TEST_F(accuracy_test_pow3_single, DISABLED_huge_1D_forward_in_place_complex_interleaved_to_complex_interleaved_14348907_1)
 {
 	try { huge_1D_forward_in_place_complex_to_complex< float, cl_float, fftwf_complex >(14348907, 1, layout::complex_interleaved, direction::forward); }
 	catch (const std::exception& err) { handle_exception(err); }
 }
-TEST_F(accuracy_test_pow3_single, huge_1D_backward_in_place_complex_interleaved_to_complex_interleaved_14348907_1)
+TEST_F(accuracy_test_pow3_single, DISABLED_huge_1D_backward_in_place_complex_interleaved_to_complex_interleaved_14348907_1)
 {
 	try { huge_1D_forward_in_place_complex_to_complex< float, cl_float, fftwf_complex >(14348907, 1, layout::complex_interleaved, direction::backward); }
 	catch (const std::exception& err) { handle_exception(err); }
 }
 
-TEST_F(accuracy_test_pow3_single, huge_1D_forward_in_place_complex_interleaved_to_complex_interleaved_14348907_3)
+TEST_F(accuracy_test_pow3_single, DISABLED_huge_1D_forward_in_place_complex_interleaved_to_complex_interleaved_14348907_3)
 {
 	try { huge_1D_forward_in_place_complex_to_complex< float, cl_float, fftwf_complex >(14348907, 1, layout::complex_interleaved, direction::forward); }
 	catch (const std::exception& err) { handle_exception(err); }
 }
-TEST_F(accuracy_test_pow3_single, huge_1D_backward_in_place_complex_interleaved_to_complex_interleaved_14348907_3)
+TEST_F(accuracy_test_pow3_single, DISABLED_huge_1D_backward_in_place_complex_interleaved_to_complex_interleaved_14348907_3)
 {
 	try { huge_1D_forward_in_place_complex_to_complex< float, cl_float, fftwf_complex >(14348907, 1, layout::complex_interleaved, direction::backward); }
 	catch (const std::exception& err) { handle_exception(err); }
 }
 
-TEST_F(accuracy_test_pow3_double, huge_1D_forward_in_place_complex_interleaved_to_complex_interleaved_14348907_1)
+TEST_F(accuracy_test_pow3_double, DISABLED_huge_1D_forward_in_place_complex_interleaved_to_complex_interleaved_14348907_1)
 {
 	try { huge_1D_forward_in_place_complex_to_complex< double, cl_double, fftw_complex >(14348907, 1, layout::complex_interleaved, direction::forward); }
 	catch (const std::exception& err) { handle_exception(err); }
 }
-TEST_F(accuracy_test_pow3_double, huge_1D_backward_in_place_complex_interleaved_to_complex_interleaved_14348907_1)
+TEST_F(accuracy_test_pow3_double, DISABLED_huge_1D_backward_in_place_complex_interleaved_to_complex_interleaved_14348907_1)
 {
 	try { huge_1D_forward_in_place_complex_to_complex< double, cl_double, fftw_complex >(14348907, 1, layout::complex_interleaved, direction::backward); }
 	catch (const std::exception& err) { handle_exception(err); }
 }
 
-TEST_F(accuracy_test_pow3_double, huge_1D_forward_in_place_complex_interleaved_to_complex_interleaved_14348907_3)
+TEST_F(accuracy_test_pow3_double, DISABLED_huge_1D_forward_in_place_complex_interleaved_to_complex_interleaved_14348907_3)
 {
 	try { huge_1D_forward_in_place_complex_to_complex< double, cl_double, fftw_complex >(14348907, 1, layout::complex_interleaved, direction::forward); }
 	catch (const std::exception& err) { handle_exception(err); }
 }
-TEST_F(accuracy_test_pow3_double, huge_1D_backward_in_place_complex_interleaved_to_complex_interleaved_14348907_3)
+TEST_F(accuracy_test_pow3_double, DISABLED_huge_1D_backward_in_place_complex_interleaved_to_complex_interleaved_14348907_3)
 {
 	try { huge_1D_forward_in_place_complex_to_complex< double, cl_double, fftw_complex >(14348907, 1, layout::complex_interleaved, direction::backward); }
 	catch (const std::exception& err) { handle_exception(err); }

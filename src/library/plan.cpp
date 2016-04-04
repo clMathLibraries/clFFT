@@ -622,15 +622,7 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 					clLengths[1] = 10000;//10,000 x 100,000
 
 				clLengths[0] = fftPlan->length[0]/clLengths[1];
-				//timmy ensure clLengths[0] > clLengths[1] only when inplace is enabled 
-				//so that swap kernel is launched after the square transpose kernel since twiddling is only enabled in swap kernel if it is the second kernel
-				if (clLengths[0] < clLengths[1] && clfftGetRequestLibNoMemAlloc() && fftPlan->placeness == CLFFT_INPLACE)
-				{
-					std::cout << "switch lengths" << std::endl;
-					//size_t temp = clLengths[0];
-					//clLengths[0] = clLengths[1];
-					//clLengths[1] = temp;
-				}
+
 
                 // Start of block where transposes are generated; 1D FFT
 				while (1 && (fftPlan->inputLayout != CLFFT_REAL) && (fftPlan->outputLayout != CLFFT_REAL))
@@ -653,29 +645,62 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 
 					clfftGenerators transGen = Transpose_GCN;
 					
-					//non square in-place tranpose currently support 1:2 ratio
-					//TODO: expand the support to 1:3, 1:5 and 1:10 ratio
-					/*
-					if (clfftGetRequestLibNoMemAlloc() &&
-						((clLengths[0] == 2*clLengths[1]) || 
-						 (clLengths[0] == 3*clLengths[1]) ||
-						 (clLengths[0] == 5*clLengths[1]) ||
-						 (clLengths[0] == 10 * clLengths[1])) &&
-						fftPlan->placeness == CLFFT_INPLACE)
-						*/
 					size_t dim_ratio = biggerDim / smallerDim;
 					size_t dim_residue = biggerDim % smallerDim;
+					//    If this is an in-place transform the
+					//    input and output layout, dimensions and strides
+					//    *MUST* be the same.
+					//
+					bool inStrideEqualsOutStride = true;
+					for (size_t u = fftPlan->inStride.size(); u-- > 0; ) {
+						if (fftPlan->inStride[u] != fftPlan->outStride[u])
+						{
+							inStrideEqualsOutStride = false;
+							break;
+						}
+					}
+					//packed data is required for inplace transpose
+					bool isDataPacked = true;
+					for (size_t u = 0; u < fftPlan->inStride.size(); u++)
+					{
+						if (u == 0)
+						{
+							if (fftPlan->inStride[0] == 1)
+								continue;
+							else
+							{
+								isDataPacked = false;
+								break;
+							}
+						}
+						else
+						{
+							int packDataSize = 1;
+							for (size_t i = 0; i < u; i++)
+								packDataSize *= fftPlan->length[i];
+							if (fftPlan->inStride[u] == packDataSize)
+								continue;
+							else
+							{
+								isDataPacked = false;
+								break;
+							}
+						}
+					}
 					if (clfftGetRequestLibNoMemAlloc() &&
 						dim_residue == 0 &&
 						((dim_ratio % 2 == 0) ||
 						 (dim_ratio % 3 == 0) ||
 						 (dim_ratio % 5 == 0) ||
 						 (dim_ratio % 10 == 0)) &&
-						fftPlan->placeness == CLFFT_INPLACE)
+						 fftPlan->placeness == CLFFT_INPLACE &&
+						 (fftPlan->inputLayout == fftPlan->outputLayout) &&
+						 (inStrideEqualsOutStride) && (isDataPacked))
 					{
 						padding = 0;
 						fftPlan->allOpsInplace = true;
 						transGen = Transpose_NONSQUARE;
+						//std::cout << "Transpose_NONSQUARE" << std::endl;
 					}
 
 					if( clfftGetRequestLibNoMemAlloc() &&
@@ -2078,9 +2103,7 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 						// if leading dim is larger than the other dim it makes sense to swap and transpose
 						if (clLengths[0] > clLengths[1])
 						{
-                            //twidding can be done in swap when swap is the second kernel for now
-							//TODO enable twiddling in swap here as well
-							//Twiddling can be done in any swap kernel now
+							//Twiddling will be done in swap kernel, in regardless of the order
 							fftPlan->nonSquareKernelOrder = SWAP_AND_TRANSPOSE;
 						}
 						else
@@ -2096,11 +2119,8 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 								fftPlan->nonSquareKernelOrder = TRANSPOSE_AND_SWAP;
 							}
 						}
-						//if the original input data is more than 1d only TRANSPOSE_LEADING_AND_SWAP order is supported
-						//TODO need to fix this here. related to multi dim batch size.
-						//if (fftPlan->length.size() > 2) 
-						//	currKernelOrder = TRANSPOSE_LEADING_AND_SWAP;
-						std::cout << "currKernelOrder = " << fftPlan->nonSquareKernelOrder << std::endl;
+
+						//std::cout << "currKernelOrder = " << fftPlan->nonSquareKernelOrder << std::endl;
 						//ends tranpose kernel order
 
 						//Transpose stage 1 
