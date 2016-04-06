@@ -482,7 +482,14 @@ namespace StockhamGenerator
 				    leastNumPerWI = 70; maxWorkGroupSize = 36;
 			} else if (primeFactorsExpanded[3] * primeFactorsExpanded[5] * primeFactorsExpanded[7] == length) { 
 				    leastNumPerWI =105; maxWorkGroupSize = 24;
-			} else { 
+			}
+			else if (primeFactorsExpanded[2] * primeFactorsExpanded[11] == length) {
+				leastNumPerWI = 22; maxWorkGroupSize = 128;
+			}
+			else if (primeFactorsExpanded[2] * primeFactorsExpanded[13] == length) {
+				leastNumPerWI = 26; maxWorkGroupSize = 128;
+			}
+			else {
 				    leastNumPerWI =210; maxWorkGroupSize = 12;
 			}
 			if (pr==P_DOUBLE)

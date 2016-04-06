@@ -51,6 +51,8 @@ struct StatData
 	clfftPlanHandle planRCcopy;
 	clfftPlanHandle planCopy;
 
+	clfftGenerators gen;
+
 	std::vector< size_t > lengths;
 	std::vector< size_t > inStride;
 	std::vector< size_t > outStride;
@@ -69,7 +71,7 @@ struct StatData
 		deltaNanoSec( 0 ), kernel( kern ), batchSize( plan->batchsize ), dim( plan->dim ),
 		plHandle( id ), planX( plan->planX ), planY( plan->planY ), planZ( plan->planZ ),
 		planTX( plan->planTX ), planTY( plan->planTY ), planTZ( plan->planTZ ),
-		planRCcopy( plan->planRCcopy ), planCopy( plan->planCopy ),
+		planRCcopy( plan->planRCcopy ), planCopy( plan->planCopy ), gen(plan->gen),
 		inStride( plan->inStride ), outStride( plan->outStride ), iDist( plan->iDist ), oDist( plan->oDist ),
 		lengths( plan->length ), enqueueWorkSize( gWorkSize ), enqueueLocalWorkSize( lWorkSize ), placeness( plan->placeness )
 	{

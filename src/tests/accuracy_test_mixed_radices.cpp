@@ -168,8 +168,8 @@ public:
 	Supported_Fft_Sizes()
 	: max_mixed_radices_to_test( 4096 )
 	{
-		size_t i=0, j=0, k=0, l=0;
-		size_t sum, sumi, sumj, sumk, suml;
+		size_t i=0, j=0, k=0, l=0, m=0, n=0;
+		size_t sum, sumi, sumj, sumk, suml, summ, sumn;
 
 		sumi = 1; i = 0;
 		while(1)
@@ -183,27 +183,43 @@ public:
 					suml = 1; l = 0;
 					while(1)
 					{
-						sum = (sumi*sumj*sumk*suml);
-						if( sum > max_mixed_radices_to_test ) break;
+						summ = 1; m = 0;
+						while (1)
+						{
+							sumn = 1; n = 0;
+							while (1)
+							{
+								sum = (sumi*sumj*sumk*suml*summ*sumn);
+								if (sum > max_mixed_radices_to_test) break;
 
-						sizes.push_back(sum);
+								sizes.push_back(sum);
+								n++;
+								sumn *= 2;
+							}
+
+							if(n == 0) break;
+							m++;
+							summ *= 3;
+						}
+
+						if( (m == 0) && (n == 0) ) break;
 						l++;
-						suml *= 2;
+						suml *= 5;
 					}
 
-					if(l == 0) break;
+					if( (l == 0) && (m == 0) && (n == 0) ) break;
 					k++;
-					sumk *= 3;
+					sumk *= 7;
 				}
 
-				if( (k == 0) && (l == 0) ) break;
+				if( (k == 0) && (l == 0) && (m == 0) && (n == 0) ) break;
 				j++;
-				sumj *= 5;
+				sumj *= 11;
 			}
 
-			if( (j == 0) && (k == 0) && (l == 0) ) break;
+			if( (j == 0) &&  (k == 0) && (l == 0) && (m == 0) && (n == 0) ) break;
 			i++;
-			sumi *= 7;
+			sumi *= 13;
 		}
 	}
 } supported_sizes;
