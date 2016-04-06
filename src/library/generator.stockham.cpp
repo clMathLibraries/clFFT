@@ -396,7 +396,7 @@ namespace StockhamGenerator
 			return;
 		}
 
-		size_t baseRadix[] = {7,5,3,2}; // list only supported primes
+		size_t baseRadix[] = {13,11,7,5,3,2}; // list only supported primes
 		size_t baseRadixSize = sizeof(baseRadix)/sizeof(baseRadix[0]);
 
 		size_t l = length;
@@ -437,7 +437,19 @@ namespace StockhamGenerator
 		{
 			workGroupSize = 49;
 			numTrans = length >= 7*workGroupSize ? 1 : (7*workGroupSize)/length;
-		} else {
+		}
+		else if (primeFactorsExpanded[11] == length) // Length is pure power of 11
+		{
+			workGroupSize = 121;
+			numTrans = length >= 11 * workGroupSize ? 1 : (11 * workGroupSize) / length;
+		}
+		else if (primeFactorsExpanded[13] == length) // Length is pure power of 13
+		{
+			workGroupSize = 169;
+			numTrans = length >= 13 * workGroupSize ? 1 : (13 * workGroupSize) / length;
+		}
+		else
+		{
 			size_t leastNumPerWI = 1; // least number of elements in one work item
 			size_t maxWorkGroupSize = MAX_WGS; // maximum work group size desired
 
@@ -3019,7 +3031,7 @@ namespace StockhamGenerator
 			else
 			{
 				// Possible radices
-				size_t cRad[] = {10,8,7,6,5,4,3,2,1}; // Must be in descending order
+				size_t cRad[] = {13,11,10,8,7,6,5,4,3,2,1}; // Must be in descending order
 				size_t cRadSize = (sizeof(cRad)/sizeof(cRad[0]));
 
 				// Generate the radix and pass objects
@@ -3236,29 +3248,6 @@ namespace StockhamGenerator
 			// Vector type
 			str += "#define fvect2 "; str += RegBaseType<PR>(2); str += "\n\n";
 
-			//constants
-			str += "#define C8Q  0.70710678118654752440084436210485"; str += sfx; str += "\n";
-
-			str += "#define C5QA 0.30901699437494742410229341718282"; str += sfx; str += "\n";
-			str += "#define C5QB 0.95105651629515357211643933337938"; str += sfx; str += "\n";
-			str += "#define C5QC 0.50000000000000000000000000000000"; str += sfx; str += "\n";
-			str += "#define C5QD 0.58778525229247312916870595463907"; str += sfx; str += "\n";
-			str += "#define C5QE 0.80901699437494742410229341718282"; str += sfx; str += "\n";
-
-			str += "#define C3QA 0.50000000000000000000000000000000"; str += sfx; str += "\n";
-			str += "#define C3QB 0.86602540378443864676372317075294"; str += sfx; str += "\n";
-
-			str += "#define C7Q1 -1.16666666666666651863693004997913"; str += sfx; str += "\n";
-			str += "#define C7Q2  0.79015646852540022404554065360571"; str += sfx; str += "\n";
-			str += "#define C7Q3  0.05585426728964774240049351305970"; str += sfx; str += "\n";
-			str += "#define C7Q4  0.73430220123575240531721419756650"; str += sfx; str += "\n";
-			str += "#define C7Q5  0.44095855184409837868031445395900"; str += sfx; str += "\n";
-			str += "#define C7Q6  0.34087293062393136944265847887436"; str += sfx; str += "\n";
-			str += "#define C7Q7 -0.53396936033772524066165487965918"; str += sfx; str += "\n";
-			str += "#define C7Q8  0.87484229096165666561546458979137"; str += sfx; str += "\n";
-
-			str += "\n";
-
 			bool cReg = linearRegs ? true : false;
 
 			// Generate butterflies for all unique radices
@@ -3268,6 +3257,86 @@ namespace StockhamGenerator
 
 			uradices.sort();
 			uradices.unique();
+
+
+			//constants
+			if (length%8 == 0)
+			{
+				str += "#define C8Q  0.70710678118654752440084436210485"; str += sfx; str += "\n";
+			}
+
+			if (length % 5 == 0)
+			{
+				str += "#define C5QA 0.30901699437494742410229341718282"; str += sfx; str += "\n";
+				str += "#define C5QB 0.95105651629515357211643933337938"; str += sfx; str += "\n";
+				str += "#define C5QC 0.50000000000000000000000000000000"; str += sfx; str += "\n";
+				str += "#define C5QD 0.58778525229247312916870595463907"; str += sfx; str += "\n";
+				str += "#define C5QE 0.80901699437494742410229341718282"; str += sfx; str += "\n";
+			}
+
+			if (length % 3 == 0)
+			{
+				str += "#define C3QA 0.50000000000000000000000000000000"; str += sfx; str += "\n";
+				str += "#define C3QB 0.86602540378443864676372317075294"; str += sfx; str += "\n";
+			}
+
+			if (length % 7 == 0)
+			{
+				str += "#define C7Q1 -1.16666666666666651863693004997913"; str += sfx; str += "\n";
+				str += "#define C7Q2  0.79015646852540022404554065360571"; str += sfx; str += "\n";
+				str += "#define C7Q3  0.05585426728964774240049351305970"; str += sfx; str += "\n";
+				str += "#define C7Q4  0.73430220123575240531721419756650"; str += sfx; str += "\n";
+				str += "#define C7Q5  0.44095855184409837868031445395900"; str += sfx; str += "\n";
+				str += "#define C7Q6  0.34087293062393136944265847887436"; str += sfx; str += "\n";
+				str += "#define C7Q7 -0.53396936033772524066165487965918"; str += sfx; str += "\n";
+				str += "#define C7Q8  0.87484229096165666561546458979137"; str += sfx; str += "\n";
+			}
+
+			if (length % 11 == 0)
+			{
+				str += "#define b11_0 0.9898214418809327"; str += sfx; str += "\n";
+				str += "#define b11_1 0.9594929736144973"; str += sfx; str += "\n";
+				str += "#define b11_2 0.9189859472289947"; str += sfx; str += "\n";
+				str += "#define b11_3 0.8767688310025893"; str += sfx; str += "\n";
+				str += "#define b11_4 0.8308300260037728"; str += sfx; str += "\n";
+				str += "#define b11_5 0.7784344533346518"; str += sfx; str += "\n";
+				str += "#define b11_6 0.7153703234534297"; str += sfx; str += "\n";
+				str += "#define b11_7 0.6343562706824244"; str += sfx; str += "\n";
+				str += "#define b11_8 0.3425847256816375"; str += sfx; str += "\n";
+				str += "#define b11_9 0.5211085581132027"; str += sfx; str += "\n";
+			}
+
+			if (length % 13 == 0)
+			{
+				str += "#define b13_0  0.9682872443619840"; str += sfx; str += "\n";
+				str += "#define b13_1  0.9578059925946651"; str += sfx; str += "\n";
+				str += "#define b13_2  0.8755023024091479"; str += sfx; str += "\n";
+				str += "#define b13_3  0.8660254037844386"; str += sfx; str += "\n";
+				str += "#define b13_4  0.8595425350987748"; str += sfx; str += "\n";
+				str += "#define b13_5  0.8534800018598239"; str += sfx; str += "\n";
+				str += "#define b13_6  0.7693388175729806"; str += sfx; str += "\n";
+				str += "#define b13_7  0.6865583707817543"; str += sfx; str += "\n";
+				str += "#define b13_8  0.6122646503767565"; str += sfx; str += "\n";
+				str += "#define b13_9  0.6004772719326652"; str += sfx; str += "\n";
+				str += "#define b13_10 0.5817047785105157"; str += sfx; str += "\n";
+				str += "#define b13_11 0.5751407294740031"; str += sfx; str += "\n";
+				str += "#define b13_12 0.5220263851612750"; str += sfx; str += "\n";
+				str += "#define b13_13 0.5200285718888646"; str += sfx; str += "\n";
+				str += "#define b13_14 0.5165207806234897"; str += sfx; str += "\n";
+				str += "#define b13_15 0.5149187780863157"; str += sfx; str += "\n";
+				str += "#define b13_16 0.5035370328637666"; str += sfx; str += "\n";
+				str += "#define b13_17 0.5000000000000000"; str += sfx; str += "\n";
+				str += "#define b13_18 0.3027756377319946"; str += sfx; str += "\n";
+				str += "#define b13_19 0.3014792600477098"; str += sfx; str += "\n";
+				str += "#define b13_20 0.3004626062886657"; str += sfx; str += "\n";
+				str += "#define b13_21 0.2517685164318833"; str += sfx; str += "\n";
+				str += "#define b13_22 0.2261094450357824"; str += sfx; str += "\n";
+				str += "#define b13_23 0.0833333333333333"; str += sfx; str += "\n";
+				str += "#define b13_24 0.0386329546443481"; str += sfx; str += "\n";
+			}
+
+			str += "\n";
+
 
 			//If pre-callback is set for the plan
 			std::string callbackstr;
