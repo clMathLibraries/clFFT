@@ -609,8 +609,20 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 						}
 					}
 				}
+				// add some special cases
+				if (fftPlan->length[0] == 10000)
+					clLengths[1] = 100;//100 x 100
+				if (fftPlan->length[0] == 100000)
+					clLengths[1] = 100;//100 x 1,000
+				if (fftPlan->length[0] == 10000000)
+					clLengths[1] = 1000;//1,000 x 10,000
+				if (fftPlan->length[0] == 100000000)
+					clLengths[1] = 10000;//10,000 x 10,000
+				if (fftPlan->length[0] == 1000000000)
+					clLengths[1] = 10000;//10,000 x 100,000
 
 				clLengths[0] = fftPlan->length[0]/clLengths[1];
+
 
                 // Start of block where transposes are generated; 1D FFT
 				while (1 && (fftPlan->inputLayout != CLFFT_REAL) && (fftPlan->outputLayout != CLFFT_REAL))
@@ -632,14 +644,63 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 						padding = 64;
 
 					clfftGenerators transGen = Transpose_GCN;
-
+					
+					size_t dim_ratio = biggerDim / smallerDim;
+					size_t dim_residue = biggerDim % smallerDim;
+					//    If this is an in-place transform the
+					//    input and output layout, dimensions and strides
+					//    *MUST* be the same.
+					//
+					bool inStrideEqualsOutStride = true;
+					for (size_t u = fftPlan->inStride.size(); u-- > 0; ) {
+						if (fftPlan->inStride[u] != fftPlan->outStride[u])
+						{
+							inStrideEqualsOutStride = false;
+							break;
+						}
+					}
+					//packed data is required for inplace transpose
+					bool isDataPacked = true;
+					for (size_t u = 0; u < fftPlan->inStride.size(); u++)
+					{
+						if (u == 0)
+						{
+							if (fftPlan->inStride[0] == 1)
+								continue;
+							else
+							{
+								isDataPacked = false;
+								break;
+							}
+						}
+						else
+						{
+							int packDataSize = 1;
+							for (size_t i = 0; i < u; i++)
+								packDataSize *= fftPlan->length[i];
+							if (fftPlan->inStride[u] == packDataSize)
+								continue;
+							else
+							{
+								isDataPacked = false;
+								break;
+							}
+						}
+					}
 					if (clfftGetRequestLibNoMemAlloc() &&
-						(clLengths[0] == 2*clLengths[1]) &&
-						fftPlan->placeness == CLFFT_INPLACE)
+						dim_residue == 0 &&
+						((dim_ratio % 2 == 0) ||
+						 (dim_ratio % 3 == 0) ||
+						 (dim_ratio % 5 == 0) ||
+						 (dim_ratio % 10 == 0)) &&
+						 fftPlan->placeness == CLFFT_INPLACE &&
+						 (fftPlan->inputLayout == fftPlan->outputLayout) &&
+						 (inStrideEqualsOutStride) && (isDataPacked))
 					{
 						padding = 0;
 						fftPlan->allOpsInplace = true;
 						transGen = Transpose_NONSQUARE;
+						//std::cout << "Transpose_NONSQUARE" << std::endl;
 					}
 
 					if( clfftGetRequestLibNoMemAlloc() &&
@@ -650,6 +711,7 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 						fftPlan->allOpsInplace = true;
 						transGen = Transpose_SQUARE;
 					}
+
 
 					if ( (fftPlan->tmpBufSize==0 ) && !fftPlan->allOpsInplace)
 					{
@@ -687,12 +749,35 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 					trans1Plan->gen           = transGen;
 					trans1Plan->transflag     = true;
 
-					for (size_t index = 1; index < fftPlan->length.size(); index++)
+					if (trans1Plan->gen == Transpose_NONSQUARE || trans1Plan->gen == Transpose_SQUARE)// inplace transpose
 					{
-						trans1Plan->length.push_back(fftPlan->length[index]);
-						trans1Plan->inStride.push_back(fftPlan->inStride[index]);
-						trans1Plan->outStride.push_back(trans1Plan->oDist);
-						trans1Plan->oDist *= fftPlan->length[index];
+						for (size_t index = 1; index < fftPlan->length.size(); index++)
+						{
+							//trans1Plan->length.push_back(fftPlan->length[index]);
+							/*
+							replacing the line above with the two lines below since:
+							fftPlan is still 1D, thus the broken down transpose should be 2D not 3D
+							the batchSize for the transpose should increase accordingly.
+							the iDist should decrease accordingly. Push back to length will cause a 3D transpose
+							*/
+							trans1Plan->batchsize = trans1Plan->batchsize * fftPlan->length[index];
+							trans1Plan->iDist = trans1Plan->iDist / fftPlan->length[index];
+
+							trans1Plan->inStride.push_back(fftPlan->inStride[index]);
+							trans1Plan->outStride.push_back(trans1Plan->oDist);
+							trans1Plan->oDist *= fftPlan->length[index];
+						}
+					}
+					else
+					{
+						for (size_t index = 1; index < fftPlan->length.size(); index++)
+						{
+							trans1Plan->length.push_back(fftPlan->length[index]);
+
+							trans1Plan->inStride.push_back(fftPlan->inStride[index]);
+							trans1Plan->outStride.push_back(trans1Plan->oDist);
+							trans1Plan->oDist *= fftPlan->length[index];
+						}
 					}
 
 					//Set callback data if set on top level plan
@@ -775,17 +860,39 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 					trans2Plan->oDist         = clLengths[1] * trans2Plan->outStride[1];
                     trans2Plan->gen           = transGen;
 
-					//if(transGen != Transpose_NONSQUARE)
+					//if (transGen != Transpose_NONSQUARE)//twiddle
 						trans2Plan->large1D		  = fftPlan->length[0];
 
 					trans2Plan->transflag     = true;
 
-					for (size_t index = 1; index < fftPlan->length.size(); index++)
+					if (trans2Plan->gen == Transpose_NONSQUARE || trans2Plan->gen == Transpose_SQUARE)// inplace transpose
 					{
-						trans2Plan->length.push_back(fftPlan->length[index]);
-						trans2Plan->inStride.push_back(fftPlan->outStride[index]);
-						trans2Plan->outStride.push_back(trans2Plan->oDist);
-						trans2Plan->oDist *= fftPlan->length[index];
+						for (size_t index = 1; index < fftPlan->length.size(); index++)
+						{
+							//trans2Plan->length.push_back(fftPlan->length[index]);
+							/*
+							replacing the line above with the two lines below since:
+							fftPlan is still 1D, thus the broken down transpose should be 2D not 3D
+							the batchSize for the transpose should increase accordingly.
+							the iDist should decrease accordingly. Push back to length will cause a 3D transpose
+							*/
+							trans2Plan->batchsize = trans2Plan->batchsize * fftPlan->length[index];
+							trans2Plan->iDist = trans2Plan->iDist / fftPlan->length[index];
+							trans2Plan->inStride.push_back(fftPlan->outStride[index]);
+							trans2Plan->outStride.push_back(trans2Plan->oDist);
+							trans2Plan->oDist *= fftPlan->length[index];
+						}
+					}
+					else
+					{
+						for (size_t index = 1; index < fftPlan->length.size(); index++)
+						{
+							trans2Plan->length.push_back(fftPlan->length[index]);
+
+							trans2Plan->inStride.push_back(fftPlan->outStride[index]);
+							trans2Plan->outStride.push_back(trans2Plan->oDist);
+							trans2Plan->oDist *= fftPlan->length[index];
+						}
 					}
 
 					OPENCL_V(clfftBakePlan(fftPlan->planTY, numQueues, commQueueFFT, NULL, NULL ),
@@ -831,7 +938,7 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 						row2Plan->oDist *= fftPlan->length[index];
 					}
 					
-					//if (transGen == Transpose_NONSQUARE)
+					//if (transGen != Transpose_NONSQUARE)//twiddle in transform
 					//{
 					//	row2Plan->large1D = fftPlan->length[0];
 					//	row2Plan->twiddleFront = true;
@@ -866,12 +973,48 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 					trans3Plan->transflag     = true;
 					trans3Plan->transOutHorizontal = true;
 
-					for (size_t index = 1; index < fftPlan->length.size(); index++)
+
+					if (trans3Plan->gen == Transpose_NONSQUARE)// inplace transpose
 					{
-						trans3Plan->length.push_back(fftPlan->length[index]);
-						trans3Plan->inStride.push_back(trans3Plan->iDist);
-						trans3Plan->iDist *= fftPlan->length[index];
-						trans3Plan->outStride.push_back(fftPlan->outStride[index]);
+						for (size_t index = 1; index < fftPlan->length.size(); index++)
+						{
+							//trans3Plan->length.push_back(fftPlan->length[index]);
+							/*
+							replacing the line above with the two lines below since:
+							fftPlan is still 1D, thus the broken down transpose should be 2D not 3D
+							the batchSize for the transpose should increase accordingly.
+							the iDist should decrease accordingly. Push back to length will cause a 3D transpose
+							*/
+							trans3Plan->batchsize = trans3Plan->batchsize * fftPlan->length[index];
+							//trans3Plan->iDist = trans3Plan->iDist / fftPlan->length[index];//silly Timmy
+							//trans3Plan->inStride.push_back(trans3Plan->iDist);
+							trans3Plan->inStride.push_back(fftPlan->inStride[index]);
+							//trans3Plan->iDist *= fftPlan->length[index];//silly Timmy
+							trans3Plan->outStride.push_back(fftPlan->outStride[index]);
+						}
+					}
+					else if (trans3Plan->gen == Transpose_SQUARE)
+					{
+						for (size_t index = 1; index < fftPlan->length.size(); index++)
+						{
+							trans3Plan->batchsize = trans3Plan->batchsize * fftPlan->length[index];
+							//trans3Plan->iDist = trans3Plan->iDist / fftPlan->length[index];
+							//trans3Plan->inStride.push_back(trans3Plan->iDist);
+							trans3Plan->inStride.push_back(fftPlan->inStride[index]);
+							//trans3Plan->iDist *= fftPlan->length[index];
+							trans3Plan->outStride.push_back(fftPlan->outStride[index]);
+						}
+					}
+					else
+					{
+						for (size_t index = 1; index < fftPlan->length.size(); index++)
+						{
+							trans3Plan->length.push_back(fftPlan->length[index]);
+
+							trans3Plan->inStride.push_back(trans3Plan->iDist);
+							trans3Plan->iDist *= fftPlan->length[index];
+							trans3Plan->outStride.push_back(fftPlan->outStride[index]);
+						}
 					}
 
 					//Set callback data if set on top level plan
@@ -1955,51 +2098,29 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 						clLengths[0] = fftPlan->length[0];
 						clLengths[1] = fftPlan->length[1];
 
-
-						/*
-						There are three ways of conducting inplace transpose with 1:2 (or 2:1) dimension ratio.
-						A. first conduct line swapping kernels for the whole non square matrix
-						   then conduct batched square transpose along column dim (a 'real' batched transpose)
-						B. first conduct batched square transpose along column dim (a 'real' batched transpose)
-						   then conduct line swapping kernels for the whole non square matrix (for 2:1 case)
-						C. first conduct batched square transpose along leading dim (row dim)
-						   then conduct line swapping kernels for the whole non square matrix
-						Note that the twiddle computation has to go at the begining of the first kernel or the end of the second kernel
-
-						if leading dimension is bigger, it makes more sense (faster) to swap line first and then conduct batched square transpose
-						if leading dimension is smaller, it makes more sense (faster) to conduct batched transpose and then swap lines.
-						*/
-						enum NON_SQUARE_KERNEL_ORDER
-						{
-							SWAP_AND_TRANSPOSE, // A.
-							TRANSPOSE_AND_SWAP, // B.
-							TRANSPOSE_LEADING_AND_SWAP, // C.
-						};
-
-						NON_SQUARE_KERNEL_ORDER currKernelOrder;
+						//NON_SQUARE_KERNEL_ORDER currKernelOrder;
 						// controling the transpose and swap kernel order
 						// if leading dim is larger than the other dim it makes sense to swap and transpose
 						if (clLengths[0] > clLengths[1])
 						{
-							currKernelOrder = SWAP_AND_TRANSPOSE;
+							//Twiddling will be done in swap kernel, in regardless of the order
+							fftPlan->nonSquareKernelOrder = SWAP_AND_TRANSPOSE;
 						}
 						else
 						{
-							if (fftPlan->large1D != 0)
+							if (fftPlan->large1D != 0 && 0)
 							{
-								//currently tranpose twiddling is only supported in below case
-								//TODO support tranpose twiddling for all cases.
-								currKernelOrder = TRANSPOSE_LEADING_AND_SWAP;
+                                //this is not going to happen anymore
+								fftPlan->nonSquareKernelOrder = TRANSPOSE_LEADING_AND_SWAP;
 							}
 							else
 							{
-								currKernelOrder = TRANSPOSE_AND_SWAP;
+                                //twiddling can be done in swap
+								fftPlan->nonSquareKernelOrder = TRANSPOSE_AND_SWAP;
 							}
 						}
-						//if the original input data is more than 1d only TRANSPOSE_LEADING_AND_SWAP order is supported
-						//TODO need to fix this here. related to multi dim batch size.
-						if (fftPlan->length.size() > 2)
-							currKernelOrder = TRANSPOSE_LEADING_AND_SWAP;
+
+						//std::cout << "currKernelOrder = " << fftPlan->nonSquareKernelOrder << std::endl;
 						//ends tranpose kernel order
 
 						//Transpose stage 1 
@@ -2024,14 +2145,15 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 						trans1Plan->iDist = fftPlan->iDist;
 						trans1Plan->oDist = fftPlan->oDist;
 						trans1Plan->gen = Transpose_NONSQUARE;
-						if(currKernelOrder == SWAP_AND_TRANSPOSE)
+						trans1Plan->nonSquareKernelOrder = fftPlan->nonSquareKernelOrder;
+						if(fftPlan->nonSquareKernelOrder == SWAP_AND_TRANSPOSE)
 							trans1Plan->nonSquareKernelType = NON_SQUARE_TRANS_SWAP;
-						else if (currKernelOrder == TRANSPOSE_AND_SWAP)
+						else if (fftPlan->nonSquareKernelOrder == TRANSPOSE_AND_SWAP)
 							trans1Plan->nonSquareKernelType = NON_SQUARE_TRANS_TRANSPOSE_BATCHED;
-						else
+						else if(fftPlan->nonSquareKernelOrder == TRANSPOSE_LEADING_AND_SWAP)
 							trans1Plan->nonSquareKernelType = NON_SQUARE_TRANS_TRANSPOSE_BATCHED_LEADING;
 						trans1Plan->transflag = true;
-                        trans1Plan->large1D = fftPlan->large1D;
+                        trans1Plan->large1D = fftPlan->large1D;//twiddling may happen in this kernel
 
 						if (trans1Plan->nonSquareKernelType == NON_SQUARE_TRANS_TRANSPOSE_BATCHED)
 						{
@@ -2097,13 +2219,15 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 						trans2Plan->iDist = fftPlan->iDist;
 						trans2Plan->oDist = fftPlan->oDist;
 						trans2Plan->gen = Transpose_NONSQUARE;
-						if (currKernelOrder == SWAP_AND_TRANSPOSE)
+						trans2Plan->nonSquareKernelOrder = fftPlan->nonSquareKernelOrder;
+						if (fftPlan->nonSquareKernelOrder == SWAP_AND_TRANSPOSE)
 							trans2Plan->nonSquareKernelType = NON_SQUARE_TRANS_TRANSPOSE_BATCHED;
-						else if(currKernelOrder == TRANSPOSE_AND_SWAP)
+						else if(fftPlan->nonSquareKernelOrder == TRANSPOSE_AND_SWAP)
 							trans2Plan->nonSquareKernelType = NON_SQUARE_TRANS_SWAP;
-						else
+						else if(fftPlan->nonSquareKernelOrder == TRANSPOSE_LEADING_AND_SWAP)
 							trans2Plan->nonSquareKernelType = NON_SQUARE_TRANS_SWAP;
 						trans2Plan->transflag = true;
+						trans2Plan->large1D = fftPlan->large1D;//twiddling may happen in this kernel
 
 						if (trans2Plan->nonSquareKernelType == NON_SQUARE_TRANS_TRANSPOSE_BATCHED)
 						{
