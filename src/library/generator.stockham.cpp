@@ -2044,7 +2044,7 @@ namespace StockhamGenerator
 			fft_postCallback = postcallbackParam;
 		}
 
-		void GeneratePass(	bool fwd, std::string &passStr, bool fft_3StepTwiddle,
+		void GeneratePass(	bool fwd, std::string &passStr, bool fft_3StepTwiddle, bool twiddleFront,
 							bool inInterleaved, bool outInterleaved,
 							bool inReal, bool outReal,
 							size_t inStride, size_t outStride, double scale,
@@ -2514,7 +2514,7 @@ namespace StockhamGenerator
 
 			// 3-step twiddle multiplies done in the front
 			bool tw3Done = false;
-			if(fft_3StepTwiddle && (position == 0))
+			if(fft_3StepTwiddle && twiddleFront)
 			{
 				tw3Done = true;
 				if(linearRegs)
@@ -3427,7 +3427,7 @@ namespace StockhamGenerator
 						if((p+1) != passes.end())	{ outIlvd = ldsInterleaved; }
 					}
 
-					p->GeneratePass(fwd, str, tw3Step, inIlvd, outIlvd, inRl, outRl, ins, outs, s, gIn, gOut);
+					p->GeneratePass(fwd, str, tw3Step, params.fft_twiddleFront, inIlvd, outIlvd, inRl, outRl, ins, outs, s, gIn, gOut);
 				}
 
 				// if real transform we do only 1 direction
