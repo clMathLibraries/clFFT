@@ -171,9 +171,9 @@ namespace DirectedTest {
 	}; //struct ParametersPackedRealInplaceInterleaved
 
 
-	struct ParametersPackedComplexInterleaved : public ParametersPacked
+	struct ParametersPackedComplexInplaceInterleaved : public ParametersPacked
 	{
-		ParametersPackedComplexInterleaved(clfftPrecision precision_in,
+		ParametersPackedComplexInplaceInterleaved(clfftPrecision precision_in,
 			clfftDirection direction_in,
 			clfftDim dimensions_in,
 			const std::vector<size_t> &lengths_in,
@@ -205,12 +205,13 @@ namespace DirectedTest {
 				handle_exception(err);
 			}
 		}
-	}; //struct ParametersPackedComplexInterleaved
+	}; //struct ParametersPackedComplexInplaceInterleaved
 
+	template <class ParameterType>
 	class TestListGenerator
 	{
 	protected:
-		std::vector<ParametersPackedRealInplaceInterleaved> data_sets;
+		std::vector<ParameterType> data_sets;
 		const size_t *supported_length;
 		size_t size_supported_length;
 
@@ -258,28 +259,28 @@ namespace DirectedTest {
 			size_supported_length = sizeof(supported_length_array) / sizeof(supported_length_array[0]);
 		}
 
-		virtual void generate_1d(clfftDirection dir, clfftPrecision precision)
+		virtual void generate_1d(clfftDirection dir, clfftPrecision precision, size_t batch)
 		{
 			for (size_t i = 0; i < size_supported_length; i++)
 			{
 				std::vector<size_t> length;
 				length.push_back(supported_length[i]);
-				data_sets.push_back(ParametersPackedRealInplaceInterleaved(precision, dir, CLFFT_1D, length, 3));
+				data_sets.push_back(ParameterType(precision, dir, CLFFT_1D, length, batch));
 			}
 		}
 
-		virtual void generate_2d(clfftDirection dir, clfftPrecision precision)
+		virtual void generate_2d(clfftDirection dir, clfftPrecision precision, size_t batch)
 		{
 			for (size_t i = 0; i < size_supported_length; i++)
 			{
 				std::vector<size_t> length;
 				length.push_back(supported_length[i]);
 				length.push_back(supported_length[i]);
-				data_sets.push_back(ParametersPackedRealInplaceInterleaved(precision, dir, CLFFT_2D, length, 1));
+				data_sets.push_back(ParameterType(precision, dir, CLFFT_2D, length, batch));
 			}
 		}
 
-		virtual void generate_3d(clfftDirection dir, clfftPrecision precision)
+		virtual void generate_3d(clfftDirection dir, clfftPrecision precision, size_t batch)
 		{
 			for (size_t i = 0; i < size_supported_length; i++)
 			{
@@ -287,7 +288,7 @@ namespace DirectedTest {
 				length.push_back(supported_length[i]);
 				length.push_back(supported_length[i]);
 				length.push_back(supported_length[i]);
-				data_sets.push_back(ParametersPackedRealInplaceInterleaved(precision, dir, CLFFT_3D, length, 1));
+				data_sets.push_back(ParameterType(precision, dir, CLFFT_3D, length, batch));
 
 				const size_t max_3d_length = 256;
 				if (supported_length[i] == max_3d_length) break;
@@ -298,16 +299,16 @@ namespace DirectedTest {
 		TestListGenerator() : supported_length(NULL), size_supported_length(0)
 		{}
 
-		virtual std::vector<ParametersPackedRealInplaceInterleaved> & parameter_sets
-			(clfftDim dimension, clfftDirection direction, clfftPrecision precision)
+		virtual std::vector<ParameterType> & parameter_sets
+			(clfftDim dimension, clfftDirection direction, clfftPrecision precision, size_t batch)
 		{
 			supported_length_data();
 
 			switch (dimension)
 			{
-			case CLFFT_1D: generate_1d(direction, precision); break;
-			case CLFFT_2D: generate_2d(direction, precision); break;
-			case CLFFT_3D: generate_3d(direction, precision); break;
+			case CLFFT_1D: generate_1d(direction, precision, batch); break;
+			case CLFFT_2D: generate_2d(direction, precision, batch); break;
+			case CLFFT_3D: generate_3d(direction, precision, batch); break;
 			}
 
 			return data_sets;
@@ -315,7 +316,8 @@ namespace DirectedTest {
 
 	}; //class TestListGenerator
 
-	class TestListGenerator_Pow2 : public TestListGenerator
+	template <class ParameterType>
+	class TestListGenerator_Pow2 : public TestListGenerator<ParameterType>
 	{
 	protected:
 		virtual void supported_length_data()
@@ -330,170 +332,230 @@ namespace DirectedTest {
 		}
 	};
 
+
+	template <class ParameterType>
+	class TestListGenerator_huge_chosen : public TestListGenerator<ParameterType>
+	{
+	protected:
+		virtual void supported_length_data()
+		{
+			// This array must be kept sorted in the ascending order
+			static const size_t supported_length_array[] = {
+				25050025, 27027000, 17320303, 19487171, 4826809, 53094899, 23030293, 214358881, 62748517 };
+
+			supported_length = supported_length_array;
+			size_supported_length = sizeof(supported_length_array) / sizeof(supported_length_array[0]);
+		}
+	};
+
+
 } //namespace DirectedTest
 
+class accuracy_test_directed_base : public ::testing::TestWithParam<DirectedTest::ParametersPacked> {
+protected:
+	accuracy_test_directed_base() {}
+	virtual ~accuracy_test_directed_base() {}
+	virtual void SetUp() {}
+	virtual void TearDown() {}
 
-class accuracy_test_directed : public ::testing::TestWithParam<DirectedTest::ParametersPackedRealInplaceInterleaved> {
+public:
+	static void RunTest(const DirectedTest::ParametersPacked *params_ptr)
+	{
+		const DirectedTest::ParametersPacked &params = *params_ptr;
+		try
+		{
+			RecordProperty("batch_size", (int)params.batch_size);
+			RecordProperty("precision", params.precision);
+			RecordProperty("direction", params.direction);
+			RecordProperty("dimensions", params.dimensions);
+			RecordProperty("length_x", (int)params.lengths[0]);
+			if (params.dimensions >= CLFFT_2D) RecordProperty("length_y", (int)params.lengths[1]);
+			if (params.dimensions >= CLFFT_3D) RecordProperty("length_z", (int)params.lengths[2]);
+
+			if (params.input_strides.empty())
+			{
+				RecordProperty("input_strides", 0);
+			}
+			else
+			{
+				RecordProperty("input_stride_x", (int)params.input_strides[0]);
+				if (params.dimensions >= CLFFT_2D) RecordProperty("input_stride_y", (int)params.input_strides[1]);
+				if (params.dimensions >= CLFFT_3D) RecordProperty("input_stride_z", (int)params.input_strides[2]);
+			}
+
+			if (params.output_strides.empty())
+			{
+				RecordProperty("output_strides", 0);
+			}
+			else
+			{
+				RecordProperty("output_stride_x", (int)params.output_strides[0]);
+				if (params.dimensions >= CLFFT_2D) RecordProperty("output_stride_y", (int)params.output_strides[1]);
+				if (params.dimensions >= CLFFT_3D) RecordProperty("output_stride_z", (int)params.output_strides[2]);
+			}
+
+			RecordProperty("input_distance", (int)params.input_distance);
+			RecordProperty("output_distance", (int)params.output_distance);
+			RecordProperty("input_layout", params.input_layout);
+			RecordProperty("output_layout", params.output_layout);
+
+
+			if (params.precision == CLFFT_SINGLE)
+			{
+				if (params.input_layout == CLFFT_REAL)
+				{
+					real_to_complex<float, cl_float, fftwf_complex>(erratic,
+						params.lengths,
+						params.batch_size,
+						params.input_strides,
+						params.output_strides,
+						params.input_distance,
+						params.output_distance,
+						DirectedTest::cl_layout_to_buffer_layout(params.output_layout),
+						placeness::in_place);
+				}
+				else if (params.output_layout == CLFFT_REAL)
+				{
+					complex_to_real<float, cl_float, fftwf_complex>(erratic,
+						params.lengths,
+						params.batch_size,
+						params.input_strides,
+						params.output_strides,
+						params.input_distance,
+						params.output_distance,
+						DirectedTest::cl_layout_to_buffer_layout(params.input_layout),
+						placeness::in_place);
+				}
+				else if ((params.input_layout == CLFFT_COMPLEX_INTERLEAVED || params.input_layout == CLFFT_COMPLEX_PLANAR) &&
+					(params.output_layout == CLFFT_COMPLEX_INTERLEAVED || params.output_layout == CLFFT_COMPLEX_PLANAR))
+				{
+					complex_to_complex<float, cl_float, fftwf_complex>(erratic,
+						params.direction == CLFFT_FORWARD ? direction::forward : direction::backward,
+						params.lengths,
+						params.batch_size,
+						params.input_strides,
+						params.output_strides,
+						params.input_distance,
+						params.output_distance,
+						DirectedTest::cl_layout_to_buffer_layout(params.input_layout),
+						DirectedTest::cl_layout_to_buffer_layout(params.output_layout),
+						placeness::in_place);
+				}
+				else
+				{
+					throw std::runtime_error("bad layout combination");
+				}
+			}
+			else if (params.precision == CLFFT_DOUBLE)
+			{
+				if (params.input_layout == CLFFT_REAL)
+				{
+					real_to_complex<double, cl_double, fftw_complex>(erratic,
+						params.lengths,
+						params.batch_size,
+						params.input_strides,
+						params.output_strides,
+						params.input_distance,
+						params.output_distance,
+						DirectedTest::cl_layout_to_buffer_layout(params.output_layout),
+						placeness::in_place);
+				}
+				else if (params.output_layout == CLFFT_REAL)
+				{
+					complex_to_real<double, cl_double, fftw_complex>(erratic,
+						params.lengths,
+						params.batch_size,
+						params.input_strides,
+						params.output_strides,
+						params.input_distance,
+						params.output_distance,
+						DirectedTest::cl_layout_to_buffer_layout(params.input_layout),
+						placeness::in_place);
+				}
+				else if ((params.input_layout == CLFFT_COMPLEX_INTERLEAVED || params.input_layout == CLFFT_COMPLEX_PLANAR) &&
+					(params.output_layout == CLFFT_COMPLEX_INTERLEAVED || params.output_layout == CLFFT_COMPLEX_PLANAR))
+				{
+					complex_to_complex<double, cl_double, fftw_complex>(erratic,
+						params.direction == CLFFT_FORWARD ? direction::forward : direction::backward,
+						params.lengths,
+						params.batch_size,
+						params.input_strides,
+						params.output_strides,
+						params.input_distance,
+						params.output_distance,
+						DirectedTest::cl_layout_to_buffer_layout(params.input_layout),
+						DirectedTest::cl_layout_to_buffer_layout(params.output_layout),
+						placeness::in_place);
+				}
+				else
+				{
+					throw std::runtime_error("bad layout combination");
+				}
+			}
+			else
+			{
+				throw std::runtime_error("Random test: this code path should never be executed");
+			}
+		}
+		catch (const std::exception& err)
+		{
+			handle_exception(err);
+		}
+	}
+};
+
+class accuracy_test_directed_real : public ::testing::TestWithParam<DirectedTest::ParametersPackedRealInplaceInterleaved> {
 	protected:
-		accuracy_test_directed() {}
-		virtual ~accuracy_test_directed() {}
+		accuracy_test_directed_real() {}
+		virtual ~accuracy_test_directed_real() {}
 		virtual void SetUp() {}
 		virtual void TearDown() {}
 
 		virtual void accuracy_test_directed_packed_real_inplace_interleaved()
 		{
-			try
-			{
-				DirectedTest::ParametersPackedRealInplaceInterleaved params = GetParam();
-				RecordProperty("batch_size", (int)params.batch_size);
-				RecordProperty("precision", params.precision);
-				RecordProperty("direction", params.direction);
-				RecordProperty("dimensions", params.dimensions);
-				RecordProperty("length_x", (int)params.lengths[0]);
-				if (params.dimensions >= CLFFT_2D) RecordProperty("length_y", (int)params.lengths[1]);
-				if (params.dimensions >= CLFFT_3D) RecordProperty("length_z", (int)params.lengths[2]);
-
-				if (params.input_strides.empty())
-				{
-					RecordProperty("input_strides", 0);
-				}
-				else
-				{
-					RecordProperty("input_stride_x", (int)params.input_strides[0]);
-					if (params.dimensions >= CLFFT_2D) RecordProperty("input_stride_y", (int)params.input_strides[1]);
-					if (params.dimensions >= CLFFT_3D) RecordProperty("input_stride_z", (int)params.input_strides[2]);
-				}
-
-				if (params.output_strides.empty())
-				{
-					RecordProperty("output_strides", 0);
-				}
-				else
-				{
-					RecordProperty("output_stride_x", (int)params.output_strides[0]);
-					if (params.dimensions >= CLFFT_2D) RecordProperty("output_stride_y", (int)params.output_strides[1]);
-					if (params.dimensions >= CLFFT_3D) RecordProperty("output_stride_z", (int)params.output_strides[2]);
-				}
-
-				RecordProperty("input_distance", (int)params.input_distance);
-				RecordProperty("output_distance", (int)params.output_distance);
-				RecordProperty("input_layout", params.input_layout);
-				RecordProperty("output_layout", params.output_layout);
-
-
-
-				if (params.precision == CLFFT_SINGLE)
-				{
-					if (params.input_layout == CLFFT_REAL)
-					{
-						real_to_complex<float, cl_float, fftwf_complex>(erratic,
-							params.lengths,
-							params.batch_size,
-							params.input_strides,
-							params.output_strides,
-							params.input_distance,
-							params.output_distance,
-							DirectedTest::cl_layout_to_buffer_layout(params.output_layout),
-							placeness::in_place);
-					}
-					else if (params.output_layout == CLFFT_REAL)
-					{
-						complex_to_real<float, cl_float, fftwf_complex>(erratic,
-							params.lengths,
-							params.batch_size,
-							params.input_strides,
-							params.output_strides,
-							params.input_distance,
-							params.output_distance,
-							DirectedTest::cl_layout_to_buffer_layout(params.input_layout),
-							placeness::in_place);
-					}
-					else
-					{
-						throw std::runtime_error("bad layout combination");
-					}
-				}
-				else if (params.precision == CLFFT_DOUBLE)
-				{
-					if (params.input_layout == CLFFT_REAL)
-					{
-						real_to_complex<double, cl_double, fftw_complex>(erratic,
-							params.lengths,
-							params.batch_size,
-							params.input_strides,
-							params.output_strides,
-							params.input_distance,
-							params.output_distance,
-							DirectedTest::cl_layout_to_buffer_layout(params.output_layout),
-							placeness::in_place);
-					}
-					else if (params.output_layout == CLFFT_REAL)
-					{
-						complex_to_real<double, cl_double, fftw_complex>(erratic,
-							params.lengths,
-							params.batch_size,
-							params.input_strides,
-							params.output_strides,
-							params.input_distance,
-							params.output_distance,
-							DirectedTest::cl_layout_to_buffer_layout(params.input_layout),
-							placeness::in_place);
-					}
-					else
-					{
-						throw std::runtime_error("bad layout combination");
-					}
-				}
-				else
-				{
-					throw std::runtime_error("Random test: this code path should never be executed");
-				}
-			}
-			catch (const std::exception& err)
-			{
-				handle_exception(err);
-			}
+			DirectedTest::ParametersPackedRealInplaceInterleaved params = GetParam();
+			accuracy_test_directed_base::RunTest(&params);
 		}
 };
 
 
-TEST_P(accuracy_test_directed, real_inplace) { accuracy_test_directed_packed_real_inplace_interleaved(); }
+TEST_P(accuracy_test_directed_real, inplace_interleaved) { accuracy_test_directed_packed_real_inplace_interleaved(); }
 
 
 INSTANTIATE_TEST_CASE_P(
 	clfft_DirectedTest_single_1d_fwd,
-	accuracy_test_directed,
-	::testing::ValuesIn(DirectedTest::TestListGenerator().parameter_sets(CLFFT_1D, CLFFT_FORWARD, CLFFT_SINGLE))
+	accuracy_test_directed_real,
+	::testing::ValuesIn(DirectedTest::TestListGenerator<DirectedTest::ParametersPackedRealInplaceInterleaved>().parameter_sets(CLFFT_1D, CLFFT_FORWARD, CLFFT_SINGLE, 19))
 	);
 
 INSTANTIATE_TEST_CASE_P(
 	clfft_DirectedTest_single_1d_inv,
-	accuracy_test_directed,
-	::testing::ValuesIn(DirectedTest::TestListGenerator().parameter_sets(CLFFT_1D, CLFFT_BACKWARD, CLFFT_SINGLE))
+	accuracy_test_directed_real,
+	::testing::ValuesIn(DirectedTest::TestListGenerator<DirectedTest::ParametersPackedRealInplaceInterleaved>().parameter_sets(CLFFT_1D, CLFFT_BACKWARD, CLFFT_SINGLE, 19))
 	);
 
 INSTANTIATE_TEST_CASE_P(
 	clfft_DirectedTest_single_2d_fwd,
-	accuracy_test_directed,
-	::testing::ValuesIn(DirectedTest::TestListGenerator().parameter_sets(CLFFT_2D, CLFFT_FORWARD, CLFFT_SINGLE))
+	accuracy_test_directed_real,
+	::testing::ValuesIn(DirectedTest::TestListGenerator<DirectedTest::ParametersPackedRealInplaceInterleaved>().parameter_sets(CLFFT_2D, CLFFT_FORWARD, CLFFT_SINGLE, 3))
 	);
 
 INSTANTIATE_TEST_CASE_P(
 	clfft_DirectedTest_single_2d_inv,
-	accuracy_test_directed,
-	::testing::ValuesIn(DirectedTest::TestListGenerator().parameter_sets(CLFFT_2D, CLFFT_BACKWARD, CLFFT_SINGLE))
+	accuracy_test_directed_real,
+	::testing::ValuesIn(DirectedTest::TestListGenerator<DirectedTest::ParametersPackedRealInplaceInterleaved>().parameter_sets(CLFFT_2D, CLFFT_BACKWARD, CLFFT_SINGLE, 3))
 	);
 
 INSTANTIATE_TEST_CASE_P(
 	clfft_DirectedTest_single_3d_fwd,
-	accuracy_test_directed,
-	::testing::ValuesIn(DirectedTest::TestListGenerator().parameter_sets(CLFFT_3D, CLFFT_FORWARD, CLFFT_SINGLE))
+	accuracy_test_directed_real,
+	::testing::ValuesIn(DirectedTest::TestListGenerator<DirectedTest::ParametersPackedRealInplaceInterleaved>().parameter_sets(CLFFT_3D, CLFFT_FORWARD, CLFFT_SINGLE, 1))
 	);
 
 INSTANTIATE_TEST_CASE_P(
 	clfft_DirectedTest_single_3d_inv,
-	accuracy_test_directed,
-	::testing::ValuesIn(DirectedTest::TestListGenerator().parameter_sets(CLFFT_3D, CLFFT_BACKWARD, CLFFT_SINGLE))
+	accuracy_test_directed_real,
+	::testing::ValuesIn(DirectedTest::TestListGenerator<DirectedTest::ParametersPackedRealInplaceInterleaved>().parameter_sets(CLFFT_3D, CLFFT_BACKWARD, CLFFT_SINGLE, 1))
 	);
 
 
@@ -501,14 +563,63 @@ INSTANTIATE_TEST_CASE_P(
 
 INSTANTIATE_TEST_CASE_P(
 	clfft_DirectedTest_pow2_single_1d_fwd,
-	accuracy_test_directed,
-	::testing::ValuesIn(DirectedTest::TestListGenerator_Pow2().parameter_sets(CLFFT_1D, CLFFT_FORWARD, CLFFT_SINGLE))
+	accuracy_test_directed_real,
+	::testing::ValuesIn(DirectedTest::TestListGenerator_Pow2<DirectedTest::ParametersPackedRealInplaceInterleaved>().parameter_sets(CLFFT_1D, CLFFT_FORWARD, CLFFT_SINGLE, 3))
 	);
 
 INSTANTIATE_TEST_CASE_P(
 	clfft_DirectedTest_pow2_double_1d_fwd,
-	accuracy_test_directed,
-	::testing::ValuesIn(DirectedTest::TestListGenerator_Pow2().parameter_sets(CLFFT_1D, CLFFT_FORWARD, CLFFT_DOUBLE))
+	accuracy_test_directed_real,
+	::testing::ValuesIn(DirectedTest::TestListGenerator_Pow2<DirectedTest::ParametersPackedRealInplaceInterleaved>().parameter_sets(CLFFT_1D, CLFFT_FORWARD, CLFFT_DOUBLE, 3))
+	);
+
+#endif
+
+
+
+class accuracy_test_directed_complex : public ::testing::TestWithParam<DirectedTest::ParametersPackedComplexInplaceInterleaved> {
+protected:
+	accuracy_test_directed_complex() {}
+	virtual ~accuracy_test_directed_complex() {}
+	virtual void SetUp() {}
+	virtual void TearDown() {}
+
+	virtual void accuracy_test_directed_packed_complex_inplace_interleaved()
+	{
+		DirectedTest::ParametersPackedComplexInplaceInterleaved params = GetParam();
+		accuracy_test_directed_base::RunTest(&params);
+	}
+};
+
+
+TEST_P(accuracy_test_directed_complex, inplace_interleaved) { accuracy_test_directed_packed_complex_inplace_interleaved(); }
+
+
+INSTANTIATE_TEST_CASE_P(
+	clfft_DirectedTest_single_1d_fwd,
+	accuracy_test_directed_complex,
+	::testing::ValuesIn(DirectedTest::TestListGenerator<DirectedTest::ParametersPackedComplexInplaceInterleaved>().parameter_sets(CLFFT_1D, CLFFT_FORWARD, CLFFT_SINGLE, 101))
+	);
+
+INSTANTIATE_TEST_CASE_P(
+	clfft_DirectedTest_single_1d_inv,
+	accuracy_test_directed_complex,
+	::testing::ValuesIn(DirectedTest::TestListGenerator<DirectedTest::ParametersPackedComplexInplaceInterleaved>().parameter_sets(CLFFT_1D, CLFFT_BACKWARD, CLFFT_SINGLE, 101))
+	);
+
+
+#if 0
+
+INSTANTIATE_TEST_CASE_P(
+	clfft_DirectedTest_huge_chosen_single_1d_fwd,
+	accuracy_test_directed_complex,
+	::testing::ValuesIn(DirectedTest::TestListGenerator_huge_chosen<DirectedTest::ParametersPackedComplexInplaceInterleaved>().parameter_sets(CLFFT_1D, CLFFT_FORWARD, CLFFT_SINGLE, 1))
+	);
+
+INSTANTIATE_TEST_CASE_P(
+	clfft_DirectedTest_huge_chosen_single_1d_inv,
+	accuracy_test_directed_complex,
+	::testing::ValuesIn(DirectedTest::TestListGenerator_huge_chosen<DirectedTest::ParametersPackedComplexInplaceInterleaved>().parameter_sets(CLFFT_1D, CLFFT_BACKWARD, CLFFT_SINGLE, 1))
 	);
 
 #endif
