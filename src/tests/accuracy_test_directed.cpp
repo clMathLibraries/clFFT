@@ -47,9 +47,8 @@ namespace DirectedTest {
 			throw std::runtime_error("invalid cl_layout");
 	}
 
-
-	struct ParametersPackedRealInplaceInterleaved {
-		
+	struct ParametersPacked
+	{
 		// directed inputs
 		size_t batch_size;
 		clfftPrecision precision;
@@ -66,6 +65,23 @@ namespace DirectedTest {
 		clfftLayout input_layout;
 		clfftLayout output_layout;
 
+		ParametersPacked(clfftPrecision precision_in,
+			clfftDirection direction_in,
+			clfftDim dimensions_in,
+			const std::vector<size_t> &lengths_in,
+			size_t batch_size_in)
+			: precision(precision_in)
+			, direction(direction_in)
+			, dimensions(dimensions_in)
+			, batch_size(batch_size_in)
+		{
+			for (size_t i = 0; i < lengths_in.size(); i++)
+				lengths.push_back(lengths_in[i]);
+		}
+	};
+
+	struct ParametersPackedRealInplaceInterleaved : public ParametersPacked
+	{
 		bool is_r2c()
 		{
 			if (input_layout == CLFFT_REAL) return true;
@@ -83,16 +99,10 @@ namespace DirectedTest {
 												clfftDim dimensions_in,
 												const std::vector<size_t> &lengths_in,
 												size_t batch_size_in)
-			: precision(precision_in)
-			, direction(direction_in)
-			, dimensions(dimensions_in)
-			, batch_size(batch_size_in)
+			: ParametersPacked(precision_in, direction_in, dimensions_in, lengths_in, batch_size_in)
 		{
 			try
 			{
-				for (size_t i = 0; i < lengths_in.size(); i++)
-					lengths.push_back(lengths_in[i]);
-
 				input_strides.push_back(1);
 				output_strides.push_back(1);
 
@@ -160,6 +170,42 @@ namespace DirectedTest {
 		}
 	}; //struct ParametersPackedRealInplaceInterleaved
 
+
+	struct ParametersPackedComplexInterleaved : public ParametersPacked
+	{
+		ParametersPackedComplexInterleaved(clfftPrecision precision_in,
+			clfftDirection direction_in,
+			clfftDim dimensions_in,
+			const std::vector<size_t> &lengths_in,
+			size_t batch_size_in)
+			: ParametersPacked(precision_in, direction_in, dimensions_in, lengths_in, batch_size_in)
+		{
+			try
+			{
+				input_strides.push_back(1);
+				output_strides.push_back(1);
+
+				input_layout = CLFFT_COMPLEX_INTERLEAVED;
+				output_layout = CLFFT_COMPLEX_INTERLEAVED;
+
+				input_distance = lengths[0];
+				output_distance = lengths[0];
+
+				for (size_t i = 1; i < lengths.size(); i++)
+				{
+					input_strides.push_back(input_distance);
+					output_strides.push_back(output_distance);
+
+					input_distance *= lengths[i];
+					output_distance *= lengths[i];
+				}
+			}
+			catch (const std::exception& err)
+			{
+				handle_exception(err);
+			}
+		}
+	}; //struct ParametersPackedComplexInterleaved
 
 	class TestListGenerator
 	{
