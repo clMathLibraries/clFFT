@@ -327,8 +327,8 @@ namespace DirectedTest {
 				8192, 16384, 32768, 65536, 131072, 262144, 524288,
 				1048576, 2097152, 4194304};
 
-			supported_length = supported_length_array;
-			size_supported_length = sizeof(supported_length_array) / sizeof(supported_length_array[0]);
+			TestListGenerator<ParameterType>::supported_length = supported_length_array;
+			TestListGenerator<ParameterType>::size_supported_length = sizeof(supported_length_array) / sizeof(supported_length_array[0]);
 		}
 	};
 
@@ -343,8 +343,8 @@ namespace DirectedTest {
 			static const size_t supported_length_array[] = {
 				25050025, 27027000, 17320303, 19487171, 4826809, 53094899, 23030293, 214358881, 62748517 };
 
-			supported_length = supported_length_array;
-			size_supported_length = sizeof(supported_length_array) / sizeof(supported_length_array[0]);
+			TestListGenerator<ParameterType>::supported_length = supported_length_array;
+			TestListGenerator<ParameterType>::size_supported_length = sizeof(supported_length_array) / sizeof(supported_length_array[0]);
 		}
 	};
 
