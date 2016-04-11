@@ -123,7 +123,7 @@ int main( int argc, char **argv )
 
 	// this rmse_tolerance is not absolute; it is for a 4096-point single precision transform
 	// the actual rmse tolerance is this value times sqrt(problem-size/4096)
-	rmse_tolerance = 0.00005;
+	rmse_tolerance = 0.00002;
 
 
 	//	Parse the command line options, ignore unrecognized options and collect them into a vector of strings

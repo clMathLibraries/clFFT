@@ -543,8 +543,6 @@ private:
 							", maximum allowed RMSE = " << std::dec << rmse_tolerance_this << std::endl;
 					return 1;
 				}
-				else
-					return 0;
 			}
 
 			return 0;
