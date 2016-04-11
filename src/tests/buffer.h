@@ -490,68 +490,64 @@ private:
 		{
 			//RMS accuracy judgement
 
-			// Find maximum magnitude
-			double maxMag = 0.0, maxMagInv = 1.0;
-			for( size_t batch = 0; batch < batch_size(); batch++ ) {
-				for( size_t z = 0; z < length(dimz); z++) {
-					for( size_t y = 0; y < length(dimy); y++) {
-						for( size_t x = 0; x < length(dimx); x++) {
-							double ex_r, ex_i, mag;
-							ex_r = other_buffer.real(x, y, z, batch);
+			size_t problem_size_per_transform = length(dimx) * length(dimy) * length(dimz);
+			double rmse_tolerance_this = rmse_tolerance * sqrt((double)problem_size_per_transform / 4096.0);
 
-							if( other_buffer.is_complex() || other_buffer.is_hermitian() )
-								ex_i = other_buffer.imag(x, y, z, batch);
-							else
-								ex_i = 0;
+			for (size_t batch = 0; batch < batch_size(); batch++) {
 
-							mag = ex_r*ex_r + ex_i*ex_i;
-							maxMag = (mag > maxMag) ? mag : maxMag;
-						}
-					}
-				}
-			}
+				double maxMag = 0.0, maxMagInv = 1.0;
 
-			if(maxMag > magnitude_lower_limit)
-			{
-				maxMagInv = 1.0/maxMag;
-			}
+				// Compute RMS error relative to maximum magnitude
+				double rms = 0;
 
-			// Compute RMS error relative to maximum magnitude
-			double rms = 0;
-			for( size_t batch = 0; batch < batch_size(); batch++ ) {
-				for( size_t z = 0; z < length(dimz); z++) {
-					for( size_t y = 0; y < length(dimy); y++) {
-						for( size_t x = 0; x < length(dimx); x++) {
+				for (size_t z = 0; z < length(dimz); z++) {
+					for (size_t y = 0; y < length(dimy); y++) {
+						for (size_t x = 0; x < length(dimx); x++) {
 							double ex_r, ex_i, ac_r, ac_i;
+							double mag;
 
 							ex_r = other_buffer.real(x, y, z, batch);
 							ac_r = real(x, y, z, batch);
 
-							if( other_buffer.is_complex() || other_buffer.is_hermitian() )
+							if (other_buffer.is_complex() || other_buffer.is_hermitian())
 								ex_i = other_buffer.imag(x, y, z, batch);
 							else
 								ex_i = 0;
 
-							if( other_buffer.is_complex() || other_buffer.is_hermitian() )
+							if (other_buffer.is_complex() || other_buffer.is_hermitian())
 								ac_i = imag(x, y, z, batch);
 							else
 								ac_i = 0;
 
-							rms += ((ex_r - ac_r)*(ex_r - ac_r) + (ex_i - ac_i)*(ex_i - ac_i))*maxMagInv;
+							// find maximum magnitude
+							mag = ex_r*ex_r + ex_i*ex_i;
+							maxMag = (mag > maxMag) ? mag : maxMag;
+
+							// compute square error
+							rms += ((ex_r - ac_r)*(ex_r - ac_r) + (ex_i - ac_i)*(ex_i - ac_i));
 						}
 					}
 				}
-			}
-			rms = sqrt(rms);
 
-			if ( fabs(rms) > tolerance )
-			{
-				if( suppress_output == false )
-					std::cout << std::endl <<"RMS accuracy judgement failure -- RMS = "<< std::dec << rms << std::endl;
-				return 1;
+				if (maxMag > magnitude_lower_limit)
+				{
+					maxMagInv = 1.0 / maxMag;
+				}
+
+				rms = sqrt(rms*maxMagInv);
+
+				if (fabs(rms) > rmse_tolerance_this)
+				{
+					if (suppress_output == false)
+						std::cout << std::endl << "RMSE accuracy judgement failure -- RMSE = " << std::dec << rms <<
+							", maximum allowed RMSE = " << std::dec << rmse_tolerance_this << std::endl;
+					return 1;
+				}
+				else
+					return 0;
 			}
-			else
-				return 0;
+
+			return 0;
 		}
 	}
 

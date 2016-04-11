@@ -27,6 +27,7 @@ namespace po = boost::program_options;
 size_t number_of_random_tests;
 time_t random_test_parameter_seed;
 float tolerance;
+double rmse_tolerance;
 bool verbose;
 
 #if defined( MSVC_VER )
@@ -119,6 +120,11 @@ int main( int argc, char **argv )
 		( "short,s",         "Run radix 2 tests; no random testing" )
 		( "medium,m",         "Run all radices; no random testing" )
 		;
+
+	// this rmse_tolerance is not absolute; it is for a 4096-point single precision transform
+	// the actual rmse tolerance is this value times sqrt(problem-size/4096)
+	rmse_tolerance = 0.00005;
+
 
 	//	Parse the command line options, ignore unrecognized options and collect them into a vector of strings
 	po::variables_map vm;
@@ -274,6 +280,7 @@ int main( int argc, char **argv )
 	int myArgc	= static_cast< int >( myArgv.size( ) );
 
 	std::cout << "Result comparison tolerance is " << tolerance << std::endl;
+	std::cout << "Result comparison RMSE relative tolerance is " << rmse_tolerance << std::endl;
 
 	::testing::InitGoogleTest( &myArgc, const_cast< char** >( &myArgv[ 0 ] ) );
 

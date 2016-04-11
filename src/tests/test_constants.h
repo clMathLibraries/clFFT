@@ -209,6 +209,7 @@ const size_t max_dimension = 3;
 const double magnitude_lower_limit = 1.0E-100;
 
 extern float tolerance;
+extern double rmse_tolerance;
 
 extern cl_device_type g_device_type;
 extern cl_int g_device_id;
