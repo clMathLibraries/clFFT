@@ -17,6 +17,7 @@
 
 #include <algorithm>
 #include <vector>
+#include <list>
 #include <numeric>
 #include <memory>
 #include <time.h>
@@ -55,7 +56,6 @@ namespace DirectedTest {
 		clfftDirection direction;
 		clfftDim dimensions;
 		std::vector<size_t> lengths;
-
 
 		// calculated
 		std::vector<size_t> input_strides;
@@ -334,6 +334,111 @@ namespace DirectedTest {
 
 
 	template <class ParameterType>
+	class TestListGenerator_Large_Random
+	{
+	protected:
+		std::vector<size_t> supported_length;
+		std::vector<ParameterType> data_sets;
+
+		void GenerateSizes(size_t maximum_size)
+		{
+			std::list<size_t> sizes;
+
+			size_t i = 0, j = 0, k = 0, l = 0, m = 0, n = 0;
+			size_t sum, sumi, sumj, sumk, suml, summ, sumn;
+
+			sumi = 1; i = 0;
+			while (1)
+			{
+				sumj = 1; j = 0;
+				while (1)
+				{
+					sumk = 1; k = 0;
+					while (1)
+					{
+						suml = 1; l = 0;
+						while (1)
+						{
+							summ = 1; m = 0;
+							while (1)
+							{
+								sumn = 1; n = 0;
+								while (1)
+								{
+									sum = (sumi*sumj*sumk*suml*summ*sumn);
+									if (sum > maximum_size) break;
+
+									sizes.push_back(sum);
+									n++;
+									sumn *= 2;
+								}
+
+								if (n == 0) break;
+								m++;
+								summ *= 3;
+							}
+
+							if ((m == 0) && (n == 0)) break;
+							l++;
+							suml *= 5;
+						}
+
+						if ((l == 0) && (m == 0) && (n == 0)) break;
+						k++;
+						sumk *= 7;
+					}
+
+					if ((k == 0) && (l == 0) && (m == 0) && (n == 0)) break;
+					j++;
+					sumj *= 11;
+				}
+
+				if ((j == 0) && (k == 0) && (l == 0) && (m == 0) && (n == 0)) break;
+				i++;
+				sumi *= 13;
+			}
+
+			sizes.sort();
+
+			for (std::list<size_t>::const_iterator a = sizes.begin(); a != sizes.end(); a++)
+				supported_length.push_back(*a);
+		}
+
+	public:
+		virtual std::vector<ParameterType> & parameter_sets
+			(clfftDirection direction, clfftPrecision precision, size_t num_tests)
+		{
+			size_t maximum_size = (precision == CLFFT_SINGLE) ? 16777216 : 4194304;
+
+			GenerateSizes(maximum_size);
+
+			assert(supported_length.size() < RAND_MAX);
+
+			for (size_t i = 0; i < num_tests; i++)
+			{
+				size_t idx = 0;
+
+				// choose size that has a 11 or 13 in it
+				do
+				{
+					// choose index randomly
+					idx = rand() % supported_length.size();
+				} while ((supported_length[idx] % 11 != 0) && (supported_length[idx] % 13 != 0));
+
+
+				std::vector<size_t> length;
+				length.push_back(supported_length[idx]);
+				size_t batch = maximum_size / supported_length[idx];
+
+				data_sets.push_back(ParameterType(precision, direction, CLFFT_1D, length, batch));
+			}
+
+			return data_sets;
+		}
+	};
+
+
+	template <class ParameterType>
 	class TestListGenerator_huge_chosen : public TestListGenerator<ParameterType>
 	{
 	protected:
@@ -569,6 +674,35 @@ INSTANTIATE_TEST_CASE_P(
 	accuracy_test_directed_real,
 	::testing::ValuesIn(DirectedTest::TestListGenerator<DirectedTest::ParametersPackedRealInplaceInterleaved>().parameter_sets(CLFFT_3D, CLFFT_BACKWARD, CLFFT_SINGLE, 1))
 	);
+
+
+
+
+INSTANTIATE_TEST_CASE_P(
+	clfft_DirectedTest_Random_single_1d_fwd,
+	accuracy_test_directed_real,
+	::testing::ValuesIn(DirectedTest::TestListGenerator_Large_Random<DirectedTest::ParametersPackedRealInplaceInterleaved>().parameter_sets(CLFFT_FORWARD, CLFFT_SINGLE, 200))
+	);
+
+INSTANTIATE_TEST_CASE_P(
+	clfft_DirectedTest_Random_single_1d_inv,
+	accuracy_test_directed_real,
+	::testing::ValuesIn(DirectedTest::TestListGenerator_Large_Random<DirectedTest::ParametersPackedRealInplaceInterleaved>().parameter_sets(CLFFT_BACKWARD, CLFFT_SINGLE, 200))
+	);
+
+INSTANTIATE_TEST_CASE_P(
+	clfft_DirectedTest_Random_double_1d_fwd,
+	accuracy_test_directed_real,
+	::testing::ValuesIn(DirectedTest::TestListGenerator_Large_Random<DirectedTest::ParametersPackedRealInplaceInterleaved>().parameter_sets(CLFFT_FORWARD, CLFFT_DOUBLE, 200))
+	);
+
+INSTANTIATE_TEST_CASE_P(
+	clfft_DirectedTest_Random_double_1d_inv,
+	accuracy_test_directed_real,
+	::testing::ValuesIn(DirectedTest::TestListGenerator_Large_Random<DirectedTest::ParametersPackedRealInplaceInterleaved>().parameter_sets(CLFFT_BACKWARD, CLFFT_DOUBLE, 200))
+	);
+
+
 
 
 #if 1
