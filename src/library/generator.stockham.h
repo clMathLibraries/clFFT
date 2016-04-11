@@ -1657,7 +1657,7 @@ namespace StockhamGenerator
 			case 11:
 				{
 					static const char *radix11str = " \
-						float p0, p1, p2, p3, p4, p5, p6, p7, p8, p9; \n\
+						fptype p0, p1, p2, p3, p4, p5, p6, p7, p8, p9; \n\
 						p0 = ((*R1).x - (*R10).x)*dir; \n\
 						p1 = (*R1).x + (*R10).x; \n\
 						p2 = ((*R5).x - (*R6).x)*dir; \n\
@@ -1669,7 +1669,7 @@ namespace StockhamGenerator
 						p8 = (*R4).x + (*R7).x; \n\
 						p9 = ((*R4).x - (*R7).x)*dir; \n\
 						\n\
-						float r0, r1, r2, r3, r4, r5, r6, r7, r8, r9; \n\
+						fptype r0, r1, r2, r3, r4, r5, r6, r7, r8, r9; \n\
 						r0 = p4 - p0 * b11_9; \n\
 						r1 = p0 + p2 * b11_9; \n\
 						r2 = p2 + p6 * b11_9; \n\
@@ -1681,7 +1681,7 @@ namespace StockhamGenerator
 						r8 = p3 - p5 * b11_8; \n\
 						r9 = p8 - p3 * b11_8; \n\
 						\n\
-						float s0, s1, s2, s3, s4, s5, s6, s7, s8, s9; \n\
+						fptype s0, s1, s2, s3, s4, s5, s6, s7, s8, s9; \n\
 						s0 = p6 - r0 * b11_6; \n\
 						s1 = p9 + r1 * b11_6; \n\
 						s2 = p4 - r2 * b11_6; \n\
@@ -1693,7 +1693,7 @@ namespace StockhamGenerator
 						s8 = p1 - r8 * b11_7; \n\
 						s9 = p7 - r9 * b11_7; \n\
 						\n\
-						float p10, p11, p12, p13, p14, p15, p16, p17, p18, p19; \n\
+						fptype p10, p11, p12, p13, p14, p15, p16, p17, p18, p19; \n\
 						p10 = ((*R10).y - (*R1).y)*dir; \n\
 						p11 = (*R1).y + (*R10).y; \n\
 						p12 = ((*R9).y - (*R2).y)*dir; \n\
@@ -1705,7 +1705,7 @@ namespace StockhamGenerator
 						p18 = ((*R6).y - (*R5).y)*dir; \n\
 						p19 = (*R5).y + (*R6).y; \n\
 						\n\
-						float r10, r11, r12, r13, r14, r15, r16, r17, r18, r19; \n\
+						fptype r10, r11, r12, r13, r14, r15, r16, r17, r18, r19; \n\
 						r10 = p12 - p10 * b11_9; \n\
 						r11 = p16 - p12 * b11_9; \n\
 						r12 = p18 + p14 * b11_9; \n\
@@ -1717,7 +1717,7 @@ namespace StockhamGenerator
 						r18 = p11 - p17 * b11_8; \n\
 						r19 = p17 - p19 * b11_8; \n\
 						\n\
-						float s10, s11, s12, s13, s14, s15, s16, s17, s18, s19; \n\
+						fptype s10, s11, s12, s13, s14, s15, s16, s17, s18, s19; \n\
 						s10 = p14 - r10 * b11_6; \n\
 						s11 = p18 + r11 * b11_6; \n\
 						s12 = p12 - r12 * b11_6; \n\
@@ -1729,8 +1729,8 @@ namespace StockhamGenerator
 						s18 = p13 - r18 * b11_7; \n\
 						s19 = p15 - r19 * b11_7; \n\
 						\n\
-						float v0, v1, v2, v3, v4, v5, v6, v7, v8, v9; \n\
-						float v10, v11, v12, v13, v14, v15, v16, v17, v18, v19; \n\
+						fptype v0, v1, v2, v3, v4, v5, v6, v7, v8, v9; \n\
+						fptype v10, v11, v12, v13, v14, v15, v16, v17, v18, v19; \n\
 						v0 = p9 - s0 * b11_4; \n\
 						v1 = p4 + s1 * b11_4; \n\
 						v2 = p0 + s2 * b11_4; \n\
@@ -1752,8 +1752,8 @@ namespace StockhamGenerator
 						v18 = p19 - s18 * b11_5; \n\
 						v19 = p13 - s19 * b11_5; \n\
 						\n\
-						float w0, w1, w2, w3, w4, w5, w6, w7, w8, w9; \n\
-						float w10, w11, w12, w13, w14, w15, w16, w17, w18, w19; \n\
+						fptype w0, w1, w2, w3, w4, w5, w6, w7, w8, w9; \n\
+						fptype w10, w11, w12, w13, w14, w15, w16, w17, w18, w19; \n\
 						w0 = p2 - v0 * b11_2; \n\
 						w1 = p6 + v1 * b11_2; \n\
 						w2 = p9 - v2 * b11_2; \n\
@@ -1775,7 +1775,7 @@ namespace StockhamGenerator
 						w18 = p15 - v18 * b11_3; \n\
 						w19 = p11 - v19 * b11_3; \n\
 						\n\
-						float z0, z1, z2, z3, z4, z5, z6, z7, z8, z9; \n\
+						fptype z0, z1, z2, z3, z4, z5, z6, z7, z8, z9; \n\
 						z0 = (*R0).x - w5 * b11_1; \n\
 						z1 = (*R0).x - w6 * b11_1; \n\
 						z2 = (*R0).x - w7 * b11_1; \n\
@@ -1812,11 +1812,11 @@ namespace StockhamGenerator
 
 					if (fwd)
 					{
-						bflyStr += "float dir = -1;\n\n";
+						bflyStr += "fptype dir = -1;\n\n";
 					}
 					else
 					{
-						bflyStr += "float dir = 1;\n\n";
+						bflyStr += "fptype dir = 1;\n\n";
 					}
 
 					bflyStr += radix11str;
@@ -1826,7 +1826,7 @@ namespace StockhamGenerator
 				{
 
 					static const char *radix13str = " \
-						float p0, p1, p2, p3, p4, p5, p6, p7, p8, p9;\n\
+						fptype p0, p1, p2, p3, p4, p5, p6, p7, p8, p9;\n\
 						p0 = (*R7).x - (*R2).x;\n\
 						p1 = (*R7).x + (*R2).x;\n\
 						p2 = (*R8).x - (*R5).x;\n\
@@ -1838,7 +1838,7 @@ namespace StockhamGenerator
 						p8 = (*R11).x + (*R6).x;\n\
 						p9 = (*R11).x - (*R6).x;\n\
 						\n\
-						float p10, p11, p12, p13, p14, p15, p16, p17, p18, p19;\n\
+						fptype p10, p11, p12, p13, p14, p15, p16, p17, p18, p19;\n\
 						p10 = (*R12).x + p6;\n\
 						p11 = (*R1).x + p5;\n\
 						p12 = p8 - p1;\n\
@@ -1850,7 +1850,7 @@ namespace StockhamGenerator
 						p18 = p11 + p10;\n\
 						p19 = p11 - p10;\n\
 						\n\
-						float s0, s1, s2, s3, s4, s5, s6, s7, s8, s9, s10, s11;\n\
+						fptype s0, s1, s2, s3, s4, s5, s6, s7, s8, s9, s10, s11;\n\
 						s0 = p3 + p13;\n\
 						s1 = p2 + p14;\n\
 						s2 = p16 - p15;\n\
@@ -1861,11 +1861,11 @@ namespace StockhamGenerator
 						s7 = s5 + s4;\n\
 						s8 = p18 + s0;\n\
 						s9 = p18 - s0;\n\
-						float c2 = p3 - p13 * b13_17;\n\
+						fptype c2 = p3 - p13 * b13_17;\n\
 						s10 = s6 - c2;\n\
 						s11 = s6 + c2;\n\
 						\n\
-						float r0, r1, r2, r3, r4, r5, r6, r7, r8, r9, r10, r11;\n\
+						fptype r0, r1, r2, r3, r4, r5, r6, r7, r8, r9, r10, r11;\n\
 						r0 = (*R7).y + (*R2).y;\n\
 						r1 = (*R7).y - (*R2).y;\n\
 						r2 = (*R8).y + (*R5).y;\n\
@@ -1879,8 +1879,8 @@ namespace StockhamGenerator
 						r10 = (*R12).y + r6;\n\
 						r11 = (*R1).y + r5;\n\
 						\n\
-						float m0, m1, m2, m3, m4, m5, m6, m7, m8, m9, m10;\n\
-						float m11, m12, m13, m14, m15, m16, m17, m18, m19, m20;\n\
+						fptype m0, m1, m2, m3, m4, m5, m6, m7, m8, m9, m10;\n\
+						fptype m11, m12, m13, m14, m15, m16, m17, m18, m19, m20;\n\
 						m0 = r4 + r7;\n\
 						m1 = r7 - r4;\n\
 						m2 = r8 - r1;\n\
@@ -1905,9 +1905,9 @@ namespace StockhamGenerator
 						m19 = m18 + m16;\n\
 						m20 = m18 - m16;\n\
 						\n\
-						float c0, c1, c3, c4, c5, c6, c7, c8, c9;\n\
-						float c10, c11, c12, c13, c14, c15, c16, c17, c18, c19;\n\
-						float c20, c21, c22, c23, c24;\n\
+						fptype c0, c1, c3, c4, c5, c6, c7, c8, c9;\n\
+						fptype c10, c11, c12, c13, c14, c15, c16, c17, c18, c19;\n\
+						fptype c20, c21, c22, c23, c24;\n\
 						c0  =  s7 - p12 * b13_3;\n\
 						c1  =  s7 + p12 * b13_3;\n\
 						c3  =  p2 - p14 * b13_17;\n\
@@ -1933,8 +1933,8 @@ namespace StockhamGenerator
 						c23 = c11 + m0 * b13_3;\n\
 						c24 = c11 - m0 * b13_3;\n\
 						\n\
-						float d0, d1, d2, d3, d4, d5, d6, d7, d8, d9;\n\
-						float d10, d11, d12, d13, d14, d15, d16, d17, d18, d19;\n\
+						fptype d0, d1, d2, d3, d4, d5, d6, d7, d8, d9;\n\
+						fptype d10, d11, d12, d13, d14, d15, d16, d17, d18, d19;\n\
 						d0  = c22 +  c0 * b13_8;\n\
 						d1  =  c0 - c22 * b13_8;\n\
 						d2  = c21 +  c1 * b13_24;\n\
@@ -1956,8 +1956,8 @@ namespace StockhamGenerator
 						d18 = c16 - c20 * b13_6;\n\
 						d19 = c16 + c20 * b13_6;\n\
 						\n\
-						float e0, e1, e2, e3, e4, e5, e6, e7, e8, e9;\n\
-						float e10, e11, e12, e13, e14, e15;\n\
+						fptype e0, e1, e2, e3, e4, e5, e6, e7, e8, e9;\n\
+						fptype e10, e11, e12, e13, e14, e15;\n\
 						e0  = d2  +  d0 * b13_5;\n\
 						e1  = d2  -  d0 * b13_5;\n\
 						e2  = d3  -  d1 * b13_5;\n\
@@ -1975,9 +1975,9 @@ namespace StockhamGenerator
 						e14 = d17 + d14 * b13_20;\n\
 						e15 = d17 - d14 * b13_20;\n\
 						\n\
-						float f0, f1, f2, f3, f4, f5, f6, f7, f8, f9;\n\
-						float f10, f11, f12, f13, f14, f15, f16, f17, f18, f19;\n\
-						float f20, f21, f22, f23;\n\
+						fptype f0, f1, f2, f3, f4, f5, f6, f7, f8, f9;\n\
+						fptype f10, f11, f12, f13, f14, f15, f16, f17, f18, f19;\n\
+						fptype f20, f21, f22, f23;\n\
 						f0  = c17 - e10 * b13_12;\n\
 						f1  = e10 + c17 * b13_1;\n\
 						f2  = e9  + c14 * b13_1;\n\
@@ -2032,11 +2032,11 @@ namespace StockhamGenerator
 
 						if (fwd)
 						{
-							bflyStr += "float dir = -1;\n\n";
+							bflyStr += "fptype dir = -1;\n\n";
 						}
 						else
 						{
-							bflyStr += "float dir = 1;\n\n";
+							bflyStr += "fptype dir = 1;\n\n";
 						}
 
 						bflyStr += radix13str;

@@ -3252,6 +3252,9 @@ namespace StockhamGenerator
 
 			std::string sfx = FloatSuffix<PR>();
 
+			// Base type
+			str += "#define fptype "; str += RegBaseType<PR>(1); str += "\n\n";
+
 			// Vector type
 			str += "#define fvect2 "; str += RegBaseType<PR>(2); str += "\n\n";
 

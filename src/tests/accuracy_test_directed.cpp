@@ -535,6 +535,18 @@ INSTANTIATE_TEST_CASE_P(
 	);
 
 INSTANTIATE_TEST_CASE_P(
+	clfft_DirectedTest_double_1d_fwd,
+	accuracy_test_directed_real,
+	::testing::ValuesIn(DirectedTest::TestListGenerator<DirectedTest::ParametersPackedRealInplaceInterleaved>().parameter_sets(CLFFT_1D, CLFFT_FORWARD, CLFFT_DOUBLE, 19))
+	);
+
+INSTANTIATE_TEST_CASE_P(
+	clfft_DirectedTest_double_1d_inv,
+	accuracy_test_directed_real,
+	::testing::ValuesIn(DirectedTest::TestListGenerator<DirectedTest::ParametersPackedRealInplaceInterleaved>().parameter_sets(CLFFT_1D, CLFFT_BACKWARD, CLFFT_DOUBLE, 19))
+	);
+
+INSTANTIATE_TEST_CASE_P(
 	clfft_DirectedTest_single_2d_fwd,
 	accuracy_test_directed_real,
 	::testing::ValuesIn(DirectedTest::TestListGenerator<DirectedTest::ParametersPackedRealInplaceInterleaved>().parameter_sets(CLFFT_2D, CLFFT_FORWARD, CLFFT_SINGLE, 3))
