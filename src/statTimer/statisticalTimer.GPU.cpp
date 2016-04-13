@@ -564,6 +564,19 @@ GpuStatTimer::Print( )
 				tout << std::endl;
 			}
 
+
+			tout << std::setw(tableFourth) << _T("Generator:");
+			switch(mean[t].gen)
+			{
+			case Stockham:				tout << std::setw(tableThird) << _T("Stockham"); break;
+			case Transpose_GCN:			tout << std::setw(tableThird) << _T("Transpose_GCN"); break;
+			case Transpose_SQUARE:		tout << std::setw(tableThird) << _T("Transpose_SQUARE"); break;
+			case Transpose_NONSQUARE:	tout << std::setw(tableThird) << _T("Transpose_NONSQUARE"); break;
+			case Copy:					tout << std::setw(tableThird) << _T("Copy"); break;
+			}
+			tout << std::endl;
+
+
 			tout << std::setw( tableFourth ) << _T( "Length:" );
 			catLengths.str( _T( "" ) );
 			catLengths << _T( "(" );

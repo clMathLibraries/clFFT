@@ -389,7 +389,7 @@ namespace StockhamGenerator
 			// Temporary variables
 			// Allocate temporary variables if we are not using complex registers (cReg = 0) or if cReg is true, then
 			// allocate temporary variables only for non power-of-2 radices
-			if (!(radix == 7 && cReg))
+			if (!( (radix == 7 && cReg) || (radix == 11 && cReg) || (radix == 13 && cReg) ))
 			{
 			if( (radix & (radix-1)) || (!cReg) )
 			{
@@ -1654,6 +1654,395 @@ namespace StockhamGenerator
 						}
 					}
 				} break;
+			case 11:
+				{
+					static const char *radix11str = " \
+						fptype p0, p1, p2, p3, p4, p5, p6, p7, p8, p9; \n\
+						p0 = ((*R1).x - (*R10).x)*dir; \n\
+						p1 = (*R1).x + (*R10).x; \n\
+						p2 = ((*R5).x - (*R6).x)*dir; \n\
+						p3 = (*R5).x + (*R6).x; \n\
+						p4 = ((*R2).x - (*R9).x)*dir; \n\
+						p5 = (*R2).x + (*R9).x; \n\
+						p6 = ((*R3).x - (*R8).x)*dir; \n\
+						p7 = (*R3).x + (*R8).x; \n\
+						p8 = (*R4).x + (*R7).x; \n\
+						p9 = ((*R4).x - (*R7).x)*dir; \n\
+						\n\
+						fptype r0, r1, r2, r3, r4, r5, r6, r7, r8, r9; \n\
+						r0 = p4 - p0 * b11_9; \n\
+						r1 = p0 + p2 * b11_9; \n\
+						r2 = p2 + p6 * b11_9; \n\
+						r3 = p6 + p9 * b11_9; \n\
+						r4 = p9 - p4 * b11_9; \n\
+						r5 = p7 - p1 * b11_8; \n\
+						r6 = p5 - p7 * b11_8; \n\
+						r7 = p1 - p8 * b11_8; \n\
+						r8 = p3 - p5 * b11_8; \n\
+						r9 = p8 - p3 * b11_8; \n\
+						\n\
+						fptype s0, s1, s2, s3, s4, s5, s6, s7, s8, s9; \n\
+						s0 = p6 - r0 * b11_6; \n\
+						s1 = p9 + r1 * b11_6; \n\
+						s2 = p4 - r2 * b11_6; \n\
+						s3 = p0 + r3 * b11_6; \n\
+						s4 = p2 + r4 * b11_6; \n\
+						s5 = p3 - r5 * b11_7; \n\
+						s6 = p8 - r6 * b11_7; \n\
+						s7 = p5 - r7 * b11_7; \n\
+						s8 = p1 - r8 * b11_7; \n\
+						s9 = p7 - r9 * b11_7; \n\
+						\n\
+						fptype p10, p11, p12, p13, p14, p15, p16, p17, p18, p19; \n\
+						p10 = ((*R10).y - (*R1).y)*dir; \n\
+						p11 = (*R1).y + (*R10).y; \n\
+						p12 = ((*R9).y - (*R2).y)*dir; \n\
+						p13 = (*R2).y + (*R9).y; \n\
+						p14 = ((*R8).y - (*R3).y)*dir; \n\
+						p15 = (*R3).y + (*R8).y; \n\
+						p16 = ((*R7).y - (*R4).y)*dir; \n\
+						p17 = (*R4).y + (*R7).y; \n\
+						p18 = ((*R6).y - (*R5).y)*dir; \n\
+						p19 = (*R5).y + (*R6).y; \n\
+						\n\
+						fptype r10, r11, r12, r13, r14, r15, r16, r17, r18, r19; \n\
+						r10 = p12 - p10 * b11_9; \n\
+						r11 = p16 - p12 * b11_9; \n\
+						r12 = p18 + p14 * b11_9; \n\
+						r13 = p14 + p16 * b11_9; \n\
+						r14 = p10 + p18 * b11_9; \n\
+						r15 = p15 - p11 * b11_8; \n\
+						r16 = p19 - p13 * b11_8; \n\
+						r17 = p13 - p15 * b11_8; \n\
+						r18 = p11 - p17 * b11_8; \n\
+						r19 = p17 - p19 * b11_8; \n\
+						\n\
+						fptype s10, s11, s12, s13, s14, s15, s16, s17, s18, s19; \n\
+						s10 = p14 - r10 * b11_6; \n\
+						s11 = p18 + r11 * b11_6; \n\
+						s12 = p12 - r12 * b11_6; \n\
+						s13 = p10 + r13 * b11_6; \n\
+						s14 = p16 + r14 * b11_6; \n\
+						s15 = p19 - r15 * b11_7; \n\
+						s16 = p11 - r16 * b11_7; \n\
+						s17 = p17 - r17 * b11_7; \n\
+						s18 = p13 - r18 * b11_7; \n\
+						s19 = p15 - r19 * b11_7; \n\
+						\n\
+						fptype v0, v1, v2, v3, v4, v5, v6, v7, v8, v9; \n\
+						fptype v10, v11, v12, v13, v14, v15, v16, v17, v18, v19; \n\
+						v0 = p9 - s0 * b11_4; \n\
+						v1 = p4 + s1 * b11_4; \n\
+						v2 = p0 + s2 * b11_4; \n\
+						v3 = p2 - s3 * b11_4; \n\
+						v4 = p6 - s4 * b11_4; \n\
+						v5 = p8 - s5 * b11_5; \n\
+						v6 = p1 - s6 * b11_5; \n\
+						v7 = p3 - s7 * b11_5; \n\
+						v8 = p7 - s8 * b11_5; \n\
+						v9 = p5 - s9 * b11_5; \n\
+						v10 = p16 - s10 * b11_4; \n\
+						v11 = p14 - s11 * b11_4; \n\
+						v12 = p10 + s12 * b11_4; \n\
+						v13 = p18 - s13 * b11_4; \n\
+						v14 = p12 + s14 * b11_4; \n\
+						v15 = p17 - s15 * b11_5; \n\
+						v16 = p15 - s16 * b11_5; \n\
+						v17 = p11 - s17 * b11_5; \n\
+						v18 = p19 - s18 * b11_5; \n\
+						v19 = p13 - s19 * b11_5; \n\
+						\n\
+						fptype w0, w1, w2, w3, w4, w5, w6, w7, w8, w9; \n\
+						fptype w10, w11, w12, w13, w14, w15, w16, w17, w18, w19; \n\
+						w0 = p2 - v0 * b11_2; \n\
+						w1 = p6 + v1 * b11_2; \n\
+						w2 = p9 - v2 * b11_2; \n\
+						w3 = p4 + v3 * b11_2; \n\
+						w4 = p0 - v4 * b11_2; \n\
+						w5 = p5 - v5 * b11_3; \n\
+						w6 = p3 - v6 * b11_3; \n\
+						w7 = p7 - v7 * b11_3; \n\
+						w8 = p8 - v8 * b11_3; \n\
+						w9 = p1 - v9 * b11_3; \n\
+						w10 = p18 - v10 * b11_2; \n\
+						w11 = p10 - v11 * b11_2; \n\
+						w12 = p16 - v12 * b11_2; \n\
+						w13 = p12 + v13 * b11_2; \n\
+						w14 = p14 + v14 * b11_2; \n\
+						w15 = p13 - v15 * b11_3; \n\
+						w16 = p17 - v16 * b11_3; \n\
+						w17 = p19 - v17 * b11_3; \n\
+						w18 = p15 - v18 * b11_3; \n\
+						w19 = p11 - v19 * b11_3; \n\
+						\n\
+						fptype z0, z1, z2, z3, z4, z5, z6, z7, z8, z9; \n\
+						z0 = (*R0).x - w5 * b11_1; \n\
+						z1 = (*R0).x - w6 * b11_1; \n\
+						z2 = (*R0).x - w7 * b11_1; \n\
+						z3 = (*R0).x - w8 * b11_1; \n\
+						z4 = (*R0).x - w9 * b11_1; \n\
+						z5 = (*R0).y - w15 * b11_1; \n\
+						z6 = (*R0).y - w16 * b11_1; \n\
+						z7 = (*R0).y - w17 * b11_1; \n\
+						z8 = (*R0).y - w18 * b11_1; \n\
+						z9 = (*R0).y - w19 * b11_1; \n\
+						\n\
+						(*R0).x = (*R0).x + p1 + p3 + p5 + p7 + p8; \n\
+						(*R0).y = (*R0).y + p11 + p13 + p15 + p17 + p19; \n\
+						(*R1).x = z1 + w14* b11_0; \n\
+						(*R1).y = z7 + w1* b11_0; \n\
+						(*R2).x = z2 - w12* b11_0; \n\
+						(*R2).y = z8 - w2* b11_0; \n\
+						(*R3).x = z0 + w11* b11_0; \n\
+						(*R3).y = z5 + w4* b11_0; \n\
+						(*R4).x = z3 - w13* b11_0; \n\
+						(*R4).y = z6 - w3* b11_0; \n\
+						(*R5).x = z4 + w10* b11_0; \n\
+						(*R5).y = z9 + w0* b11_0; \n\
+						(*R6).x = z4 - w10* b11_0; \n\
+						(*R6).y = z9 - w0* b11_0; \n\
+						(*R7).x = z3 + w13* b11_0; \n\
+						(*R7).y = z6 + w3* b11_0; \n\
+						(*R8).x = z0 - w11* b11_0; \n\
+						(*R8).y = z5 - w4* b11_0; \n\
+						(*R9).x = z2 + w12* b11_0; \n\
+						(*R9).y = z8 + w2* b11_0; \n\
+						(*R10).x = z1 - w14* b11_0; \n\
+						(*R10).y = z7 - w1* b11_0; \n";
+
+					if (fwd)
+					{
+						bflyStr += "fptype dir = -1;\n\n";
+					}
+					else
+					{
+						bflyStr += "fptype dir = 1;\n\n";
+					}
+
+					bflyStr += radix11str;
+
+				} break;
+			case 13:
+				{
+
+					static const char *radix13str = " \
+						fptype p0, p1, p2, p3, p4, p5, p6, p7, p8, p9;\n\
+						p0 = (*R7).x - (*R2).x;\n\
+						p1 = (*R7).x + (*R2).x;\n\
+						p2 = (*R8).x - (*R5).x;\n\
+						p3 = (*R8).x + (*R5).x;\n\
+						p4 = (*R9).x - (*R3).x;\n\
+						p5 = (*R3).x + (*R9).x;\n\
+						p6 = (*R10).x + (*R4).x;\n\
+						p7 = (*R10).x - (*R4).x;\n\
+						p8 = (*R11).x + (*R6).x;\n\
+						p9 = (*R11).x - (*R6).x;\n\
+						\n\
+						fptype p10, p11, p12, p13, p14, p15, p16, p17, p18, p19;\n\
+						p10 = (*R12).x + p6;\n\
+						p11 = (*R1).x + p5;\n\
+						p12 = p8 - p1;\n\
+						p13 = p8 + p1;\n\
+						p14 = p9 + p0;\n\
+						p15 = p9 - p0;\n\
+						p16 = p7 - p4;\n\
+						p17 = p4 + p7;\n\
+						p18 = p11 + p10;\n\
+						p19 = p11 - p10;\n\
+						\n\
+						fptype s0, s1, s2, s3, s4, s5, s6, s7, s8, s9, s10, s11;\n\
+						s0 = p3 + p13;\n\
+						s1 = p2 + p14;\n\
+						s2 = p16 - p15;\n\
+						s3 = p16 + p15;\n\
+						s4 = -(*R12).x + p6 * b13_17;\n\
+						s5 =   (*R1).x - p5 * b13_17;\n\
+						s6 = s5 - s4;\n\
+						s7 = s5 + s4;\n\
+						s8 = p18 + s0;\n\
+						s9 = p18 - s0;\n\
+						fptype c2 = p3 - p13 * b13_17;\n\
+						s10 = s6 - c2;\n\
+						s11 = s6 + c2;\n\
+						\n\
+						fptype r0, r1, r2, r3, r4, r5, r6, r7, r8, r9, r10, r11;\n\
+						r0 = (*R7).y + (*R2).y;\n\
+						r1 = (*R7).y - (*R2).y;\n\
+						r2 = (*R8).y + (*R5).y;\n\
+						r3 = (*R8).y - (*R5).y;\n\
+						r4 = (*R9).y - (*R3).y;\n\
+						r5 = (*R3).y + (*R9).y;\n\
+						r6 = (*R10).y + (*R4).y;\n\
+						r7 = (*R10).y - (*R4).y;\n\
+						r8 = (*R11).y - (*R6).y;\n\
+						r9 = (*R11).y + (*R6).y;\n\
+						r10 = (*R12).y + r6;\n\
+						r11 = (*R1).y + r5;\n\
+						\n\
+						fptype m0, m1, m2, m3, m4, m5, m6, m7, m8, m9, m10;\n\
+						fptype m11, m12, m13, m14, m15, m16, m17, m18, m19, m20;\n\
+						m0 = r4 + r7;\n\
+						m1 = r7 - r4;\n\
+						m2 = r8 - r1;\n\
+						m3 = r8 + r1;\n\
+						m4 = r9 + r0;\n\
+						m5 = r9 - r0;\n\
+						m6 = r11 + r10;\n\
+						m7 = r11 - r10;\n\
+						m8 = m1 - m2;\n\
+						m9 = m1 + m2;\n\
+						m10 = r3 + m3;\n\
+						m11 = r2 + m4;\n\
+						m12 = m6 - m11;\n\
+						m13 = m6 + m11;\n\
+						\n\
+						m14 =  (*R1).y - r5 * b13_17;\n\
+						m15 = -(*R12).y + r6 * b13_17;\n\
+						m16 =  r2      - m4 * b13_17;\n\
+						\n\
+						m17 = m14 + m15;\n\
+						m18 = m14 - m15;\n\
+						m19 = m18 + m16;\n\
+						m20 = m18 - m16;\n\
+						\n\
+						fptype c0, c1, c3, c4, c5, c6, c7, c8, c9;\n\
+						fptype c10, c11, c12, c13, c14, c15, c16, c17, c18, c19;\n\
+						fptype c20, c21, c22, c23, c24;\n\
+						c0  =  s7 - p12 * b13_3;\n\
+						c1  =  s7 + p12 * b13_3;\n\
+						c3  =  p2 - p14 * b13_17;\n\
+						c4  =  s1 - p19 * b13_18;\n\
+						c5  = p19 + s1 * b13_18;\n\
+						c6  = s10 - s2 * b13_15;\n\
+						c7  = s11 - s3 * b13_22;\n\
+						c8  = (*R0).x - s8 * b13_23;\n\
+						c9  =  s2 + s10 * b13_7;\n\
+						c10 =  s3 + s11 * b13_19;\n\
+						c11 =  r3 - m3 * b13_17;\n\
+						c12 = m17 - m5 * b13_3;\n\
+						c13 = m17 + m5 * b13_3;\n\
+						c14 = m10 - m7 * b13_18;\n\
+						c15 = m20 - m8 * b13_15;\n\
+						c16 = m19 - m9 * b13_22;\n\
+						c17 =  m7 + m10 * b13_18;\n\
+						c18 = (*R0).y- m13 * b13_23;\n\
+						c19 =  m9 + m19 * b13_19;\n\
+						c20 =  m8 + m20 * b13_7;\n\
+						c21 =  c3 + p17 * b13_3;\n\
+						c22 =  c3 - p17 * b13_3;\n\
+						c23 = c11 + m0 * b13_3;\n\
+						c24 = c11 - m0 * b13_3;\n\
+						\n\
+						fptype d0, d1, d2, d3, d4, d5, d6, d7, d8, d9;\n\
+						fptype d10, d11, d12, d13, d14, d15, d16, d17, d18, d19;\n\
+						d0  = c22 +  c0 * b13_8;\n\
+						d1  =  c0 - c22 * b13_8;\n\
+						d2  = c21 +  c1 * b13_24;\n\
+						d3  =  c1 - c21 * b13_24;\n\
+						d4  =  s9 -  c6 * b13_4;\n\
+						d5  =  c6 +  s9 * b13_10;\n\
+						d6  =  c7 +  c9 * b13_6;\n\
+						d7  =  c7 -  c9 * b13_6;\n\
+						d8  =  c8 - c10 * b13_21;\n\
+						d9  =  c8 + c10 * b13_16;\n\
+						d10 = c24 + c12 * b13_8;\n\
+						d11 = c12 - c24 * b13_8;\n\
+						d12 = c23 + c13 * b13_24;\n\
+						d13 = c13 - c23 * b13_24;\n\
+						d14 = m12 - c15 * b13_4;\n\
+						d15 = c15 + m12 * b13_10;\n\
+						d16 = c18 + c19 * b13_16;\n\
+						d17 = c18 - c19 * b13_21;\n\
+						d18 = c16 - c20 * b13_6;\n\
+						d19 = c16 + c20 * b13_6;\n\
+						\n\
+						fptype e0, e1, e2, e3, e4, e5, e6, e7, e8, e9;\n\
+						fptype e10, e11, e12, e13, e14, e15;\n\
+						e0  = d2  +  d0 * b13_5;\n\
+						e1  = d2  -  d0 * b13_5;\n\
+						e2  = d3  -  d1 * b13_5;\n\
+						e3  = d3  +  d1 * b13_5;\n\
+						e4  = d8  -  d4 * b13_20;\n\
+						e5  = d8  +  d4 * b13_20;\n\
+						e6  = d9  +  d5 * b13_14;\n\
+						e7  = d9  -  d5 * b13_14;\n\
+						e8  = d12 + d10 * b13_5;\n\
+						e9  = d12 - d10 * b13_5;\n\
+						e10 = d13 - d11 * b13_5;\n\
+						e11 = d13 + d11 * b13_5;\n\
+						e12 = d16 + d15 * b13_14;\n\
+						e13 = d16 - d15 * b13_14;\n\
+						e14 = d17 + d14 * b13_20;\n\
+						e15 = d17 - d14 * b13_20;\n\
+						\n\
+						fptype f0, f1, f2, f3, f4, f5, f6, f7, f8, f9;\n\
+						fptype f10, f11, f12, f13, f14, f15, f16, f17, f18, f19;\n\
+						fptype f20, f21, f22, f23;\n\
+						f0  = c17 - e10 * b13_12;\n\
+						f1  = e10 + c17 * b13_1;\n\
+						f2  = e9  + c14 * b13_1;\n\
+						f3  = c14 -  e9 * b13_12;\n\
+						f4  = e11 + dir * d7 * b13_0;\n\
+						f5  = e11 - dir * d7 * b13_0;\n\
+						f6  = e5  + dir * f3 * b13_11;\n\
+						f7  = e5  - dir * f3 * b13_11;\n\
+						f8  = e4  + dir * e8 * b13_13;\n\
+						f9  = e4  - dir * e8 * b13_13;\n\
+						f10 = f0  - dir * d6 * b13_2;\n\
+						f11 = f0  + dir * d6 * b13_2;\n\
+						f12 = e1  +  c4 * b13_1;\n\
+						f13 = c4  -  e1 * b13_12;\n\
+						f14 = c5  -  e2 * b13_12;\n\
+						f15 = e2  +  c5 * b13_1;\n\
+						f16 = f14 + dir * d19 * b13_2;\n\
+						f17 = f14 - dir * d19 * b13_2;\n\
+						f18 = e15 - dir *  e0 * b13_13;\n\
+						f19 = e15 + dir *  e0 * b13_13;\n\
+						f20 = e14 - dir * f13 * b13_11;\n\
+						f21 = e14 + dir * f13 * b13_11;\n\
+						f22 = e3  - dir * d18 * b13_0;\n\
+						f23 = e3  + dir * d18 * b13_0;\n\
+						\n\
+						(*R0).x  = (*R0).x + s8;\n\
+						(*R0).y  = (*R0).y + m13;\n\
+						(*R1).x  =  e6 +  f2 * dir * b13_9 ;\n\
+						(*R1).y  = e12 - f12 * dir * b13_9 ;\n\
+						(*R2).x  =  f9 - f10 * dir * b13_11;\n\
+						(*R2).y  = f19 + f16 * dir * b13_11;\n\
+						(*R3).x  =  f6 -  f5 * dir * b13_13;\n\
+						(*R3).y  = f20 + f23 * dir * b13_13;\n\
+						(*R4).x  =  f7 -  f4 * dir * b13_13;\n\
+						(*R4).y  = f21 + f22 * dir * b13_13;\n\
+						(*R5).x  =  e7 -  f1 * dir * b13_9 ;\n\
+						(*R5).y  = e13 + f15 * dir * b13_9 ;\n\
+						(*R6).x  =  f8 - f11 * dir * b13_11;\n\
+						(*R6).y  = f18 + f17 * dir * b13_11;\n\
+						(*R7).x  =  f9 + f10 * dir * b13_11;\n\
+						(*R7).y  = f19 - f16 * dir * b13_11;\n\
+						(*R8).x  =  e7 +  f1 * dir * b13_9 ;\n\
+						(*R8).y  = e13 - f15 * dir * b13_9 ;\n\
+						(*R9).x  =  f6 +  f5 * dir * b13_13;\n\
+						(*R9).y  = f20 - f23 * dir * b13_13;\n\
+						(*R10).x =  f7 +  f4 * dir * b13_13;\n\
+						(*R10).y = f21 - f22 * dir * b13_13;\n\
+						(*R11).x =  f8 + f11 * dir * b13_11;\n\
+						(*R11).y = f18 - f17 * dir * b13_11;\n\
+						(*R12).x =  e6 -  f2 * dir * b13_9 ;\n\
+						(*R12).y = e12 + f12 * dir * b13_9 ;\n";
+
+						if (fwd)
+						{
+							bflyStr += "fptype dir = -1;\n\n";
+						}
+						else
+						{
+							bflyStr += "fptype dir = 1;\n\n";
+						}
+
+						bflyStr += radix13str;
+
+				} break;
+
 			default:
 				assert(false);
 			}
@@ -1669,7 +2058,7 @@ namespace StockhamGenerator
 				{
 					if(cReg)
 					{
-						if (radix !=7) 
+						if ( (radix != 7) && (radix != 11) && (radix != 13) )
 						{
 						bflyStr += "((*R"; bflyStr += SztToStr(i); bflyStr += ").x) = TR"; bflyStr += SztToStr(i); bflyStr += "; ";
 						bflyStr += "((*R"; bflyStr += SztToStr(i); bflyStr += ").y) = TI"; bflyStr += SztToStr(i); bflyStr += ";\n\t";

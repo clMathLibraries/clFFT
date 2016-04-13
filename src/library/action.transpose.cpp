@@ -223,7 +223,6 @@ clfftStatus FFTGeneratedTransposeNonSquareAction::generateKernel(FFTRepo& fftRep
 			}
 		}
         OPENCL_V(clfft_transpose_generator::genTransposeKernelLeadingDimensionBatched(this->signature, programCode, lwSize, reShapeFactor), _T("genTransposeKernel() failed!"));
-		//std::cout << programCode << std::endl;//TIMMY
     }
 	else if (this->signature.nonSquareKernelType == NON_SQUARE_TRANS_TRANSPOSE_BATCHED)
 	{
@@ -247,7 +246,6 @@ clfftStatus FFTGeneratedTransposeNonSquareAction::generateKernel(FFTRepo& fftRep
 			}
 		}
 		OPENCL_V(clfft_transpose_generator::genTransposeKernelBatched(this->signature, programCode, lwSize, reShapeFactor), _T("genTransposeKernel() failed!"));
-		//std::cout << programCode << std::endl;//TIMMY
 	}
     else
     {
@@ -283,7 +281,6 @@ clfftStatus FFTGeneratedTransposeNonSquareAction::generateKernel(FFTRepo& fftRep
 		*/
 		//general swap kernel takes care of all ratio
 		OPENCL_V(clfft_transpose_generator::genSwapKernelGeneral(this->signature, programCode, kernelFuncName, lwSize, reShapeFactor), _T("genSwapKernel() failed!"));
-		//std::cout << programCode << std::endl;//TIMMY
     }
 
     cl_int status = CL_SUCCESS;
@@ -720,7 +717,7 @@ clfftStatus FFTGeneratedTransposeSquareAction::generateKernel(FFTRepo& fftRepo, 
 	{
 		OPENCL_V(fftRepo.setProgramEntryPoints(Transpose_SQUARE, this->getSignatureData(), "transpose_square", "transpose_square", Device, QueueContext), _T("fftRepo.setProgramEntryPoint() failed!"));
 	}
-    //std::cout << programCode << std::endl;//TIMMY
+
 	return CLFFT_SUCCESS;
 }
 
