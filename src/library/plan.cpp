@@ -695,7 +695,7 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 						}
 						else
 						{
-							int packDataSize = 1;
+							size_t packDataSize = 1;
 							for (size_t i = 0; i < u; i++)
 								packDataSize *= fftPlan->length[i];
 							if (fftPlan->inStride[u] == packDataSize)
@@ -1006,10 +1006,10 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 							the iDist should decrease accordingly. Push back to length will cause a 3D transpose
 							*/
 							trans3Plan->batchsize = trans3Plan->batchsize * fftPlan->length[index];
-							//trans3Plan->iDist = trans3Plan->iDist / fftPlan->length[index];//silly Timmy
+							//trans3Plan->iDist = trans3Plan->iDist / fftPlan->length[index];
 							//trans3Plan->inStride.push_back(trans3Plan->iDist);
 							trans3Plan->inStride.push_back(fftPlan->inStride[index]);
-							//trans3Plan->iDist *= fftPlan->length[index];//silly Timmy
+							//trans3Plan->iDist *= fftPlan->length[index];
 							trans3Plan->outStride.push_back(fftPlan->outStride[index]);
 						}
 					}
