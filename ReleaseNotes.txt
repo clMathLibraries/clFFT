@@ -13,10 +13,28 @@ implementation of discrete Fast Fourier Transforms. It:
   separate arrays) and interleaved (real and complex
   components as a pair contiguous in memory) formats
 * Supports dimension lengths that can be any mix of
-  powers of 2, 3, 5 and 7
+  powers of 2, 3, 5, 7, 11 and 13
 * Supports single and double precision floating-point
   formats
 * Supports in-place or out-of-place transforms
+
+
+clFFT - Release Notes - version 2.12.0
+--------------------------------------
+
+New features of this release:
+
+* Addition of radix 11 & 13 enables support for powers of 11 & 13 size
+  transforms
+* Support for 1D large size transforms with no extra memory allocation
+  requirement with environment flag CLFFT_REQUEST_LIB_NOMEMALLOC=1
+  for complex FFTs of powers of 3,5,10 sizes. Note that support for
+  power-of-2 size has been available since version 2.10.
+
+Driver notes:
+
+* This library version has been tested with Catalyst
+  Pro driver version 15.201 on Firepro W9100.
 
 
 clFFT - Release Notes - version 2.10.2

@@ -15,16 +15,11 @@ Pre-built binaries are available [here][binary_release].
 
 ## What's New
 
--   Support for power-of-7 size transforms
--   Pre-callback & post-callback feature that enables custom pre-processing
-    of input/output data directly by the library with user callback function
+-   Support for powers of 11&13 size transforms
 -   Support for 1D large size transforms with no extra memory allocation
-    requirement for certain sizes
--   Significant uplift of 1D complex transform performance
--   Significant uplift of 1D real transform performance for power-of-2 sizes
--   1D large size limit relaxation for complex transforms
--   2D/3D size limit relaxation on real and complex transforms
--   Binary caching feature
+    requirement with environment flag CLFFT_REQUEST_LIB_NOMEMALLOC=1
+    for complex FFTs of powers of 2,3,5,10 sizes
+
 
 ## Note
 
@@ -59,7 +54,8 @@ discrete Fast Fourier Transforms. The library:
     interleaved (real and complex components as a pair contiguous in
     memory) formats.
 
--   supports dimension lengths that can be any combination of powers of 2, 3, 5, and 7.
+-   supports dimension lengths that can be any combination of powers of
+    2, 3, 5, 7, 11 and 13.
 
 -   Supports single and double precision floating point formats.
 
