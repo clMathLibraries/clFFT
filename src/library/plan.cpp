@@ -640,6 +640,15 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 				if (fftPlan->length[0] == 1000000000)
 					clLengths[1] = 10000;//10,000 x 100,000
 
+				if (fftPlan->length[0] == 3099363912)
+					clLengths[1] = 78732;//39366 x 78732
+				if (fftPlan->length[0] == 39366)
+					clLengths[1] = 81;//81*486
+				if (fftPlan->length[0] == 78732)
+					clLengths[1] = 162;//162*486
+				if (fftPlan->length[0] == 354294)
+					clLengths[1] = 243;
+
 				clLengths[0] = fftPlan->length[0]/clLengths[1];
 
 
