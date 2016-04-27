@@ -580,10 +580,10 @@ clfftStatus genSwapKernel(const FFTGeneratedTransposeNonSquareAction::Signature 
 		size_t *cycle_stat = new size_t[cycle_map[0] * 2], stat_idx = 0;
 		clKernWrite(transKernel, 0) << std::endl;
 
-		clKernWrite(transKernel, 0) << "__constant int swap_table[][3] = {" << std::endl;
+		clKernWrite(transKernel, 0) << "__constant size_t swap_table[][3] = {" << std::endl;
 
 		size_t inx = 0, start_inx, swap_inx = 0, num_swaps = 0;
-		for (int i = 0; i < cycle_map[0]; i++)
+		for (size_t i = 0; i < cycle_map[0]; i++)
 		{
 			start_inx = cycle_map[++inx];
 			clKernWrite(transKernel, 0) << "{  " << start_inx << ",  " << cycle_map[inx + 1] << ",  0}," << std::endl;
@@ -592,7 +592,7 @@ clfftStatus genSwapKernel(const FFTGeneratedTransposeNonSquareAction::Signature 
 
 			while (start_inx != cycle_map[++inx])
 			{
-				int action_var = (cycle_map[inx + 1] == start_inx) ? 2 : 1;
+				size_t action_var = (cycle_map[inx + 1] == start_inx) ? 2 : 1;
 				clKernWrite(transKernel, 0) << "{  " << cycle_map[inx] << ",  " << cycle_map[inx + 1] << ",  " << action_var << "}," << std::endl;
 				if (action_var == 2)
 					cycle_stat[stat_idx++] = num_swaps;
@@ -608,8 +608,8 @@ clfftStatus genSwapKernel(const FFTGeneratedTransposeNonSquareAction::Signature 
 		/*cycle_map[0] + 2, + 2 is added for post callback table appending*/
 		size_t num_cycles_minus_1 = cycle_map[0] - 1;
 
-		clKernWrite(transKernel, 0) << "__constant int cycle_stat[" << cycle_map[0] << "][2] = {" << std::endl;
-		for (int i = 0; i < num_cycles_minus_1; i++)
+		clKernWrite(transKernel, 0) << "__constant size_t cycle_stat[" << cycle_map[0] << "][2] = {" << std::endl;
+		for (size_t i = 0; i < num_cycles_minus_1; i++)
 		{
 			clKernWrite(transKernel, 0) << "{  " << cycle_stat[i * 2] << ",  " << cycle_stat[i * 2 + 1] << "}," << std::endl;
 		}
@@ -622,16 +622,16 @@ clfftStatus genSwapKernel(const FFTGeneratedTransposeNonSquareAction::Signature 
 		switch (params.fft_inputLayout)
 		{
 		case CLFFT_COMPLEX_INTERLEAVED:
-			clKernWrite(transKernel, 0) << "void swap(global " << dtComplex << "* inputA, " << tmpBuffType << " " << dtComplex << "* Ls, " << tmpBuffType << " " << dtComplex << " * Ld, int is, int id, int pos, int end_indx, int work_id";
+			clKernWrite(transKernel, 0) << "void swap(global " << dtComplex << "* inputA, " << tmpBuffType << " " << dtComplex << "* Ls, " << tmpBuffType << " " << dtComplex << " * Ld, size_t is, size_t id, size_t pos, size_t end_indx, size_t work_id";
 			break;
 		case CLFFT_COMPLEX_PLANAR:
-			clKernWrite(transKernel, 0) << "void swap(global " << dtPlanar << "* inputA_R, global " << dtPlanar << "* inputA_I, " << tmpBuffType << " " << dtComplex << "* Ls, " << tmpBuffType << " " << dtComplex << "* Ld, int is, int id, int pos, int end_indx, int work_id";
+			clKernWrite(transKernel, 0) << "void swap(global " << dtPlanar << "* inputA_R, global " << dtPlanar << "* inputA_I, " << tmpBuffType << " " << dtComplex << "* Ls, " << tmpBuffType << " " << dtComplex << "* Ld, size_t is, size_t id, size_t pos, size_t end_indx, size_t work_id";
 			break;
 		case CLFFT_HERMITIAN_INTERLEAVED:
 		case CLFFT_HERMITIAN_PLANAR:
 			return CLFFT_TRANSPOSED_NOTIMPLEMENTED;
 		case CLFFT_REAL:
-			clKernWrite(transKernel, 0) << "void swap(global " << dtPlanar << "* inputA, " << tmpBuffType << " " << dtPlanar << "* Ls, " << tmpBuffType << " " << dtPlanar << "* Ld, int is, int id, int pos, int end_indx, int work_id";
+			clKernWrite(transKernel, 0) << "void swap(global " << dtPlanar << "* inputA, " << tmpBuffType << " " << dtPlanar << "* Ls, " << tmpBuffType << " " << dtPlanar << "* Ld, size_t is, size_t id, size_t pos, size_t end_indx, size_t work_id";
 			break;
 		default:
 			return CLFFT_TRANSPOSED_NOTIMPLEMENTED;
@@ -657,7 +657,7 @@ clfftStatus genSwapKernel(const FFTGeneratedTransposeNonSquareAction::Signature 
 
 		clKernWrite(transKernel, 0) << "){" << std::endl;
 
-		clKernWrite(transKernel, 3) << "for (int j = get_local_id(0); j < end_indx; j += " << local_work_size_swap << "){" << std::endl;
+		clKernWrite(transKernel, 3) << "for (size_t j = get_local_id(0); j < end_indx; j += " << local_work_size_swap << "){" << std::endl;
 
 		switch (params.fft_inputLayout)
 		{
@@ -805,7 +805,7 @@ clfftStatus genSwapKernel(const FFTGeneratedTransposeNonSquareAction::Signature 
 		clKernWrite(transKernel, 3) << "size_t g_index = get_group_id(0);" << std::endl;
 
 		clKernWrite(transKernel, 3) << "const size_t numGroupsY_1 = " << cycle_map[0] * num_grps_pro_row << " ;" << std::endl;
-		for (int i = 2; i < params.fft_DataDim - 1; i++)
+		for (size_t i = 2; i < params.fft_DataDim - 1; i++)
 		{
 			clKernWrite(transKernel, 3) << "const size_t numGroupsY_" << i << " = numGroupsY_" << i - 1 << " * " << params.fft_N[i] << ";" << std::endl;
 		}
@@ -864,19 +864,19 @@ clfftStatus genSwapKernel(const FFTGeneratedTransposeNonSquareAction::Signature 
 		clKernWrite(transKernel, 3) << "tmp_swap_ptr[0] = te;" << std::endl;
 		clKernWrite(transKernel, 3) << "tmp_swap_ptr[1] = to;" << std::endl;
 
-		clKernWrite(transKernel, 3) << "int swap_inx = 0;" << std::endl;
+		clKernWrite(transKernel, 3) << "size_t swap_inx = 0;" << std::endl;
 
-		clKernWrite(transKernel, 3) << "int start = cycle_stat[g_index / " << num_grps_pro_row << "][0];" << std::endl;
-		clKernWrite(transKernel, 3) << "int end = cycle_stat[g_index / " << num_grps_pro_row << "][1];" << std::endl;
+		clKernWrite(transKernel, 3) << "size_t start = cycle_stat[g_index / " << num_grps_pro_row << "][0];" << std::endl;
+		clKernWrite(transKernel, 3) << "size_t end = cycle_stat[g_index / " << num_grps_pro_row << "][1];" << std::endl;
 
-		clKernWrite(transKernel, 3) << "int end_indx = " << num_elements_loaded << ";" << std::endl;
-		clKernWrite(transKernel, 3) << "int work_id = g_index % " << num_grps_pro_row << ";" << std::endl;
+		clKernWrite(transKernel, 3) << "size_t end_indx = " << num_elements_loaded << ";" << std::endl;
+		clKernWrite(transKernel, 3) << "size_t work_id = g_index % " << num_grps_pro_row << ";" << std::endl;
 
 		clKernWrite(transKernel, 3) << "if( work_id == " << (num_grps_pro_row - 1) << " ){" << std::endl;
 		clKernWrite(transKernel, 6) << "end_indx = " << smaller_dim - num_elements_loaded * (num_grps_pro_row - 1) << ";" << std::endl;
 		clKernWrite(transKernel, 3) << "}" << std::endl;
 
-		clKernWrite(transKernel, 3) << "for (int loop = start; loop <= end; loop ++){" << std::endl;
+		clKernWrite(transKernel, 3) << "for (size_t loop = start; loop <= end; loop ++){" << std::endl;
 		clKernWrite(transKernel, 6) << "swap_inx = 1 - swap_inx;" << std::endl;
 
 		switch (params.fft_inputLayout)
@@ -1061,7 +1061,7 @@ clfftStatus genSwapKernelGeneral(const FFTGeneratedTransposeNonSquareAction::Sig
 	std::vector<std::vector<size_t> > permutationTable;
 	permutation_calculation(dim_ratio, smaller_dim, permutationTable);
 
-	clKernWrite(transKernel, 0) << "__constant int swap_table["<< permutationTable.size()+2 <<"][1] = {" << std::endl;
+	clKernWrite(transKernel, 0) << "__constant size_t swap_table["<< permutationTable.size()+2 <<"][1] = {" << std::endl;
 	clKernWrite(transKernel, 0) << "{0}," << std::endl;
 	clKernWrite(transKernel, 0) << "{"<< smaller_dim * dim_ratio - 1 <<"}," << std::endl;// add the first and last row to the swap table. needed for twiddling
 	for (std::vector<std::vector<size_t> >::iterator itor = permutationTable.begin(); itor != permutationTable.end(); itor++)
@@ -1119,12 +1119,12 @@ clfftStatus genSwapKernelGeneral(const FFTGeneratedTransposeNonSquareAction::Sig
         genTransposePrototypeLeadingDimensionBatched(params, local_work_size_swap, dtPlanar, dtComplex, funcNameTW, transKernel, dtInput, dtOutput);
 
         clKernWrite(transKernel, 3) << "//each wg handles 1/"<< WG_per_line <<" row of " << LDS_per_WG << " in memory" << std::endl;
-        clKernWrite(transKernel, 3) << "const int num_wg_per_batch = " << (permutationTable.size() + 2)*WG_per_line << ";" << std::endl; // number of wg per batch = number of independent cycles
-        clKernWrite(transKernel, 3) << "int group_id = get_group_id(0);" << std::endl;
-        clKernWrite(transKernel, 3) << "int idx = get_local_id(0);" << std::endl;
+        clKernWrite(transKernel, 3) << "const size_t num_wg_per_batch = " << (permutationTable.size() + 2)*WG_per_line << ";" << std::endl; // number of wg per batch = number of independent cycles
+        clKernWrite(transKernel, 3) << "size_t group_id = get_group_id(0);" << std::endl;
+        clKernWrite(transKernel, 3) << "size_t idx = get_local_id(0);" << std::endl;
 
         clKernWrite(transKernel, 3) << std::endl;
-        clKernWrite(transKernel, 3) << "int batch_offset = group_id / num_wg_per_batch;" << std::endl;
+        clKernWrite(transKernel, 3) << "size_t batch_offset = group_id / num_wg_per_batch;" << std::endl;
         switch (params.fft_inputLayout)
         {
         case CLFFT_REAL:
@@ -1147,10 +1147,10 @@ clfftStatus genSwapKernelGeneral(const FFTGeneratedTransposeNonSquareAction::Sig
 
         clKernWrite(transKernel, 3) << std::endl;
 		if(WG_per_line == 1)
-			clKernWrite(transKernel, 3) << "int prev = swap_table[group_id][0];" << std::endl;
+			clKernWrite(transKernel, 3) << "size_t prev = swap_table[group_id][0];" << std::endl;
 		else
-			clKernWrite(transKernel, 3) << "int prev = swap_table[group_id/" << WG_per_line <<"][0];" << std::endl;
-        clKernWrite(transKernel, 3) << "int next = 0;" << std::endl;
+			clKernWrite(transKernel, 3) << "size_t prev = swap_table[group_id/" << WG_per_line <<"][0];" << std::endl;
+        clKernWrite(transKernel, 3) << "size_t next = 0;" << std::endl;
 
         clKernWrite(transKernel, 3) << std::endl;
         switch (params.fft_inputLayout)
@@ -1180,23 +1180,23 @@ clfftStatus genSwapKernelGeneral(const FFTGeneratedTransposeNonSquareAction::Sig
         {
 			if (WG_per_line == 1)
 			{
-				//might look like: int group_offset = (prev/3)*729*3 + (prev%3)*729; 
-				clKernWrite(transKernel, 3) << "int group_offset = (prev/" << dim_ratio << ")*" << smaller_dim << "*" << dim_ratio
+				//might look like: size_t group_offset = (prev/3)*729*3 + (prev%3)*729; 
+				clKernWrite(transKernel, 3) << "size_t group_offset = (prev/" << dim_ratio << ")*" << smaller_dim << "*" << dim_ratio
 					<< " + (prev%" << dim_ratio << ")*" << smaller_dim << ";" << std::endl;
 			}
 			else
 			{
-				//if smaller_dim is 2187 > 1024 this should look like int group_offset = (prev/3)*2187*3 + (prev%3)*2187 + (group_id % 3)*729;
-				clKernWrite(transKernel, 3) << "int group_offset = (prev/" << dim_ratio << ")*" << smaller_dim << "*" << dim_ratio
+				//if smaller_dim is 2187 > 1024 this should look like size_t group_offset = (prev/3)*2187*3 + (prev%3)*2187 + (group_id % 3)*729;
+				clKernWrite(transKernel, 3) << "size_t group_offset = (prev/" << dim_ratio << ")*" << smaller_dim << "*" << dim_ratio
 					<< " + (prev%" << dim_ratio << ")*" << smaller_dim << " + (group_id % " << WG_per_line << ")*" << LDS_per_WG << ";" << std::endl;
 			}
         }
         else
         {
-			if (WG_per_line == 1)//might look like: int group_offset = prev*729; 
-				clKernWrite(transKernel, 3) << "int group_offset = (prev*" << smaller_dim << ");" << std::endl; 
-			else//if smaller_dim is 2187 > 1024 this should look like int group_offset = prev*2187 + (group_id % 3)*729; 
-				clKernWrite(transKernel, 3) << "int group_offset = (prev*" << smaller_dim << ") + (group_id % " << WG_per_line << ")*" << LDS_per_WG << ";" << std::endl;
+			if (WG_per_line == 1)//might look like: size_t group_offset = prev*729; 
+				clKernWrite(transKernel, 3) << "size_t group_offset = (prev*" << smaller_dim << ");" << std::endl; 
+			else//if smaller_dim is 2187 > 1024 this should look like size_t group_offset = prev*2187 + (group_id % 3)*729; 
+				clKernWrite(transKernel, 3) << "size_t group_offset = (prev*" << smaller_dim << ") + (group_id % " << WG_per_line << ")*" << LDS_per_WG << ";" << std::endl;
         }
 
         clKernWrite(transKernel, 3) << std::endl;
@@ -1212,7 +1212,7 @@ clfftStatus genSwapKernelGeneral(const FFTGeneratedTransposeNonSquareAction::Sig
         case CLFFT_REAL:
         case CLFFT_COMPLEX_INTERLEAVED:
         {
-            for (int i = 0; i < LDS_per_WG; i = i + 256)
+            for (size_t i = 0; i < LDS_per_WG; i = i + 256)
             {
 				if (i + 256 < LDS_per_WG)
 				{
@@ -1307,7 +1307,7 @@ clfftStatus genSwapKernelGeneral(const FFTGeneratedTransposeNonSquareAction::Sig
             return CLFFT_TRANSPOSED_NOTIMPLEMENTED;
         case CLFFT_COMPLEX_PLANAR:
         {
-            for (int i = 0; i < LDS_per_WG; i = i + 256)
+            for (size_t i = 0; i < LDS_per_WG; i = i + 256)
             {
                 if (i + 256 < LDS_per_WG)
                 {
@@ -1426,7 +1426,7 @@ clfftStatus genSwapKernelGeneral(const FFTGeneratedTransposeNonSquareAction::Sig
 			}
 			else
 			{
-				//if smaller_dim is 2187 > 1024 this should look like int group_offset = (next/3)*2187*3 + (next%3)*2187 + (group_id % 3)*729;
+				//if smaller_dim is 2187 > 1024 this should look like size_t group_offset = (next/3)*2187*3 + (next%3)*2187 + (group_id % 3)*729;
 				clKernWrite(transKernel, 6) << "group_offset = (next/" << dim_ratio << ")*" << smaller_dim << "*" << dim_ratio
 					<< " + (next%" << dim_ratio << ")*" << smaller_dim << " + (group_id % " << WG_per_line << ")*" << LDS_per_WG << ";" << std::endl;
 			}
@@ -1437,9 +1437,9 @@ clfftStatus genSwapKernelGeneral(const FFTGeneratedTransposeNonSquareAction::Sig
             //takes care the last row
             clKernWrite(transKernel, 6) << "if (prev == " << smaller_dim * dim_ratio - 1 << ")" << std::endl;
             clKernWrite(transKernel, 9) << "next = " << smaller_dim * dim_ratio - 1 << ";" << std::endl;
-			if (WG_per_line == 1) //might look like: int group_offset = prev*729; 
+			if (WG_per_line == 1) //might look like: size_t group_offset = prev*729; 
 				clKernWrite(transKernel, 6) << "group_offset = (next*" << smaller_dim << ");" << std::endl;
-			else//if smaller_dim is 2187 > 1024 this should look like int group_offset = next*2187 + (group_id % 3)*729;
+			else//if smaller_dim is 2187 > 1024 this should look like size_t group_offset = next*2187 + (group_id % 3)*729;
 				clKernWrite(transKernel, 6) << "group_offset = (next*" << smaller_dim << ") + (group_id % " << WG_per_line << ")*" << LDS_per_WG << ";" << std::endl;
         }
 
@@ -1450,7 +1450,7 @@ clfftStatus genSwapKernelGeneral(const FFTGeneratedTransposeNonSquareAction::Sig
         case CLFFT_REAL:
         case CLFFT_COMPLEX_INTERLEAVED:
         {
-            for (int i = 0; i < LDS_per_WG; i = i + 256)
+            for (size_t i = 0; i < LDS_per_WG; i = i + 256)
             {
                 if (i + 256 < LDS_per_WG)
 					if (params.fft_hasPreCallback)
@@ -1543,7 +1543,7 @@ clfftStatus genSwapKernelGeneral(const FFTGeneratedTransposeNonSquareAction::Sig
             return CLFFT_TRANSPOSED_NOTIMPLEMENTED;
         case CLFFT_COMPLEX_PLANAR:
         {
-            for (int i = 0; i < LDS_per_WG; i = i + 256)
+            for (size_t i = 0; i < LDS_per_WG; i = i + 256)
             {
                 if (i + 256 < LDS_per_WG)
                 {
@@ -1659,7 +1659,7 @@ clfftStatus genSwapKernelGeneral(const FFTGeneratedTransposeNonSquareAction::Sig
                 clKernWrite(transKernel, 6) << "size_t q;" << std::endl;
                 clKernWrite(transKernel, 6) << dtComplex << " twiddle_factor;" << std::endl;
 
-                for (int i = 0; i < LDS_per_WG; i = i + 256)
+                for (size_t i = 0; i < LDS_per_WG; i = i + 256)
                 {
                     if (i + 256 < LDS_per_WG)
                     {
@@ -1726,7 +1726,7 @@ clfftStatus genSwapKernelGeneral(const FFTGeneratedTransposeNonSquareAction::Sig
             }
             else if(!twiddleSwapKernelOut)//could be twiddleSwapKernelIn
             {
-                for (int i = 0; i < LDS_per_WG; i = i + 256)
+                for (size_t i = 0; i < LDS_per_WG; i = i + 256)
                 {
 					//twiddling and callback do not coexist
 					if (params.fft_hasPostCallback)
@@ -1773,7 +1773,7 @@ clfftStatus genSwapKernelGeneral(const FFTGeneratedTransposeNonSquareAction::Sig
                 clKernWrite(transKernel, 6) << "size_t p;" << std::endl;
                 clKernWrite(transKernel, 6) << "size_t q;" << std::endl;
                 clKernWrite(transKernel, 6) << dtComplex << " twiddle_factor;" << std::endl;
-                for (int i = 0; i < LDS_per_WG; i = i + 256)
+                for (size_t i = 0; i < LDS_per_WG; i = i + 256)
                 {
                     if (i + 256 < LDS_per_WG)
                     {
@@ -1839,7 +1839,7 @@ clfftStatus genSwapKernelGeneral(const FFTGeneratedTransposeNonSquareAction::Sig
             }
 			else if (!twiddleSwapKernelOut)//could be twiddleSwapKernelIn
             {
-                for (int i = 0; i < LDS_per_WG; i = i + 256)
+                for (size_t i = 0; i < LDS_per_WG; i = i + 256)
                 {
 					//twiddling and callback do not coexist
 					if (params.fft_hasPostCallback)
@@ -1894,7 +1894,7 @@ clfftStatus genSwapKernelGeneral(const FFTGeneratedTransposeNonSquareAction::Sig
         case CLFFT_COMPLEX_INTERLEAVED:
         case CLFFT_COMPLEX_PLANAR:
         {
-            for (int i = 0; i < LDS_per_WG; i = i + 256)
+            for (size_t i = 0; i < LDS_per_WG; i = i + 256)
             {
                 if (i + 256 < LDS_per_WG)
                     clKernWrite(transKernel, 6) << "prevValue[idx+" << i << "] = nextValue[idx+" << i << "];" << std::endl;
@@ -2051,9 +2051,9 @@ clfftStatus genTransposeKernelBatched(const FFTGeneratedTransposeSquareAction::S
 			wgPerBatch = (params.fft_N[0] / 16 / reShapeFactor)*(params.fft_N[0] / 16 / reShapeFactor + 1) / 2;
 		else
 			wgPerBatch = (params.fft_N[0] / (16 * reShapeFactor) + 1)*(params.fft_N[0] / (16 * reShapeFactor) + 1 + 1) / 2;
-		clKernWrite(transKernel, 3) << "const int numGroupsY_1 = " << wgPerBatch << ";" << std::endl;
+		clKernWrite(transKernel, 3) << "const size_t numGroupsY_1 = " << wgPerBatch << ";" << std::endl;
 
-		for (int i = 2; i < params.fft_DataDim - 1; i++)
+		for (size_t i = 2; i < params.fft_DataDim - 1; i++)
 		{
 			clKernWrite(transKernel, 3) << "const size_t numGroupsY_" << i << " = numGroupsY_" << i - 1 << " * " << params.fft_N[i] << ";" << std::endl;
 		}
@@ -2161,37 +2161,37 @@ clfftStatus genTransposeKernelBatched(const FFTGeneratedTransposeSquareAction::S
 			clKernWrite(transKernel, 3) << "float row = (" << -2.0f*(params.fft_N[0] / (16 * reShapeFactor) + 1) - 1 << "+sqrt((" << 4.0f*(params.fft_N[0] / (16 * reShapeFactor) + 1)*(params.fft_N[0] / (16 * reShapeFactor) + 1 + 1) << "-8.0f*g_index- 7)))/ (-2.0f);" << std::endl;
 
 
-		clKernWrite(transKernel, 3) << "if (row == (float)(int)row) row -= 1; " << std::endl;
-		clKernWrite(transKernel, 3) << "const int t_gy = (int)row;" << std::endl;
+		clKernWrite(transKernel, 3) << "if (row == (float)(size_t)row) row -= 1; " << std::endl;
+		clKernWrite(transKernel, 3) << "const size_t t_gy = (size_t)row;" << std::endl;
 
 		clKernWrite(transKernel, 3) << "" << std::endl;
 
 		if (mult_of_16)
-			clKernWrite(transKernel, 3) << "const int t_gx_p = g_index - " << (params.fft_N[0] / 16 / reShapeFactor) << "*t_gy + t_gy*(t_gy + 1) / 2;" << std::endl;
+			clKernWrite(transKernel, 3) << "const long t_gx_p = g_index - " << (params.fft_N[0] / 16 / reShapeFactor) << "*t_gy + t_gy*(t_gy + 1) / 2;" << std::endl;
 		else
-			clKernWrite(transKernel, 3) << "const int t_gx_p = g_index - " << (params.fft_N[0] / (16 * reShapeFactor) + 1) << "*t_gy + t_gy*(t_gy + 1) / 2;" << std::endl;
+			clKernWrite(transKernel, 3) << "const long t_gx_p = g_index - " << (params.fft_N[0] / (16 * reShapeFactor) + 1) << "*t_gy + t_gy*(t_gy + 1) / 2;" << std::endl;
 
-		clKernWrite(transKernel, 3) << "const int t_gy_p = t_gx_p - t_gy;" << std::endl;
+		clKernWrite(transKernel, 3) << "const long t_gy_p = t_gx_p - t_gy;" << std::endl;
 
-
-		clKernWrite(transKernel, 3) << "" << std::endl;
-
-		clKernWrite(transKernel, 3) << "const int d_lidx = get_local_id(0) % 16;" << std::endl;
-		clKernWrite(transKernel, 3) << "const int d_lidy = get_local_id(0) / 16;" << std::endl;
 
 		clKernWrite(transKernel, 3) << "" << std::endl;
 
-		clKernWrite(transKernel, 3) << "const int lidy = (d_lidy * 16 + d_lidx) /" << (16 * reShapeFactor) << ";" << std::endl;
-		clKernWrite(transKernel, 3) << "const int lidx = (d_lidy * 16 + d_lidx) %" << (16 * reShapeFactor) << ";" << std::endl;
+		clKernWrite(transKernel, 3) << "const size_t d_lidx = get_local_id(0) % 16;" << std::endl;
+		clKernWrite(transKernel, 3) << "const size_t d_lidy = get_local_id(0) / 16;" << std::endl;
 
 		clKernWrite(transKernel, 3) << "" << std::endl;
 
-		clKernWrite(transKernel, 3) << "const int idx = lidx + t_gx_p*" << 16 * reShapeFactor << ";" << std::endl;
-		clKernWrite(transKernel, 3) << "const int idy = lidy + t_gy_p*" << 16 * reShapeFactor << ";" << std::endl;
+		clKernWrite(transKernel, 3) << "const size_t lidy = (d_lidy * 16 + d_lidx) /" << (16 * reShapeFactor) << ";" << std::endl;
+		clKernWrite(transKernel, 3) << "const size_t lidx = (d_lidy * 16 + d_lidx) %" << (16 * reShapeFactor) << ";" << std::endl;
 
 		clKernWrite(transKernel, 3) << "" << std::endl;
 
-		clKernWrite(transKernel, 3) << "const int starting_index_yx = t_gy_p*" << 16 * reShapeFactor << " + t_gx_p*" << 16 * reShapeFactor*params.fft_N[0] << ";" << std::endl;
+		clKernWrite(transKernel, 3) << "const size_t idx = lidx + t_gx_p*" << 16 * reShapeFactor << ";" << std::endl;
+		clKernWrite(transKernel, 3) << "const size_t idy = lidy + t_gy_p*" << 16 * reShapeFactor << ";" << std::endl;
+
+		clKernWrite(transKernel, 3) << "" << std::endl;
+
+		clKernWrite(transKernel, 3) << "const size_t starting_index_yx = t_gy_p*" << 16 * reShapeFactor << " + t_gx_p*" << 16 * reShapeFactor*params.fft_N[0] << ";" << std::endl;
 
 		clKernWrite(transKernel, 3) << "" << std::endl;
 
@@ -2209,8 +2209,8 @@ clfftStatus genTransposeKernelBatched(const FFTGeneratedTransposeSquareAction::S
 		// back into the arrays
 
 		if (mult_of_16) {
-			clKernWrite(transKernel, 3) << "int index;" << std::endl;
-			clKernWrite(transKernel, 3) << "for (int loop = 0; loop<" << reShapeFactor*reShapeFactor << "; ++loop){" << std::endl;
+			clKernWrite(transKernel, 3) << "size_t index;" << std::endl;
+			clKernWrite(transKernel, 3) << "for (size_t loop = 0; loop<" << reShapeFactor*reShapeFactor << "; ++loop){" << std::endl;
 			clKernWrite(transKernel, 6) << "index = lidy*" << 16 * reShapeFactor << " + lidx + loop*256;" << std::endl;
 
 			// Handle planar and interleaved right here
@@ -2290,7 +2290,7 @@ clfftStatus genTransposeKernelBatched(const FFTGeneratedTransposeSquareAction::S
 
 
 			// Step2: Write from shared to global
-			clKernWrite(transKernel, 3) << "for (int loop = 0; loop<" << reShapeFactor*reShapeFactor << "; ++loop){" << std::endl;
+			clKernWrite(transKernel, 3) << "for (size_t loop = 0; loop<" << reShapeFactor*reShapeFactor << "; ++loop){" << std::endl;
 			clKernWrite(transKernel, 6) << "index = lidx*" << 16 * reShapeFactor << " + lidy + " << 16 / reShapeFactor << "*loop;" << std::endl;
 
 
@@ -2305,7 +2305,7 @@ clfftStatus genTransposeKernelBatched(const FFTGeneratedTransposeSquareAction::S
 					else
 					{
 						//assume tranpose is only two dimensional for now
-						//int actualBatchSize = params.transposeBatchSize / params.transposeMiniBatchSize;
+						//size_t actualBatchSize = params.transposeBatchSize / params.transposeMiniBatchSize;
 						size_t blockOffset = params.fft_inStride[2];
 						clKernWrite(transKernel, 6) << params.fft_postCallback.funcname << "(outputA-" << blockOffset <<"*((get_group_id(0)/numGroupsY_1)%"<< params.transposeMiniBatchSize <<"), ((idy + loop*" << 16 / reShapeFactor << ")*"
 							<< params.fft_N[0] << " + idx + "<< blockOffset <<"*( (get_group_id(0)/numGroupsY_1 )%" << params.transposeMiniBatchSize <<") " << "), post_userdata, yx_s[index]";
@@ -2398,9 +2398,9 @@ clfftStatus genTransposeKernelBatched(const FFTGeneratedTransposeSquareAction::S
 		}
 		else {//mult_of_16
 
-			clKernWrite(transKernel, 3) << "int index;" << std::endl;
+			clKernWrite(transKernel, 3) << "size_t index;" << std::endl;
 			clKernWrite(transKernel, 3) << "if (" << params.fft_N[0] << " - (t_gx_p + 1) *" << 16 * reShapeFactor << ">0){" << std::endl;
-			clKernWrite(transKernel, 6) << "for (int loop = 0; loop<" << reShapeFactor*reShapeFactor << "; ++loop){" << std::endl;
+			clKernWrite(transKernel, 6) << "for (size_t loop = 0; loop<" << reShapeFactor*reShapeFactor << "; ++loop){" << std::endl;
 			clKernWrite(transKernel, 9) << "index = lidy*" << 16 * reShapeFactor << " + lidx + loop*256;" << std::endl;
 
 			// Handle planar and interleaved right here
@@ -2471,7 +2471,7 @@ clfftStatus genTransposeKernelBatched(const FFTGeneratedTransposeSquareAction::S
 			clKernWrite(transKernel, 3) << "}" << std::endl;
 
 			clKernWrite(transKernel, 3) << "else{" << std::endl;
-			clKernWrite(transKernel, 6) << "for (int loop = 0; loop<" << reShapeFactor*reShapeFactor << "; ++loop){" << std::endl;
+			clKernWrite(transKernel, 6) << "for (size_t loop = 0; loop<" << reShapeFactor*reShapeFactor << "; ++loop){" << std::endl;
 			clKernWrite(transKernel, 9) << "index = lidy*" << 16 * reShapeFactor << " + lidx + loop*256;" << std::endl;
 
 
@@ -2557,7 +2557,7 @@ clfftStatus genTransposeKernelBatched(const FFTGeneratedTransposeSquareAction::S
 			// Step2: Write from shared to global
 
 			clKernWrite(transKernel, 3) << "if (" << params.fft_N[0] << " - (t_gx_p + 1) *" << 16 * reShapeFactor << ">0){" << std::endl;
-			clKernWrite(transKernel, 6) << "for (int loop = 0; loop<" << reShapeFactor*reShapeFactor << "; ++loop){" << std::endl;
+			clKernWrite(transKernel, 6) << "for (size_t loop = 0; loop<" << reShapeFactor*reShapeFactor << "; ++loop){" << std::endl;
 			clKernWrite(transKernel, 9) << "index = lidx*" << 16 * reShapeFactor << " + lidy + " << 16 / reShapeFactor << "*loop ;" << std::endl;
 
 			// Handle planar and interleaved right here
@@ -2636,7 +2636,7 @@ clfftStatus genTransposeKernelBatched(const FFTGeneratedTransposeSquareAction::S
 			clKernWrite(transKernel, 3) << "}" << std::endl;
 
 			clKernWrite(transKernel, 3) << "else{" << std::endl;
-			clKernWrite(transKernel, 6) << "for (int loop = 0; loop<" << reShapeFactor*reShapeFactor << "; ++loop){" << std::endl;
+			clKernWrite(transKernel, 6) << "for (size_t loop = 0; loop<" << reShapeFactor*reShapeFactor << "; ++loop){" << std::endl;
 
 			clKernWrite(transKernel, 9) << "index = lidx*" << 16 * reShapeFactor << " + lidy + " << 16 / reShapeFactor << "*loop;" << std::endl;
 
@@ -2863,13 +2863,13 @@ clfftStatus genTransposeKernelLeadingDimensionBatched(const FFTGeneratedTranspos
 		genTransposePrototypeLeadingDimensionBatched(params, lwSize, dtPlanar, dtComplex, funcName, transKernel, dtInput, dtOutput);
 
 		if (mult_of_16)//number of WG per sub square block
-			clKernWrite(transKernel, 3) << "const int numGroups_square_matrix_Y_1 = " << (smaller_dim / 16 / reShapeFactor)*(smaller_dim / 16 / reShapeFactor + 1) / 2 << ";" << std::endl;
+			clKernWrite(transKernel, 3) << "const size_t  numGroups_square_matrix_Y_1 = " << (smaller_dim / 16 / reShapeFactor)*(smaller_dim / 16 / reShapeFactor + 1) / 2 << ";" << std::endl;
 		else
-			clKernWrite(transKernel, 3) << "const int numGroups_square_matrix_Y_1 = " << (smaller_dim / (16 * reShapeFactor) + 1)*(smaller_dim / (16 * reShapeFactor) + 1 + 1) / 2 << ";" << std::endl;
+			clKernWrite(transKernel, 3) << "const size_t  numGroups_square_matrix_Y_1 = " << (smaller_dim / (16 * reShapeFactor) + 1)*(smaller_dim / (16 * reShapeFactor) + 1 + 1) / 2 << ";" << std::endl;
 
-		clKernWrite(transKernel, 3) << "const int numGroupsY_1 =  numGroups_square_matrix_Y_1 * "<< dim_ratio <<";" << std::endl;
+		clKernWrite(transKernel, 3) << "const size_t  numGroupsY_1 =  numGroups_square_matrix_Y_1 * "<< dim_ratio <<";" << std::endl;
 
-		for (int i = 2; i < params.fft_DataDim - 1; i++)
+		for (size_t  i = 2; i < params.fft_DataDim - 1; i++)
 		{
 			clKernWrite(transKernel, 3) << "const size_t numGroupsY_" << i << " = numGroupsY_" << i - 1 << " * " << params.fft_N[i] << ";" << std::endl;
 		}
@@ -2966,36 +2966,36 @@ clfftStatus genTransposeKernelLeadingDimensionBatched(const FFTGeneratedTranspos
 
 
 		clKernWrite(transKernel, 3) << "if (row == (float)(int)row) row -= 1; " << std::endl;
-		clKernWrite(transKernel, 3) << "const int t_gy = (int)row;" << std::endl;
+		clKernWrite(transKernel, 3) << "const size_t t_gy = (int)row;" << std::endl;
 
 		clKernWrite(transKernel, 3) << "" << std::endl;
 
 		if (mult_of_16)
-			clKernWrite(transKernel, 3) << "const int t_gx_p = g_index - " << (smaller_dim / 16 / reShapeFactor) << "*t_gy + t_gy*(t_gy + 1) / 2;" << std::endl;
+			clKernWrite(transKernel, 3) << "const long t_gx_p = g_index - " << (smaller_dim / 16 / reShapeFactor) << "*t_gy + t_gy*(t_gy + 1) / 2;" << std::endl;
 		else
-			clKernWrite(transKernel, 3) << "const int t_gx_p = g_index - " << (smaller_dim / (16 * reShapeFactor) + 1) << "*t_gy + t_gy*(t_gy + 1) / 2;" << std::endl;
+			clKernWrite(transKernel, 3) << "const long t_gx_p = g_index - " << (smaller_dim / (16 * reShapeFactor) + 1) << "*t_gy + t_gy*(t_gy + 1) / 2;" << std::endl;
 
-		clKernWrite(transKernel, 3) << "const int t_gy_p = t_gx_p - t_gy;" << std::endl;
+		clKernWrite(transKernel, 3) << "const long t_gy_p = t_gx_p - t_gy;" << std::endl;
 
-
-		clKernWrite(transKernel, 3) << "" << std::endl;
-
-		clKernWrite(transKernel, 3) << "const int d_lidx = get_local_id(0) % 16;" << std::endl;
-		clKernWrite(transKernel, 3) << "const int d_lidy = get_local_id(0) / 16;" << std::endl;
 
 		clKernWrite(transKernel, 3) << "" << std::endl;
 
-		clKernWrite(transKernel, 3) << "const int lidy = (d_lidy * 16 + d_lidx) /" << (16 * reShapeFactor) << ";" << std::endl;
-		clKernWrite(transKernel, 3) << "const int lidx = (d_lidy * 16 + d_lidx) %" << (16 * reShapeFactor) << ";" << std::endl;
+		clKernWrite(transKernel, 3) << "const size_t d_lidx = get_local_id(0) % 16;" << std::endl;
+		clKernWrite(transKernel, 3) << "const size_t d_lidy = get_local_id(0) / 16;" << std::endl;
 
 		clKernWrite(transKernel, 3) << "" << std::endl;
 
-		clKernWrite(transKernel, 3) << "const int idx = lidx + t_gx_p*" << 16 * reShapeFactor << ";" << std::endl;
-		clKernWrite(transKernel, 3) << "const int idy = lidy + t_gy_p*" << 16 * reShapeFactor << ";" << std::endl;
+		clKernWrite(transKernel, 3) << "const size_t lidy = (d_lidy * 16 + d_lidx) /" << (16 * reShapeFactor) << ";" << std::endl;
+		clKernWrite(transKernel, 3) << "const size_t lidx = (d_lidy * 16 + d_lidx) %" << (16 * reShapeFactor) << ";" << std::endl;
 
 		clKernWrite(transKernel, 3) << "" << std::endl;
 
-		clKernWrite(transKernel, 3) << "const int starting_index_yx = t_gy_p*" << 16 * reShapeFactor << " + t_gx_p*" << 16 * reShapeFactor*params.fft_N[0] << ";" << std::endl;
+		clKernWrite(transKernel, 3) << "const size_t idx = lidx + t_gx_p*" << 16 * reShapeFactor << ";" << std::endl;
+		clKernWrite(transKernel, 3) << "const size_t idy = lidy + t_gy_p*" << 16 * reShapeFactor << ";" << std::endl;
+
+		clKernWrite(transKernel, 3) << "" << std::endl;
+
+		clKernWrite(transKernel, 3) << "const size_t starting_index_yx = t_gy_p*" << 16 * reShapeFactor << " + t_gx_p*" << 16 * reShapeFactor*params.fft_N[0] << ";" << std::endl;
 
 		clKernWrite(transKernel, 3) << "" << std::endl;
 
@@ -3026,8 +3026,8 @@ clfftStatus genTransposeKernelLeadingDimensionBatched(const FFTGeneratedTranspos
 		// back into the arrays
 
 		if (mult_of_16) {
-			clKernWrite(transKernel, 3) << "int index;" << std::endl;
-			clKernWrite(transKernel, 3) << "for (int loop = 0; loop<" << reShapeFactor*reShapeFactor << "; ++loop){" << std::endl;
+			clKernWrite(transKernel, 3) << "size_t index;" << std::endl;
+			clKernWrite(transKernel, 3) << "for (size_t loop = 0; loop<" << reShapeFactor*reShapeFactor << "; ++loop){" << std::endl;
 			clKernWrite(transKernel, 6) << "index = lidy*" << 16 * reShapeFactor << " + lidx + loop*256;" << std::endl;
 
 			// Handle planar and interleaved right here
@@ -3105,7 +3105,7 @@ clfftStatus genTransposeKernelLeadingDimensionBatched(const FFTGeneratedTranspos
 
 
 			// Step2: Write from shared to global
-			clKernWrite(transKernel, 3) << "for (int loop = 0; loop<" << reShapeFactor*reShapeFactor << "; ++loop){" << std::endl;
+			clKernWrite(transKernel, 3) << "for (size_t loop = 0; loop<" << reShapeFactor*reShapeFactor << "; ++loop){" << std::endl;
 			clKernWrite(transKernel, 6) << "index = lidx*" << 16 * reShapeFactor << " + lidy + " << 16 / reShapeFactor << "*loop;" << std::endl;
 
 
@@ -3178,9 +3178,9 @@ clfftStatus genTransposeKernelLeadingDimensionBatched(const FFTGeneratedTranspos
 		}
 		else {
 
-			clKernWrite(transKernel, 3) << "int index;" << std::endl;
+			clKernWrite(transKernel, 3) << "size_t index;" << std::endl;
 			clKernWrite(transKernel, 3) << "if (" << smaller_dim << " - (t_gx_p + 1) *" << 16 * reShapeFactor << ">0){" << std::endl;
-			clKernWrite(transKernel, 6) << "for (int loop = 0; loop<" << reShapeFactor*reShapeFactor << "; ++loop){" << std::endl;
+			clKernWrite(transKernel, 6) << "for (size_t loop = 0; loop<" << reShapeFactor*reShapeFactor << "; ++loop){" << std::endl;
 			clKernWrite(transKernel, 9) << "index = lidy*" << 16 * reShapeFactor << " + lidx + loop*256;" << std::endl;
 
 			// Handle planar and interleaved right here
@@ -3249,7 +3249,7 @@ clfftStatus genTransposeKernelLeadingDimensionBatched(const FFTGeneratedTranspos
 			clKernWrite(transKernel, 3) << "}" << std::endl;
 
 			clKernWrite(transKernel, 3) << "else{" << std::endl;
-			clKernWrite(transKernel, 6) << "for (int loop = 0; loop<" << reShapeFactor*reShapeFactor << "; ++loop){" << std::endl;
+			clKernWrite(transKernel, 6) << "for (size_t loop = 0; loop<" << reShapeFactor*reShapeFactor << "; ++loop){" << std::endl;
 			clKernWrite(transKernel, 9) << "index = lidy*" << 16 * reShapeFactor << " + lidx + loop*256;" << std::endl;
 
 
@@ -3334,7 +3334,7 @@ clfftStatus genTransposeKernelLeadingDimensionBatched(const FFTGeneratedTranspos
 			// Step2: Write from shared to global
 
 			clKernWrite(transKernel, 3) << "if (" << smaller_dim << " - (t_gx_p + 1) *" << 16 * reShapeFactor << ">0){" << std::endl;
-			clKernWrite(transKernel, 6) << "for (int loop = 0; loop<" << reShapeFactor*reShapeFactor << "; ++loop){" << std::endl;
+			clKernWrite(transKernel, 6) << "for (size_t loop = 0; loop<" << reShapeFactor*reShapeFactor << "; ++loop){" << std::endl;
 			clKernWrite(transKernel, 9) << "index = lidx*" << 16 * reShapeFactor << " + lidy + " << 16 / reShapeFactor << "*loop ;" << std::endl;
 
 			// Handle planar and interleaved right here
@@ -3403,7 +3403,7 @@ clfftStatus genTransposeKernelLeadingDimensionBatched(const FFTGeneratedTranspos
 			clKernWrite(transKernel, 3) << "}" << std::endl;
 
 			clKernWrite(transKernel, 3) << "else{" << std::endl;
-			clKernWrite(transKernel, 6) << "for (int loop = 0; loop<" << reShapeFactor*reShapeFactor << "; ++loop){" << std::endl;
+			clKernWrite(transKernel, 6) << "for (size_t loop = 0; loop<" << reShapeFactor*reShapeFactor << "; ++loop){" << std::endl;
 
 			clKernWrite(transKernel, 9) << "index = lidx*" << 16 * reShapeFactor << " + lidy + " << 16 / reShapeFactor << "*loop;" << std::endl;
 
