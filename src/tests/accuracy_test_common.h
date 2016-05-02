@@ -110,9 +110,12 @@ void complex_to_complex( data_pattern pattern, direction::direction_t direction,
 	}
 	else
 		throw std::runtime_error( "invalid direction in complex_to_complex()" );
-
+        std::cout << "start fftw" << std::endl;
 	reference.transform();
+        std::cout << "finished fftw" << std::endl;
+        std::cout << "start clfft" << std::endl;
 	test_fft.transform();
+        std::cout << "finished clfft" << std::endl;
 
 	EXPECT_EQ( true, test_fft.result() == reference.result() );
 }
