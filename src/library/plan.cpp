@@ -799,7 +799,6 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 				}
 
 				clLengths[0] = fftPlan->length[0]/clLengths[1];
-                                std::cout << "[0] = " << clLengths[0] << ", [1] = " << clLengths[1] << std::endl;
 
                 // Start of block where transposes are generated; 1D FFT
 				while (1 && (fftPlan->inputLayout != CLFFT_REAL) && (fftPlan->outputLayout != CLFFT_REAL))
