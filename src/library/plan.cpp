@@ -158,6 +158,13 @@ static bool split1D_for_inplace(size_t num, vector<vector<size_t> > &splitNums, 
 
 		}
 	}
+	//add some special cases
+	if (num == 2687385600)
+		divide_factor = 2 * 2 * 3 * 3;
+	if (num == 2916000000)
+		divide_factor = 2 * 2 * 3 * 3 * 5 * 5;
+	if (num == 3057647616)
+		divide_factor = 2 * 2 * 3 * 3;
 
 	num = num / divide_factor;
 	//now the remaining num should have even number of pow2, pow3 and pow5 and we can do sqrt
