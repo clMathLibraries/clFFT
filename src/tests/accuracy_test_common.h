@@ -110,7 +110,6 @@ void complex_to_complex( data_pattern pattern, direction::direction_t direction,
 	}
 	else
 		throw std::runtime_error( "invalid direction in complex_to_complex()" );
-
 	reference.transform();
 	test_fft.transform();
 

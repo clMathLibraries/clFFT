@@ -35,6 +35,150 @@ const std::string beginning_of_binary( "<[£_beginning_of_binary_£]>" );
 const std::string end_of_binary( "<[£_I_may_be_a_sorry_case,_but_I_don't_write_jokes_in_base_13_£]>" );
 const std::string end_of_file( "<[£_You're_off_the_edge_of_the_map,_mate._Here_there_be_monsters_£]>" );
 
+static bool pow235(size_t num, size_t &pow2, size_t &pow3, size_t &pow5)
+{
+	//a helper function to decide if a number is only radix 2, 3 and 5
+	if (num % 2 != 0 && num % 3 != 0 && num % 5 != 0)
+		return false;
+
+	while (num > 1)
+	{
+		if (num % 5 == 0)
+		{
+			num /= 5;
+			pow5++;
+			continue;
+		}
+		if (num % 3 == 0)
+		{
+			num /= 3;
+			pow3++;
+			continue;
+		}
+		if (num % 2 == 0)
+		{
+			num /= 2;
+			pow2++;
+			continue;
+		}
+		return false;
+	}
+	return true;
+}
+
+static bool split1D_for_inplace(size_t num, vector<vector<size_t> > &splitNums, clfftPrecision precision)
+{
+	/* a helper function to split big 1D to friendly 2D sizes for inplace transpose kernels
+	   currently only radix 2, 3 and 5 are supported
+	   the algorithm looks for ways to split up the 1D into 2D such that one of the dimensions is multiples of the other dimension.
+	   And this mupliple is radix2, 3 or 5.
+	   each splited dimentsion should be further splited until that it is smaller than 4096
+	*/
+	size_t threshold = 4096;
+	if (precision == CLFFT_DOUBLE)
+		threshold = 2048;
+	if (num <= threshold)
+		return true;
+	if (num % 2 != 0 && num % 3 != 0 && num % 5 != 0)
+		return false;
+
+	//let's figure out pow2, pow3 and pow5 such that num = 2^pow2 * 3^pow3 * 5^pow5
+	size_t pow2, pow3, pow5;
+	pow2 = pow3 = pow5 = 0;
+	bool status = pow235(num, pow2, pow3, pow5);
+	if (!status)
+		return status;
+
+	size_t divide_factor;
+	if (pow2 % 2 != 0)
+	{
+		//pow2 is odd
+		if (pow3 % 2 != 0)
+		{
+			//pow2 and pow3 are odd
+			if (pow5 % 2 != 0)
+			{
+				//pow2, pow3 and pow5 are odd
+				//one dimension is 2*3*5 = 30 times bigger than the other dimension
+				divide_factor = 2 * 3 * 5;
+			}
+			else
+			{
+				//pow2 and pow3 are odd, pow 5 is even
+				//one dimension is 2*3 = 6 times bigger than the other dimension
+				divide_factor = 2 * 3;
+			}
+		}
+		else
+		{
+			//pow2 is odd, pow3 is even
+			if (pow5 % 2 != 0)
+			{
+				//pow2, pow5 are odd pow3 is eve
+				divide_factor = 2 * 5;
+			}
+			else
+			{
+				//pow2 is odd, pow3 and pow5 are even
+				divide_factor = 2;
+			}
+
+		}
+	}
+	else
+	{
+		//pow2 is even
+		if (pow3 % 2 != 0)
+		{
+			//pow3 is odd pow2 is even
+			if (pow5 % 2 != 0)
+			{
+				//pow2 is even, pow3 and pow5 are odd
+				divide_factor = 3 * 5;
+			}
+			else
+			{
+				//pow2 and pow5 are even, pow3 is odd
+				divide_factor = 3;
+			}
+		}
+		else
+		{
+			//pow2 and are even
+			if (pow5 % 2 != 0)
+			{
+				//pow5 is odd pow2 pow3 is eve
+				divide_factor = 5;
+			}
+			else
+			{
+				//all even
+				divide_factor = 1;
+			}
+
+		}
+	}
+	//add some special cases
+	if (num == 2687385600)
+		divide_factor = 2 * 2 * 3 * 3;
+	if (num == 2916000000)
+		divide_factor = 2 * 2 * 3 * 3 * 5 * 5;
+	if (num == 3057647616)
+		divide_factor = 2 * 2 * 3 * 3;
+
+	num = num / divide_factor;
+	//now the remaining num should have even number of pow2, pow3 and pow5 and we can do sqrt
+	size_t temp = sqrt(num);
+	vector<size_t> splitVec;
+	splitVec.push_back(temp*divide_factor);
+	splitVec.push_back(temp);
+	splitNums.push_back(splitVec);
+
+	status = status && split1D_for_inplace(temp*divide_factor, splitNums, precision);
+	status = status && split1D_for_inplace(temp, splitNums, precision);
+	return status;
+
+}
 
 // Returns CLFFT_SUCCESS if the fp64 is present, CLFFT_DEVICE_NO_DOUBLE if it is not found.  
 clfftStatus checkDevExt( std::string ext, const cl_device_id &device )
@@ -629,6 +773,7 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 					}
 				}
 				// add some special cases
+				/*
 				if (fftPlan->length[0] == 10000)
 					clLengths[1] = 100;//100 x 100
 				if (fftPlan->length[0] == 100000)
@@ -639,9 +784,28 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 					clLengths[1] = 10000;//10,000 x 10,000
 				if (fftPlan->length[0] == 1000000000)
 					clLengths[1] = 10000;//10,000 x 100,000
+				
+				if (fftPlan->length[0] == 3099363912)
+					clLengths[1] = 78732;//39366 x 78732
+				if (fftPlan->length[0] == 39366)
+					clLengths[1] = 81;//81*486
+				if (fftPlan->length[0] == 78732)
+					clLengths[1] = 162;//162*486
+				if (fftPlan->length[0] == 354294)
+					clLengths[1] = 243;
+				*/
+				if (clfftGetRequestLibNoMemAlloc() &&
+					fftPlan->placeness == CLFFT_INPLACE &&
+					(fftPlan->inputLayout == fftPlan->outputLayout) )
+				{
+					//for inplace fft with inplace transpose, the split logic is different
+					vector<vector<size_t> > splitNums;
+					bool implemented = split1D_for_inplace(fftPlan->length[0], splitNums, fftPlan->precision);
+					if (implemented)
+						clLengths[1] = splitNums[0][0];
+				}
 
 				clLengths[0] = fftPlan->length[0]/clLengths[1];
-
 
                 // Start of block where transposes are generated; 1D FFT
 				while (1 && (fftPlan->inputLayout != CLFFT_REAL) && (fftPlan->outputLayout != CLFFT_REAL))

@@ -302,9 +302,9 @@ namespace StockhamGenerator
 			// Twiddle calc function
 			ss << "__attribute__((always_inline)) ";
 			ss << RegBaseType<PR>(2);
-			ss << "\n" << TwTableLargeFunc() << "(uint u)\n{\n";
+			ss << "\n" << TwTableLargeFunc() << "(size_t u)\n{\n";
 
-			ss << "\t" "uint j = u & " << unsigned(X-1) << ";\n";
+			ss << "\t" "size_t j = u & " << unsigned(X-1) << ";\n";
 			ss << "\t" ; ss << RegBaseType<PR>(2); ss << " result = ";
 			ss << TwTableLargeName();
 			ss << "[0][j];\n";
