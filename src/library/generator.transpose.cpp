@@ -1734,16 +1734,16 @@ clfftStatus genSwapKernelGeneral(const FFTGeneratedTransposeNonSquareAction::Sig
 						if (i + 256 < LDS_per_WG)
 						{
 							clKernWrite(transKernel, 6) << params.fft_postCallback.funcname << "(inputA - batch_offset*" << smaller_dim * bigger_dim
-								<< ", batch_offset*" << smaller_dim * bigger_dim << "+group_offSet+idx+" << i << ", post_userdata, preValue[idx+" << i
-								<< ");" << std::endl;
+								<< ", batch_offset*" << smaller_dim * bigger_dim << "+group_offset+idx+" << i << ", post_userdata, prevValue[idx+" << i
+								<< "]);" << std::endl;
 						}
 						else
 						{
 							// need to handle boundary
 							clKernWrite(transKernel, 6) << "if(idx+" << i << "<" << LDS_per_WG << "){" << std::endl;
 							clKernWrite(transKernel, 9) << params.fft_postCallback.funcname << "(inputA - batch_offset*" << smaller_dim * bigger_dim
-								<< ", batch_offset*" << smaller_dim * bigger_dim << "+group_offSet+idx+" << i << ", post_userdata, preValue[idx+" << i
-								<< ");" << std::endl;
+								<< ", batch_offset*" << smaller_dim * bigger_dim << "+group_offset+idx+" << i << ", post_userdata, prevValue[idx+" << i
+								<< "]);" << std::endl;
 							clKernWrite(transKernel, 6) << "}" << std::endl;
 						}
 					}
@@ -1848,17 +1848,17 @@ clfftStatus genSwapKernelGeneral(const FFTGeneratedTransposeNonSquareAction::Sig
 						{
 							//clKernWrite(transKernel, 6) << "inputA_R[group_offset+idx+" << i << "] = prevValue[idx+" << i << "].x;" << std::endl;
 							//clKernWrite(transKernel, 6) << "inputA_I[group_offset+idx+" << i << "] = prevValue[idx+" << i << "].y;" << std::endl;
-							clKernWrite(transKernel, 6) << params.fft_postCallback.funcname << "inputA_R - batch_offset*" << smaller_dim * bigger_dim
+							clKernWrite(transKernel, 6) << params.fft_postCallback.funcname << "(inputA_R - batch_offset*" << smaller_dim * bigger_dim
 								<< ", inputA_I - batch_offset*" << smaller_dim * bigger_dim << ", batch_offset*" << smaller_dim * bigger_dim
-								<< "+group_offset+idx+" << i << ", post_userdata, preValue[idx+" << i << "].x, prevValue[idx+" << i << "].y);" << std::endl;
+								<< "+group_offset+idx+" << i << ", post_userdata, prevValue[idx+" << i << "].x, prevValue[idx+" << i << "].y);" << std::endl;
 						}
 						else
 						{
 							// need to handle boundary
 							clKernWrite(transKernel, 6) << "if(idx+" << i << "<" << LDS_per_WG << "){" << std::endl;
-							clKernWrite(transKernel, 6) << params.fft_postCallback.funcname << "inputA_R - batch_offset*" << smaller_dim * bigger_dim
+							clKernWrite(transKernel, 6) << params.fft_postCallback.funcname << "(inputA_R - batch_offset*" << smaller_dim * bigger_dim
 								<< ", inputA_I - batch_offset*" << smaller_dim * bigger_dim << ", batch_offset*" << smaller_dim * bigger_dim
-								<< "+group_offset+idx+" << i << ", post_userdata, preValue[idx+" << i << "].x, prevValue[idx+" << i << "].y);" << std::endl;
+								<< "+group_offset+idx+" << i << ", post_userdata, prevValue[idx+" << i << "].x, prevValue[idx+" << i << "].y);" << std::endl;
 							clKernWrite(transKernel, 6) << "}" << std::endl;
 						}
 					}
