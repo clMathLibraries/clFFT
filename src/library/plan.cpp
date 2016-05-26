@@ -66,7 +66,7 @@ static bool pow235(size_t num, size_t &pow2, size_t &pow3, size_t &pow5)
 	return true;
 }
 
-static bool split1D_for_inplace(size_t num, vector<vector<size_t> > &splitNums, clfftPrecision precision)
+static bool split1D_for_inplace(size_t num, vector<vector<size_t> > &splitNums, clfftPrecision precision, size_t threshold)
 {
 	/* a helper function to split big 1D to friendly 2D sizes for inplace transpose kernels
 	   currently only radix 2, 3 and 5 are supported
@@ -74,9 +74,6 @@ static bool split1D_for_inplace(size_t num, vector<vector<size_t> > &splitNums, 
 	   And this mupliple is radix2, 3 or 5.
 	   each splited dimentsion should be further splited until that it is smaller than 4096
 	*/
-	size_t threshold = 4096;
-	if (precision == CLFFT_DOUBLE)
-		threshold = 2048;
 	if (num <= threshold)
 		return true;
 	if (num % 2 != 0 && num % 3 != 0 && num % 5 != 0)
@@ -174,8 +171,8 @@ static bool split1D_for_inplace(size_t num, vector<vector<size_t> > &splitNums, 
 	splitVec.push_back(temp);
 	splitNums.push_back(splitVec);
 
-	status = status && split1D_for_inplace(temp*divide_factor, splitNums, precision);
-	status = status && split1D_for_inplace(temp, splitNums, precision);
+	status = status && split1D_for_inplace(temp*divide_factor, splitNums, precision, threshold);
+	status = status && split1D_for_inplace(temp, splitNums, precision, threshold);
 	return status;
 
 }
@@ -794,13 +791,17 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 				if (fftPlan->length[0] == 354294)
 					clLengths[1] = 243;
 				*/
+				size_t threshold = 4096;
+				if (fftPlan->precision == CLFFT_DOUBLE)
+					threshold = 2048;
 				if (clfftGetRequestLibNoMemAlloc() &&
 					fftPlan->placeness == CLFFT_INPLACE &&
-					(fftPlan->inputLayout == fftPlan->outputLayout) )
+					(fftPlan->inputLayout == fftPlan->outputLayout)
+					&& fftPlan->length[0] > threshold)
 				{
 					//for inplace fft with inplace transpose, the split logic is different
 					vector<vector<size_t> > splitNums;
-					bool implemented = split1D_for_inplace(fftPlan->length[0], splitNums, fftPlan->precision);
+					bool implemented = split1D_for_inplace(fftPlan->length[0], splitNums, fftPlan->precision, threshold);
 					if (implemented)
 						clLengths[1] = splitNums[0][0];
 				}
