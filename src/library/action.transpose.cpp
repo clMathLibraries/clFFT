@@ -282,7 +282,7 @@ clfftStatus FFTGeneratedTransposeNonSquareAction::generateKernel(FFTRepo& fftRep
 		//general swap kernel takes care of all ratio
 		OPENCL_V(clfft_transpose_generator::genSwapKernelGeneral(this->signature, programCode, kernelFuncName, lwSize, reShapeFactor), _T("genSwapKernel() failed!"));
     }
-
+	//std::cout << programCode << std::endl;
     cl_int status = CL_SUCCESS;
     cl_device_id Device = NULL;
     status = clGetCommandQueueInfo(commQueueFFT, CL_QUEUE_DEVICE, sizeof(cl_device_id), &Device, NULL);
