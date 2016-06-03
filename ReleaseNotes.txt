@@ -19,6 +19,22 @@ implementation of discrete Fast Fourier Transforms. It:
 * Supports in-place or out-of-place transforms
 
 
+clFFT - Release Notes - version 2.12.1
+--------------------------------------
+
+New features of this release:
+
+* Fixes for bugs in decomposition logic of very large problem sizes
+  with environment flag CLFFT_REQUEST_LIB_NOMEMALLOC=1
+* Validation of sizes that are powers of 2,3,5 and combinations
+  thereof upto maximum size close to 25GB on S9170
+
+Driver notes:
+
+* This library version has been tested with Catalyst
+  Pro driver version 15.302 on Firepro W9100 & S9170.
+
+
 clFFT - Release Notes - version 2.12.0
 --------------------------------------
 
