@@ -124,10 +124,14 @@ class	FFTRepo
 	struct fftKernels {
 		cl_kernel kernel_fwd;
 		cl_kernel kernel_back;
+		lockRAII* kernel_fwd_lock;
+		lockRAII* kernel_back_lock;
 
 		fftKernels ()
 		:	kernel_fwd (NULL)
 		,	kernel_back (NULL)
+		,	kernel_fwd_lock(NULL)
+		,	kernel_back_lock(NULL)
 		{}
 	};
 
@@ -211,7 +215,7 @@ public:
 	clfftStatus getclProgram( const clfftGenerators gen, const FFTKernelSignatureHeader * data, cl_program& prog, const cl_device_id &device, const cl_context& planContext );
 
 	clfftStatus setclKernel ( cl_program prog, clfftDirection dir, const cl_kernel& kernel );
-	clfftStatus getclKernel ( cl_program prog, clfftDirection dir, cl_kernel& kernel );
+	clfftStatus getclKernel ( cl_program prog, clfftDirection dir, cl_kernel& kernel, lockRAII*& kernelLock);
 
 	clfftStatus createPlan( clfftPlanHandle* plHandle, FFTPlan*& fftPlan );
 	clfftStatus getPlan( clfftPlanHandle plHandle, FFTPlan*& fftPlan, lockRAII*& planLock );

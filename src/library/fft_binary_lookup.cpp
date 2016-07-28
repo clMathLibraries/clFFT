@@ -55,7 +55,7 @@ extern "C"
 
 static char * sep()
 {
-#ifdef __WIN32
+#ifdef _WIN32
     return (char*)"\\";
 #else
     return (char*)"/";

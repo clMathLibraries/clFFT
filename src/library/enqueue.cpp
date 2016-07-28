@@ -562,8 +562,11 @@ clfftStatus FFTAction::enqueue(clfftPlanHandle plHandle,
 
     cl_program	prog;
     cl_kernel	kern;
+	lockRAII* kernelLock;
     OPENCL_V( fftRepo.getclProgram( this->getGenerator(), this->getSignatureData(), prog, this->plan->bakeDevice, this->plan->context ), _T( "fftRepo.getclProgram failed" ) );
-    OPENCL_V( fftRepo.getclKernel( prog, dir, kern ), _T( "fftRepo.getclKernels failed" ) );
+    OPENCL_V( fftRepo.getclKernel( prog, dir, kern, kernelLock), _T( "fftRepo.getclKernels failed" ) );
+
+	scopedLock sLock(*kernelLock, _T("FFTAction::enqueue"));
 
     cl_uint uarg = 0;
     if (!this->plan->transflag && !(this->plan->gen == Copy))
@@ -792,7 +795,8 @@ clfftStatus FFTAction::compileKernels( const cl_command_queue commQueueFFT, cons
         cl_kernel kernel;
         if( buildFwdKernel )
         {
-            if( fftRepo.getclKernel( program, CLFFT_FORWARD, kernel ) == CLFFT_INVALID_KERNEL )
+			lockRAII *kernelLock;
+            if( fftRepo.getclKernel( program, CLFFT_FORWARD, kernel, kernelLock) == CLFFT_INVALID_KERNEL )
             {
                 std::string entryPoint;
                 OPENCL_V( fftRepo.getProgramEntryPoint( this->getGenerator(), this->getSignatureData(), CLFFT_FORWARD, entryPoint, q_device, fftPlan->context ), _T( "fftRepo.getProgramEntryPoint failed." ) );
@@ -806,7 +810,8 @@ clfftStatus FFTAction::compileKernels( const cl_command_queue commQueueFFT, cons
 
         if( buildBwdKernel )
         {
-            if( fftRepo.getclKernel( program, CLFFT_BACKWARD, kernel ) == CLFFT_INVALID_KERNEL )
+			lockRAII *kernelLock;
+            if( fftRepo.getclKernel( program, CLFFT_BACKWARD, kernel, kernelLock ) == CLFFT_INVALID_KERNEL )
             {
                 std::string entryPoint;
                 OPENCL_V( fftRepo.getProgramEntryPoint( this->getGenerator(), this->getSignatureData(), CLFFT_BACKWARD, entryPoint, q_device, fftPlan->context ), _T( "fftRepo.getProgramEntryPoint failed." ) );

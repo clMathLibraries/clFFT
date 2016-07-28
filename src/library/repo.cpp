@@ -53,6 +53,18 @@ clfftStatus FFTRepo::releaseResources( )
 		iKern->second.kernel_back = NULL;
 		if (NULL != k)
 			clReleaseKernel( k );
+
+		if (NULL != iKern->second.kernel_fwd_lock)
+		{
+			delete iKern->second.kernel_fwd_lock;
+			iKern->second.kernel_fwd_lock = NULL;
+		}
+
+		if (NULL != iKern->second.kernel_back_lock)
+		{
+			delete iKern->second.kernel_back_lock;
+			iKern->second.kernel_back_lock = NULL;
+		}
 	}
 	mapKernels.clear( );
 
@@ -239,12 +251,16 @@ clfftStatus FFTRepo::setclKernel( cl_program prog, clfftDirection dir, const cl_
 	fftKernels & Kernels = mapKernels[ prog ];
 
 	cl_kernel * pk;
+	lockRAII ** kernelLock;
+
 	switch (dir) {
 	case CLFFT_FORWARD:
 		pk = & Kernels.kernel_fwd;
+		kernelLock = & Kernels.kernel_fwd_lock;
 		break;
 	case CLFFT_BACKWARD:
 		pk = & Kernels.kernel_back;
+		kernelLock = & Kernels.kernel_back_lock;
 		break;
 	default:
 		assert (false);
@@ -255,12 +271,17 @@ clfftStatus FFTRepo::setclKernel( cl_program prog, clfftDirection dir, const cl_
 	if (NULL != *pk)
 		clReleaseKernel( *pk );
 
-	 *pk = kernel;
+	*pk = kernel;
+
+	if (NULL != *kernelLock)
+		 delete kernelLock;
+
+	*kernelLock = new lockRAII;
 
 	return	CLFFT_SUCCESS;
 }
 
-clfftStatus FFTRepo::getclKernel( cl_program prog, clfftDirection dir, cl_kernel& kernel )
+clfftStatus FFTRepo::getclKernel( cl_program prog, clfftDirection dir, cl_kernel& kernel, lockRAII*& kernelLock)
 {
 	scopedLock sLock( lockRepo, _T( "getclKernel" ) );
 
@@ -271,9 +292,11 @@ clfftStatus FFTRepo::getclKernel( cl_program prog, clfftDirection dir, cl_kernel
 	switch (dir) {
 	case CLFFT_FORWARD:
 		kernel = pos->second.kernel_fwd;
+		kernelLock = pos->second.kernel_fwd_lock;
 		break;
 	case CLFFT_BACKWARD:
 		kernel = pos->second.kernel_back;
+		kernelLock = pos->second.kernel_back_lock;
 		break;
 	default:
 		assert (false);
