@@ -85,7 +85,7 @@ int main( void )
                 if (i==0 && j==0 && k==0) {
                     x = y = 0.5f;
                 }
-				size_t idx = 2*(k+j*N1+i*N0*N1);
+                size_t idx = 2*(k+j*N2+i*N1*N2);
                 X[idx] = x;
                 X[idx+1] = y;
                 printf("(%f, %f) ", X[idx], X[idx+1]);
@@ -126,7 +126,7 @@ int main( void )
     for (i=0; i<N0; ++i) {
         for (j=0; j<N1; ++j) {
             for (k=0; k<N2; ++k) {
-				size_t idx = 2*(k+j*N1+i*N0*N1);
+                size_t idx = 2*(k+j*N2+i*N1*N2);
                 printf("(%f, %f) ", X[idx], X[idx+1]);
             }
             printf("\n");
