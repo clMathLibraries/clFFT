@@ -36,15 +36,15 @@ project( clFFT )
 
 # Define a version for the code
 if( NOT DEFINED CLFFT_VERSION_MAJOR )
-    set( CLFFT_VERSION_MAJOR 2 )
+	set( CLFFT_VERSION_MAJOR 2 )
 endif( )
 
 if( NOT DEFINED CLFFT_VERSION_MINOR )
-    set( CLFFT_VERSION_MINOR 12 )
+	set( CLFFT_VERSION_MINOR 12 )
 endif( )
 
 if( NOT DEFINED CLFFT_VERSION_PATCH )
-    set( CLFFT_VERSION_PATCH 1 )
+	set( CLFFT_VERSION_PATCH 1 )
 endif( )
 
 set( CLFFT_VERSION "${CLFFT_VERSION_MAJOR}.${CLFFT_VERSION_MINOR}.${CLFFT_VERSION_PATCH}")
@@ -62,7 +62,7 @@ endif( )
 
 # Set the default of CMAKE_BUILD_TYPE to be release, unless user specifies with -D.  MSVC_IDE does not use CMAKE_BUILD_TYPE
 if( NOT MSVC_IDE AND NOT CMAKE_BUILD_TYPE )
-  set( CMAKE_BUILD_TYPE Release CACHE STRING "Choose the type of build, options are: None Debug Release RelWithDebInfo MinSizeRel." FORCE )
+	set( CMAKE_BUILD_TYPE Release CACHE STRING "Choose the type of build, options are: None Debug Release RelWithDebInfo MinSizeRel." FORCE )
 endif()
 
 # Options that the user or driver program can set to control various components of the build
@@ -70,8 +70,8 @@ option( BUILD_RUNTIME "Build the FFT runtime library" ON )
 option( BUILD_CLIENT "Build a command line clFFT client program with a variety of configurable parameters (dependency on Boost)" OFF )
 option( BUILD_TEST "Build the library testing suite (dependency on google test, Boost, and FFTW)" OFF )
 option( BUILD_LOADLIBRARIES "Build the optional dynamic load libraries that the FFT runtime will search for" ON )
-option( BUILD_SHARED_LIBS "Build shared libraries." ON)
-option( BUILD_EXAMPLES "Build examples." ON)
+option( BUILD_SHARED_LIBS "Build shared libraries." ON )
+option( BUILD_EXAMPLES "Build examples." ON )
 option( BUILD_CALLBACK_CLIENT "Build a command line clFFT client program that tests callback functionality (dependency on Boost)" OFF )
 
 # If BOOST_ROOT is defined as an environment value, use that value and cache it so it's visible in the cmake-gui.
@@ -87,14 +87,13 @@ if( WIN32 )
 	if( UNICODE )
 		message( STATUS "UNICODE build" )
 	endif( )
-else()
+else( )
 	set( UNICODE OFF )
 	message( STATUS "UNICODE feature disabled on linux" )
 endif()
 
 if( MSVC_IDE )
-    set_property( GLOBAL PROPERTY USE_FOLDERS TRUE )
-
+	set_property( GLOBAL PROPERTY USE_FOLDERS TRUE )
 	set( BUILD64 ${CMAKE_CL_64} )
 else()
 	option( BUILD64 "Build a 64-bit product" ON )
@@ -117,9 +116,9 @@ set( SUFFIX_BIN_DEFAULT "" )
 if( BUILD64 )
 	set_property( GLOBAL PROPERTY FIND_LIBRARY_USE_LIB64_PATHS TRUE )
 	message( STATUS "64bit build - FIND_LIBRARY_USE_LIB64_PATHS TRUE" )
-    if( NOT APPLE )
-      set( SUFFIX_LIB_DEFAULT "64" )
-    endif()
+	if( NOT APPLE )
+		set( SUFFIX_LIB_DEFAULT "64" )
+	endif()
 else( )
 	set_property( GLOBAL PROPERTY FIND_LIBRARY_USE_LIB64_PATHS FALSE )
 	message( STATUS "32bit build - FIND_LIBRARY_USE_LIB64_PATHS FALSE" )
@@ -137,19 +136,19 @@ set( SUFFIX_BIN ${SUFFIX_BIN_DEFAULT} CACHE STRING "String to append to 'bin' in
 # Client is built only if boost is found; on windows, we need vs10 or higher
 # Find Boost on the system, and configure the type of boost build we want
 if( NOT DEFINED Boost_USE_STATIC_LIBS )
-   set( Boost_USE_STATIC_LIBS   ON )
+	set( Boost_USE_STATIC_LIBS   ON )
 endif( )
 
 if( NOT DEFINED Boost_USE_STATIC_RUNTIME )
-   set( Boost_USE_STATIC_RUNTIME OFF )
+	set( Boost_USE_STATIC_RUNTIME OFF )
 endif( )
 
 # This will define Boost_FOUND
 find_package( Boost 1.33.0 COMPONENTS program_options )
 if( Boost_FOUND )
-   message( STATUS "Boost_PROGRAM_OPTIONS_LIBRARY: ${Boost_PROGRAM_OPTIONS_LIBRARY}" )
+	message( STATUS "Boost_PROGRAM_OPTIONS_LIBRARY: ${Boost_PROGRAM_OPTIONS_LIBRARY}" )
 else( )
-   message( WARNING "Try setting Boost_DEBUG and Boost_DETAILED_FAILURE_MSG for more information" )
+	message( WARNING "Try setting Boost_DEBUG and Boost_DETAILED_FAILURE_MSG for more information" )
 endif( )
 
 # This will define OPENCL_FOUND
@@ -168,12 +167,12 @@ endif( )
 # Enable building of the googletest unit test framework if requested and all dependencies are found
 set( UNIT_TEST OFF )
 if( BUILD_TEST )
-    include(gtest.cmake)
-    if( GTEST_FOUND AND Boost_FOUND AND FFTW_FOUND )
+	include(gtest.cmake)
+	if( GTEST_FOUND AND Boost_FOUND AND FFTW_FOUND )
 		set( UNIT_TEST ON )
 	else( )
 		message( "GoogleTest unit testing will NOT be built" )
-    endif( )
+	endif( )
 endif( )
 
 # Enable building of the callback client if requested and all dependencies are found
@@ -188,9 +187,9 @@ get_filename_component( C_COMPILER_NAME ${CMAKE_C_COMPILER} NAME_WE )
 # message( "C_COMPILER_NAME: " ${C_COMPILER_NAME} )
 # message( "CMAKE_C_COMPILER: " ${CMAKE_C_COMPILER} )
 
-if(APPLE)
-    # avoid warning on newer cmake versions
-    set(CMAKE_MACOSX_RPATH 0)
+if( APPLE )
+	# avoid warning on newer cmake versions
+	set( CMAKE_MACOSX_RPATH 0 )
 endif()
 
 # Set common compile and link options
@@ -206,11 +205,11 @@ if( MSVC )
 elseif( CMAKE_COMPILER_IS_GNUCXX )
 	message( STATUS "Detected GNU fortran compiler." )
 	EXEC_PROGRAM( ${CMAKE_CXX_COMPILER} ARGS --version OUTPUT_VARIABLE vnum )
-	STRING(REGEX REPLACE ".*([0-9])\\.([0-9])\\.([0-9]).*" "\\1\\2\\3" vnum ${vnum})
+	STRING( REGEX REPLACE ".*([0-9])\\.([0-9])\\.([0-9]).*" "\\1\\2\\3" vnum ${vnum} )
 	if( ${vnum} STREQUAL "452" )
 		# we only want c++0x if we're using gcc 4.5.2
 		set( CMAKE_CXX_FLAGS "-std=c++0x ${CMAKE_CXX_FLAGS}" )
-	endif()
+	endif( )
 
 	set( CMAKE_CXX_FLAGS "-pthread ${CMAKE_CXX_FLAGS}" )
 	set( CMAKE_C_FLAGS "-pthread ${CMAKE_C_FLAGS}" )
@@ -228,10 +227,10 @@ elseif( CMAKE_COMPILER_IS_GNUCXX )
 		set( CMAKE_C_FLAGS "-m32 ${CMAKE_C_FLAGS}" )
 	endif( )
 
-    if( CODE_COVERAGE )
-        set( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} --coverage")
-        set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} --coverage")
-    endif()
+	if( CODE_COVERAGE )
+		set( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} --coverage" )
+		set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} --coverage" )
+	endif( )
 endif( )
 
 # If UNICODE is defined for microsoft compilers, pass extra definitions
@@ -246,23 +245,23 @@ message( STATUS "CMAKE_CXX_COMPILER release flags: " ${CMAKE_CXX_FLAGS_RELEASE} 
 message( STATUS "CMAKE_CXX_COMPILER relwithdebinfo flags: " ${CMAKE_CXX_FLAGS_RELWITHDEBINFO} )
 message( STATUS "CMAKE_EXE_LINKER link flags: " ${CMAKE_EXE_LINKER_FLAGS} )
 
-if(NOT BUILD_SHARED_LIBS)
-  set(CLFFT_STATIC ON)
-endif()
+if( NOT BUILD_SHARED_LIBS )
+	set( CLFFT_STATIC ON )
+endif( )
 # configure a header file to pass the CMake version settings to the source, and package the header files in the output archive
 configure_file( "${PROJECT_SOURCE_DIR}/include/clFFT.version.h.in" "${PROJECT_BINARY_DIR}/include/clFFT.version.h" )
 install( FILES
-			"${PROJECT_BINARY_DIR}/include/clFFT.version.h"
-			"include/clFFT.h"
-			"include/clAmdFft.h"
-			"include/clAmdFft.version.h"
-		DESTINATION
-			"./include" )
+		"${PROJECT_BINARY_DIR}/include/clFFT.version.h"
+		"include/clFFT.h"
+		"include/clAmdFft.h"
+		"include/clAmdFft.version.h"
+	DESTINATION
+		"./include" )
 
 # Recurse into subdirectory and start building files there
 if( BUILD_RUNTIME AND IS_DIRECTORY "${PROJECT_SOURCE_DIR}/library" )
 	add_subdirectory( library )
-else()
+else( )
 	message( "Runtime library will NOT be built" )
 endif( )
 
@@ -280,7 +279,7 @@ endif( )
 # Recurse into subdirectory and start building files there
 if( BUILD_LOADLIBRARIES AND IS_DIRECTORY "${PROJECT_SOURCE_DIR}/statTimer" )
 	add_subdirectory( statTimer )
-else()
+else( )
 	message( "LoadLibraries will NOT be built" )
 endif( )
 
@@ -299,27 +298,27 @@ else( )
 endif( )
 
 if( BUILD_EXAMPLES )
-    add_subdirectory( examples )
-endif()
+	add_subdirectory( examples )
+endif( )
 
-if(WIN32)
-  set(destdir CMake)
-else()
-  set(destdir lib${SUFFIX_LIB}/cmake/clFFT)
-endif()
-string(REGEX REPLACE "[^/]+" ".." reldir "${destdir}")
+if( WIN32 )
+	set( destdir CMake )
+else( )
+	set( destdir lib${SUFFIX_LIB}/cmake/clFFT )
+endif( )
+string( REGEX REPLACE "[^/]+" ".." reldir "${destdir}" )
 configure_file(
-  ${CMAKE_CURRENT_SOURCE_DIR}/clFFTConfigVersion.cmake.in
-  ${CMAKE_CURRENT_BINARY_DIR}/clFFTConfigVersion.cmake
-  @ONLY)
+	${CMAKE_CURRENT_SOURCE_DIR}/clFFTConfigVersion.cmake.in
+	${CMAKE_CURRENT_BINARY_DIR}/clFFTConfigVersion.cmake
+	@ONLY )
 configure_file(
-  ${CMAKE_CURRENT_SOURCE_DIR}/clFFTConfig.cmake.in
-  ${CMAKE_CURRENT_BINARY_DIR}/clFFTConfig.cmake
-  @ONLY)
-install(EXPORT Library DESTINATION ${destdir} FILE clFFTTargets.cmake)
-install(FILES ${CMAKE_CURRENT_BINARY_DIR}/clFFTConfigVersion.cmake
-  ${CMAKE_CURRENT_BINARY_DIR}/clFFTConfig.cmake
-  DESTINATION ${destdir})
+	${CMAKE_CURRENT_SOURCE_DIR}/clFFTConfig.cmake.in
+	${CMAKE_CURRENT_BINARY_DIR}/clFFTConfig.cmake
+	@ONLY )
+install( EXPORT Library DESTINATION ${destdir} FILE clFFTTargets.cmake )
+install( FILES ${CMAKE_CURRENT_BINARY_DIR}/clFFTConfigVersion.cmake
+	${CMAKE_CURRENT_BINARY_DIR}/clFFTConfig.cmake
+	DESTINATION ${destdir} )
 
 # The following code is setting variables to control the behavior of CPack to generate our
 if( WIN32 )
@@ -331,18 +330,18 @@ else( )
 endif( )
 
 if( BUILD64 )
-	set( CPACK_PACKAGE_FILE_NAME "${CMAKE_PROJECT_NAME}-${CLFFT_VERSION}-${CMAKE_HOST_SYSTEM_NAME}-x64")
+	set( CPACK_PACKAGE_FILE_NAME "${CMAKE_PROJECT_NAME}-${CLFFT_VERSION}-${CMAKE_HOST_SYSTEM_NAME}-x64" )
 else( )
-	set( CPACK_PACKAGE_FILE_NAME "${CMAKE_PROJECT_NAME}-${CLFFT_VERSION}-${CMAKE_HOST_SYSTEM_NAME}-x32")
+	set( CPACK_PACKAGE_FILE_NAME "${CMAKE_PROJECT_NAME}-${CLFFT_VERSION}-${CMAKE_HOST_SYSTEM_NAME}-x32" )
 endif( )
 
-set( CPACK_SOURCE_PACKAGE_FILE_NAME "${CMAKE_PROJECT_NAME}-${CLFFT_VERSION}-${CMAKE_HOST_SYSTEM_NAME}-Source")
+set( CPACK_SOURCE_PACKAGE_FILE_NAME "${CMAKE_PROJECT_NAME}-${CLFFT_VERSION}-${CMAKE_HOST_SYSTEM_NAME}-Source" )
 
 set( CPACK_PACKAGE_VERSION_MAJOR ${CLFFT_VERSION_MAJOR} )
 set( CPACK_PACKAGE_VERSION_MINOR ${CLFFT_VERSION_MINOR} )
 set( CPACK_PACKAGE_VERSION_PATCH ${CLFFT_VERSION_PATCH} )
-set( CPACK_PACKAGE_DESCRIPTION_SUMMARY "OpenCL implementation of an FFT library")
-set( CPACK_PACKAGE_VENDOR "Neutral")
+set( CPACK_PACKAGE_DESCRIPTION_SUMMARY "OpenCL implementation of an FFT library" )
+set( CPACK_PACKAGE_VENDOR "Neutral" )
 set( CPACK_SOURCE_IGNORE_FILES "/\\\\.hg/;/\\\\.svn/;/\\\\.git/" )
 
 # Define all variables that influence CPack before including CPack, such as install targets
