@@ -74,7 +74,7 @@ int main( void )
 
     /* print input array just using the
      * indices to fill the array with data */
-    printf("\nPerforming fft on an two dimensional array of size N0 x N1 x N2 : %u x %u x %u\n", (unsigned long)N0, (unsigned long)N1, (unsigned long)N2);
+    printf("\nPerforming fft on an two dimensional array of size N0 x N1 x N2 : %lu x %lu x %lu\n", (unsigned long)N0, (unsigned long)N1, (unsigned long)N2);
     size_t i, j, k;
     i = j = k = 0;
     for (i=0; i<N0; ++i) {
