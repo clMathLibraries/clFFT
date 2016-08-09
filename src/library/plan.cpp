@@ -816,7 +816,7 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 					if (fftPlan->inStride[0] != 1 || fftPlan->outStride[0] != 1) break;
 
 					if ( IsPo2(fftPlan->length[0]) &&
-						 (fftPlan->length[0] <= 262144/PrecisionWidth(fftPlan->precision)) &&
+						 (fftPlan->length[0] <= 262144/PrecisionWidth(fftPlan->precision)) && (fftPlan->length.size() <= 1) &&
 						 (!clfftGetRequestLibNoMemAlloc() || (fftPlan->placeness == CLFFT_OUTOFPLACE)) ) break;
 
 					if ( clLengths[0]<=32 && clLengths[1]<=32) break;
@@ -897,6 +897,8 @@ clfftStatus	clfftBakePlan( clfftPlanHandle plHandle, cl_uint numQueues, cl_comma
 						transGen = Transpose_SQUARE;
 					}
 
+					if (fftPlan->tmpBufSize != 0)
+						padding = 0;
 
 					if ( (fftPlan->tmpBufSize==0 ) && !fftPlan->allOpsInplace)
 					{
