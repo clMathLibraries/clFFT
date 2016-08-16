@@ -4701,11 +4701,11 @@ clfftStatus FFTPlan::SetEnvelope ()
 		if (0 == cContextDevices)
 			break;
 
-		envelope.limit_LocalMemSize  = ~0;
-		envelope.limit_WorkGroupSize = ~0;
+		envelope.limit_LocalMemSize  = 32768;
+		envelope.limit_WorkGroupSize = 256;
 		envelope.limit_Dimensions    = countOf (envelope.limit_Size);
 		for (size_t u = 0; u < countOf (envelope.limit_Size); ++u) {
-			envelope.limit_Size[u] = ~0;
+			envelope.limit_Size[u] = 256;
 		}
 
 		for( cl_uint i = 0; i < cContextDevices; ++i )
