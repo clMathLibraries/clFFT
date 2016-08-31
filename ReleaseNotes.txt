@@ -19,6 +19,20 @@ implementation of discrete Fast Fourier Transforms. It:
 * Supports in-place or out-of-place transforms
 
 
+clFFT - Release Notes - version 2.12.2
+--------------------------------------
+
+This is a patch update release to v2.12.1.
+It has the following:
+
+* Fix for thread safety issues
+* Fix for failures in certain 2D transforms
+* Fix for failures on POCL runtime
+* Other minor improvements
+
+Details on issues available on GitHub.
+
+
 clFFT - Release Notes - version 2.12.1
 --------------------------------------
 
