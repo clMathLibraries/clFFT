@@ -40,8 +40,8 @@ else()
   
   ExternalProject_Add(
     gtest-external
-    URL http://googletest.googlecode.com/files/gtest-1.7.0.zip
-    URL_MD5 2d6ec8ccdf5c46b05ba54a9fd1d130d7
+    URL https://github.com/google/googletest/archive/release-1.7.0.zip
+    URL_MD5 EF5E700C8A0F3EE123E2E0209B8B4961
     PREFIX ${prefix}
     BINARY_DIR ${binary_dir}
     CMAKE_CACHE_ARGS
