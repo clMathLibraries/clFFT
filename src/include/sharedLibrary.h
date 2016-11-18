@@ -36,7 +36,7 @@ inline void* LoadSharedLibrary( std::string unixPrefix, std::string libraryName,
 
 	//	HMODULE is actually the load address; function returns NULL if it cannot find the shared library
 	HMODULE fileHandle	= ::LoadLibraryExA( libraryName.c_str( ), NULL, NULL );
-#elif defined(__linux__)
+#elif defined(__linux__) || defined(__GNU__) || (defined(__FreeBSD_kernel__) && defined(__GLIBC__))
         tstring linuxName = unixPrefix;
 	linuxName += libraryName += ".so";
 	void* fileHandle = ::dlopen( linuxName.c_str( ), RTLD_NOW );
@@ -52,7 +52,7 @@ inline void* LoadSharedLibrary( std::string unixPrefix, std::string libraryName,
   {
           std::cerr << ::dlerror( ) << std::endl;
   }
-#elif defined(__FreeBSD_kernel__)
+#elif defined(__FreeBSD__)
         tstring freebsdName = unixPrefix;
         freebsdName += libraryName += ".so";
         void* fileHandle = ::dlopen( freebsdName.c_str( ), RTLD_NOW );
