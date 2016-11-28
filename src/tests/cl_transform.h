@@ -148,7 +148,8 @@ private:
 
 	static const bool printInfo = false;
 
-	std::unique_ptr< _cl_mem, clMem_deleter > userDataMem;
+	std::unique_ptr< _cl_mem, clMem_deleter > userDataPreMem;
+	std::unique_ptr< _cl_mem, clMem_deleter > userDataPostMem;
 
 	//	OpenCL resources that need to be carefully managed
 	std::unique_ptr< _cl_context, clContext_deleter > context;
@@ -667,8 +668,8 @@ public:
 													bufferSizeBytes, userdata.real_ptr(), &status) );
 		OPENCL_V_THROW( status, "Creating Buffer ( ::clCreateBuffer() )" );
 
-		userDataMem = std::move(userdataBuff);
-		cl_mem uptr = userDataMem.get();
+		userDataPreMem = std::move(userdataBuff);
+		cl_mem uptr = userDataPreMem.get();
 
 		//Register the callback
 		OPENCL_V_THROW (clfftSetPlanCallback(*plan_handle, "mulval_pre", precallbackstr, localMemSize, PRECALLBACK, &uptr, 1), "clFFTSetPlanCallback failed");
@@ -710,8 +711,8 @@ public:
 													sizeof(USER_DATA) * totalPts, (void*)&userdata[0], &status) );
 		OPENCL_V_THROW( status, "Creating Buffer ( ::clCreateBuffer() )" );
 
-		userDataMem = std::move(userdataBuff);
-		cl_mem uptr = userDataMem.get();
+		userDataPreMem = std::move(userdataBuff);
+		cl_mem uptr = userDataPreMem.get();
 
 		//Register the callback
 		OPENCL_V_THROW (clfftSetPlanCallback(*plan_handle, "mulval_pre", precallbackstr, 0, PRECALLBACK, &uptr, 1), "clFFTSetPlanCallback failed");
@@ -765,8 +766,8 @@ public:
 			bufferSizeBytes, userdata.real_ptr(), &status));
 		OPENCL_V_THROW(status, "Creating Buffer ( ::clCreateBuffer() )");
 
-		userDataMem = std::move(userdataBuff);
-		cl_mem uptr = userDataMem.get();
+		userDataPostMem = std::move(userdataBuff);
+		cl_mem uptr = userDataPostMem.get();
 
 		//Register the post-callback
 		OPENCL_V_THROW (clfftSetPlanCallback(*plan_handle, "mulval_post", postcallbackstr, localMemSize, POSTCALLBACK, &uptr, 1), "clFFTSetPlanCallback failed");
