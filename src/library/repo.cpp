@@ -138,7 +138,11 @@ clfftStatus FFTRepo::setProgramCode( const clfftGenerators gen, const FFTKernelS
 
 	std::string prefixCopyright = ss.str();
 
-	mapFFTs[ key ].ProgramString = prefixCopyright + kernel;
+	fftRepoType::iterator it = mapFFTs.find(key);
+	if (it == mapFFTs.end())
+		mapFFTs[key].ProgramString = prefixCopyright + kernel;
+	else
+		key.deleteData();
 
 	return	CLFFT_SUCCESS;
 }
