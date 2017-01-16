@@ -78,6 +78,7 @@ namespace StockhamGenerator
 	inline std::string FloatToStr(double f)
 	{
 		std::stringstream ss;
+		ss.imbue(std::locale("C"));
 		ss.precision(16);
 		ss << std::scientific << f;
 		return ss.str();
@@ -215,8 +216,6 @@ namespace StockhamGenerator
 		return "TW3step";
 	}
 
-
-
 	// Twiddle factors table for large N
 	// used in 3-step algorithm
     class TwiddleTableLarge
@@ -275,6 +274,9 @@ namespace StockhamGenerator
 
 			// Stringize the table
 			std::stringstream ss;
+			ss.imbue(std::locale("C"));
+			ss.precision(34);
+			ss << std::scientific;
 			nt = 0;
 
 			ss << "\n __constant ";
@@ -286,18 +288,13 @@ namespace StockhamGenerator
 				ss << "{ ";
 				for (size_t iX = 0; iX < X; ++iX)
 				{
-					char cv[64], sv[64];
-					sprintf(cv, "%036.34lf", wc[nt]);
-					sprintf(sv, "%036.34lf", ws[nt++]);
 					ss << "("; ss << RegBaseType<PR>(2); ss << ")(";
-					ss << cv; ss << sfx; ss << ", ";
-					ss << sv; ss << sfx; ss << ")";
-					ss << ", ";
+					ss << wc[nt] << sfx << ", ";
+					ss << ws[nt++] << sfx << "),\n";
 				}
 				ss << " },\n";
 			}
 			ss << "};\n\n";
-
 
 			// Twiddle calc function
 			ss << "__attribute__((always_inline)) ";
@@ -327,10 +324,7 @@ namespace StockhamGenerator
 
 			twStr += ss.str();
 		}
-    };
-
-
-
+	};
 
 	// FFT butterfly
     template <Precision PR>

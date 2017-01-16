@@ -591,17 +591,16 @@ namespace StockhamGenerator
 			std::stringstream ss;
 			ss.imbue(std::locale("C"));
 			ss.precision(34);
+			ss << std::scientific;
 			for(size_t i = 0; i < (N-1); i++)
 			{
 				ss << "("; ss << RegBaseType<PR>(2); ss << ")(";
-				ss << std::scientific << wc[i] << sfx << ", ";
-				ss << std::scientific << ws[i] << sfx << "),\n";
+				ss << wc[i] << sfx << ", ";
+				ss << ws[i] << sfx << "),\n";
 			}
 			twStr += ss.str();
 		}
-    };
-
-
+	};
 
     // A pass inside an FFT kernel
     template <Precision PR>
