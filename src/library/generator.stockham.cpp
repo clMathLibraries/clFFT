@@ -754,7 +754,7 @@ namespace StockhamGenerator
 		void SweepRegs(	size_t flag, bool fwd, bool interleaved, size_t stride, size_t component,
 						double scale, bool frontTwiddle,
 						const std::string &bufferRe, const std::string &bufferIm, const std::string &offset,
-						size_t regC, size_t numB, size_t numPrev, std::string &passStr, bool isPrecallVector = false, bool oddt = false) const
+						size_t regC, size_t numB, size_t numPrev, std::string &passStr, bool initZero = false, bool isPrecallVector = false, bool oddt = false) const
 		{
 			assert( (flag == SR_READ )			||
 					(flag == SR_TWMUL)			||
@@ -948,30 +948,40 @@ namespace StockhamGenerator
 							passStr += regIndex;
 							passStr += " = ";
 
-							//Use the return value from precallback if set
-							if (fft_doPreCallback && (component == SR_COMP_BOTH || r2c))
+							if (initZero)
 							{
-								if (component == SR_COMP_BOTH)
-								{
-									passStr += "retPrecallback"; 
-									passStr += interleaved ? tail : (c == 0) ? ".x;" : ".y;";
-								}
-								else if (r2c)
-								{
-									passStr += fft_preCallback.funcname; passStr += "("; passStr += buffer; passStr += ", ";
-									passStr += bufOffset; passStr += ", pre_userdata";
-
-									if (fft_preCallback.localMemSize > 0)
-									{
-										passStr += ", localmem";
-									}
-									passStr += ");";
-								}
+								if (interleaved && (component == SR_COMP_BOTH))
+									passStr += "(fvect2)(0, 0);";
+								else
+									passStr += "0;";
 							}
 							else
 							{
-								passStr += buffer;
-								passStr += "["; passStr += bufOffset; passStr += "]"; passStr += tail;
+								//Use the return value from precallback if set
+								if (fft_doPreCallback && (component == SR_COMP_BOTH || r2c))
+								{
+									if (component == SR_COMP_BOTH)
+									{
+										passStr += "retPrecallback";
+										passStr += interleaved ? tail : (c == 0) ? ".x;" : ".y;";
+									}
+									else if (r2c)
+									{
+										passStr += fft_preCallback.funcname; passStr += "("; passStr += buffer; passStr += ", ";
+										passStr += bufOffset; passStr += ", pre_userdata";
+
+										if (fft_preCallback.localMemSize > 0)
+										{
+											passStr += ", localmem";
+										}
+										passStr += ");";
+									}
+								}
+								else
+								{
+									passStr += buffer;
+									passStr += "["; passStr += bufOffset; passStr += "]"; passStr += tail;
+								}
 							}
 
 							// Since we read real & imag at once, we break the loop
@@ -2411,7 +2421,7 @@ namespace StockhamGenerator
 					}
 
 					passStr += "\n\n\tbarrier(CLK_LOCAL_MEM_FENCE);\n";
-					SweepRegs(SR_READ, fwd, outInterleaved, processBufStride, SR_COMP_REAL, 1.0f, false, processBufRe, processBufIm, processBufOffset, 1, numB1, 0, passStr, false, oddp);
+					SweepRegs(SR_READ, fwd, outInterleaved, processBufStride, SR_COMP_REAL, 1.0f, false, processBufRe, processBufIm, processBufOffset, 1, numB1, 0, passStr, false, false, oddp);
 					passStr += "\n\n\tbarrier(CLK_LOCAL_MEM_FENCE);\n";
 
 
@@ -2502,9 +2512,14 @@ namespace StockhamGenerator
 						passStr += ";";
 					}
 					passStr += "\n\tif(rw)\n\t{";
-					SweepRegs(SR_READ, fwd, inInterleaved, inStride, SR_COMP_BOTH, 1.0f, false, bufferInRe, bufferInIm, "inOffset", 1, numB1, 0, passStr, isPrecallVector);
-					SweepRegs(SR_READ, fwd, inInterleaved, inStride, SR_COMP_BOTH, 1.0f, false, bufferInRe, bufferInIm, "inOffset", 2, numB2, numB1, passStr, isPrecallVector);
-					SweepRegs(SR_READ, fwd, inInterleaved, inStride, SR_COMP_BOTH, 1.0f, false, bufferInRe, bufferInIm, "inOffset", 4, numB4, 2*numB2 + numB1, passStr, isPrecallVector);
+					SweepRegs(SR_READ, fwd, inInterleaved, inStride, SR_COMP_BOTH, 1.0f, false, bufferInRe, bufferInIm, "inOffset", 1, numB1, 0, passStr, false, isPrecallVector);
+					SweepRegs(SR_READ, fwd, inInterleaved, inStride, SR_COMP_BOTH, 1.0f, false, bufferInRe, bufferInIm, "inOffset", 2, numB2, numB1, passStr, false, isPrecallVector);
+					SweepRegs(SR_READ, fwd, inInterleaved, inStride, SR_COMP_BOTH, 1.0f, false, bufferInRe, bufferInIm, "inOffset", 4, numB4, 2*numB2 + numB1, passStr, false, isPrecallVector);
+					passStr += "\n\t}\n";
+					passStr += "\n\telse\n\t{";
+					SweepRegs(SR_READ, fwd, inInterleaved, inStride, SR_COMP_BOTH, 1.0f, false, bufferInRe, bufferInIm, "inOffset", 1, numB1, 0, passStr, true, isPrecallVector);
+					SweepRegs(SR_READ, fwd, inInterleaved, inStride, SR_COMP_BOTH, 1.0f, false, bufferInRe, bufferInIm, "inOffset", 2, numB2, numB1, passStr, true, isPrecallVector);
+					SweepRegs(SR_READ, fwd, inInterleaved, inStride, SR_COMP_BOTH, 1.0f, false, bufferInRe, bufferInIm, "inOffset", 4, numB4, 2 * numB2 + numB1, passStr, true, isPrecallVector);
 					passStr += "\n\t}\n";
 				}
 			}
