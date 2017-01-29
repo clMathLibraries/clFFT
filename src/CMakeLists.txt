@@ -239,6 +239,11 @@ if( MSVC AND UNICODE )
 	add_definitions( "/DUNICODE /D_UNICODE" )
 endif( )
 
+# If UNICODE is defined for MinGW compilers, pass extra definitions
+if( MINGW AND UNICODE )
+	add_definitions( "-DUNICODE -D_UNICODE" )
+endif( )
+
 # Print out compiler flags for viewing/debug
 message( STATUS "CMAKE_CXX_COMPILER flags: " ${CMAKE_CXX_FLAGS} )
 message( STATUS "CMAKE_CXX_COMPILER debug flags: " ${CMAKE_CXX_FLAGS_DEBUG} )
