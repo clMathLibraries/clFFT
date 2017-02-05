@@ -71,6 +71,7 @@ find_path(OpenCL_INCLUDE_DIR
   NAMES
     CL/cl.h OpenCL/cl.h
   PATHS
+    ENV OPENCL_ROOT
     ENV "PROGRAMFILES(X86)"
     ENV AMDAPPSDKROOT
     ENV INTELOCLSDKROOT
@@ -89,6 +90,7 @@ if(WIN32)
     find_library(OpenCL_LIBRARY
       NAMES OpenCL
       PATHS
+        ENV OPENCL_ROOT
         ENV "PROGRAMFILES(X86)"
         ENV AMDAPPSDKROOT
         ENV INTELOCLSDKROOT
@@ -104,6 +106,7 @@ if(WIN32)
     find_library(OpenCL_LIBRARY
       NAMES OpenCL
       PATHS
+        ENV OPENCL_ROOT
         ENV "PROGRAMFILES(X86)"
         ENV AMDAPPSDKROOT
         ENV INTELOCLSDKROOT
