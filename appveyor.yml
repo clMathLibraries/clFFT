@@ -54,6 +54,7 @@ install:
   - ps: pushd lib
   - cmake -G "NMake Makefiles" ..
   - nmake
+  - ps: mkdir x64; cp OpenCL.lib x64\
   - ps: popd
   # Switch to OpenCL 1.2 headers
   - ps: pushd inc/CL
@@ -82,7 +83,9 @@ before_build:
   - ps: $env:BOOST_LIBRARYDIR = "$env:BOOST_ROOT/lib64-msvc-12.0"
   - ps: mkdir $env:CLFFT_ROOT
   - ps: pushd $env:CLFFT_ROOT
-  - cmake -G "NMake Makefiles" -DCMAKE_BUILD_TYPE=%CONFIGURATION% -DBoost_NO_SYSTEM_PATHS=OFF -DOPENCL_ROOT=%OPENCL_ROOT% %APPVEYOR_BUILD_FOLDER%/src
+  - ps: $env:AMDAPPSDKROOT = "$env:OPENCL_ROOT"
+  - ps: dir $env:AMDAPPSDKROOT; dir $env:AMDAPPSDKROOT/lib; dir $env:AMDAPPSDKROOT/include;
+  - cmake -G "NMake Makefiles" -DCMAKE_BUILD_TYPE=%CONFIGURATION% -DBoost_NO_SYSTEM_PATHS=OFF %APPVEYOR_BUILD_FOLDER%/src
 
 # build_script invokes the compiler
 build_script:

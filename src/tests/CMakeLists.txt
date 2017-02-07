@@ -71,13 +71,13 @@ elseif( APPLE )
 endif( )
 
 # Include standard OpenCL headers
-include_directories( ${Boost_INCLUDE_DIRS} ${GTEST_INCLUDE_DIRS} ${FFTW_INCLUDE_DIRS} ${OPENCL_INCLUDE_DIRS}  ${PROJECT_BINARY_DIR}/include ${PROJECT_SOURCE_DIR}/include )
+include_directories( ${Boost_INCLUDE_DIRS} ${GTEST_INCLUDE_DIRS} ${FFTW_INCLUDE_DIRS} ${OpenCL_INCLUDE_DIRS}  ${PROJECT_BINARY_DIR}/include ${PROJECT_SOURCE_DIR}/include )
 
 add_executable( Test ${clFFT.Test.Files} )
 
 # If the runtime is being built by the project, use it, otherwise link to a runtime library specified in the install prefix
 if( BUILD_RUNTIME )
-	target_link_libraries( Test clFFT ${Boost_LIBRARIES} ${GTEST_LIBRARIES} ${FFTW_LIBRARIES} ${OPENCL_LIBRARIES} ${LD_PTHREAD} ${CMAKE_DL_LIBS})
+	target_link_libraries( Test clFFT ${Boost_LIBRARIES} ${GTEST_LIBRARIES} ${FFTW_LIBRARIES} ${OpenCL_LIBRARIES} ${LD_PTHREAD} ${CMAKE_DL_LIBS})
 else( )
 	# Search for 64bit libs if FIND_LIBRARY_USE_LIB64_PATHS is set to true in the global environment, 32bit libs else
 	get_property( LIB64 GLOBAL PROPERTY FIND_LIBRARY_USE_LIB64_PATHS )
@@ -93,7 +93,7 @@ else( )
 		set( clFFT.library "${clFFT.library}/${CMAKE_SHARED_LIBRARY_PREFIX}clFFT${CMAKE_SHARED_LIBRARY_SUFFIX}" )
 	endif( )
 
-	target_link_libraries( Test ${clFFT.library} ${Boost_LIBRARIES} ${GTEST_LIBRARIES} ${FFTW_LIBRARIES} ${OPENCL_LIBRARIES} ${LD_PTHREAD} ${CMAKE_DL_LIBS})
+	target_link_libraries( Test ${clFFT.library} ${Boost_LIBRARIES} ${GTEST_LIBRARIES} ${FFTW_LIBRARIES} ${OpenCL_LIBRARIES} ${LD_PTHREAD} ${CMAKE_DL_LIBS})
 
 endif( )
 

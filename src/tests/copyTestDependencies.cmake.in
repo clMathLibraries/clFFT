@@ -62,7 +62,7 @@ if( ${gtestDiffDirs} AND EXISTS "${gtestDirDebug}" )
 endif( )
 
 #This logic assumes that FindOpenCL.cmake has been called
-get_filename_component( openclDir "@OPENCL_LIBRARIES@" PATH )
+get_filename_component( openclDir "@OpenCL_LIBRARIES@" PATH )
 
 if( EXISTS "${openclDir}" )
     list( APPEND depList "${openclDir}" )
