@@ -49,6 +49,9 @@ addons:
       # - clang-3.6
       # We require v2.8.12 minimum
       - cmake
+      - libfftw3-dev
+      - libfftw3-single3
+      - libfftw3-double3
       # I'm finding problems between pre-compiled versions of boost ublas, with gtest
       # stl_algobase.h: error: no matching function for call to swap()
       - libboost-program-options1.55-dev
@@ -115,13 +118,13 @@ install:
       pushd lib;
       cmake -G "Unix Makefiles" ..;
       make;
-      cp ./bin/libOpenCL.so .;
+      sudo cp ./bin/libOpenCL.so /usr/local/lib;
       popd;
       pushd inc/CL;
       travis_retry git fetch origin opencl12:opencl12;
       git checkout opencl12;
       popd;
-      mv inc/ include/;
+      sudo cp -r inc/* /usr/local/include;
       popd;
     fi
 
@@ -136,7 +139,7 @@ install:
 before_script:
   - mkdir -p ${CLFFT_ROOT}
   - pushd ${CLFFT_ROOT}
-  - cmake -DCMAKE_BUILD_TYPE=Release -DBoost_NO_SYSTEM_PATHS=OFF -DOPENCL_ROOT=${OPENCL_ROOT} ${TRAVIS_BUILD_DIR}/src
+  - cmake -DCMAKE_BUILD_TYPE=Release -DBoost_NO_SYSTEM_PATHS=OFF ${TRAVIS_BUILD_DIR}/src
 
 # use script: to execute build steps
 script:

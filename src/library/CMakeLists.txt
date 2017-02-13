@@ -82,10 +82,10 @@ set( clFFT.Files ${clFFT.Source} ${clFFT.Headers} )
 add_definitions( "/DCLFFT_EXPORTS" )
 
 # Include standard OpenCL headers
-include_directories( ${OPENCL_INCLUDE_DIRS} ${PROJECT_BINARY_DIR}/include ../include )
+include_directories( ${OpenCL_INCLUDE_DIRS} ${PROJECT_BINARY_DIR}/include ../include )
 
 add_library( clFFT ${clFFT.Files} )
-target_link_libraries( clFFT ${OPENCL_LIBRARIES} ${CMAKE_DL_LIBS} )
+target_link_libraries( clFFT ${OpenCL_LIBRARIES} ${CMAKE_DL_LIBS} )
 
 set_target_properties( clFFT PROPERTIES VERSION ${CLFFT_VERSION} )
 set_target_properties( clFFT PROPERTIES SOVERSION ${CLFFT_SOVERSION} )
