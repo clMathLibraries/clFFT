@@ -43,10 +43,10 @@ set( clFFT.Headers	private.h
 					mainpage.h
 					generator.h
 					generator.stockham.h
-                    generator.twiddle.hpp
-                    generator.butterfly.hpp
-                    generator.pass.hpp
-                    generator.kernel.hpp
+			                generator.twiddle.hpp
+                    			generator.butterfly.hpp
+                    			generator.pass.hpp
+                    			generator.kernel.hpp
 					generator.transpose.gcn.h
 					generator.transpose.h
 					action.transpose.h
