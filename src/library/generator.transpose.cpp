@@ -1089,8 +1089,8 @@ clfftStatus genSwapKernelGeneral(const FFTGeneratedTransposeNonSquareAction::Sig
 
 	//std::string funcName = "swap_nonsquare_" + std::to_string(smaller_dim) + "_" + std::to_string(dim_ratio);
 	std::string funcName = "swap_nonsquare_";
-	std::string smaller_dim_str = static_cast<std::ostringstream*>(&(std::ostringstream() << smaller_dim))->str();
-	std::string dim_ratio_str = static_cast<std::ostringstream*>(&(std::ostringstream() << dim_ratio))->str();
+	std::string smaller_dim_str = static_cast<const std::ostringstream&>(std::ostringstream() << smaller_dim).str();
+	std::string dim_ratio_str = static_cast<const std::ostringstream&>(std::ostringstream() << dim_ratio).str();
 	if(params.fft_N[0] > params.fft_N[1])
 		funcName = funcName + smaller_dim_str + "_" + dim_ratio_str;
 	else
