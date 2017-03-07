@@ -22,6 +22,7 @@
 #include "repo.h"
 #include "plan.h"
 #include "generator.stockham.h"
+#include "generator.twiddle.hpp"
 #include "action.h"
 
 #define AVAIL_MEM_SIZE 32768 

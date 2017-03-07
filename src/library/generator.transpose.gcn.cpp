@@ -27,6 +27,7 @@
 
 #include "generator.transpose.gcn.h"
 #include "generator.stockham.h"
+#include "generator.twiddle.hpp"
 
 #include "action.h"
 
