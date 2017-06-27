@@ -232,7 +232,7 @@ extern "C" {
 	 *  @param[out] setupData Data structure is cleared and initialized with version information and default values
 	 *  @return Enum describes the error condition; superset of OpenCL error codes
 	 */
-	__inline clfftStatus clfftInitSetupData( clfftSetupData* setupData )
+	static __inline clfftStatus clfftInitSetupData( clfftSetupData* setupData )
 	{
 		setupData->major	= clfftVersionMajor;
 		setupData->minor	= clfftVersionMinor;
