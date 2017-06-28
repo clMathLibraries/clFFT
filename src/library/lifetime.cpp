@@ -24,6 +24,16 @@
 #include "../include/sharedLibrary.h"
 #include "../statTimer/statisticalTimer.extern.h"
 
+clfftStatus clfftInitSetupData( clfftSetupData* setupData )
+{
+	setupData->major	= clfftVersionMajor;
+	setupData->minor	= clfftVersionMinor;
+	setupData->patch	= clfftVersionPatch;
+	setupData->debugFlags	= 0;
+
+	return	CLFFT_SUCCESS;
+}
+
 //	Allow AMD's implementation of FFT's to allocate internal resources
 clfftStatus	clfftSetup( const clfftSetupData* sData )
 {

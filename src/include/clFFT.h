@@ -232,15 +232,8 @@ extern "C" {
 	 *  @param[out] setupData Data structure is cleared and initialized with version information and default values
 	 *  @return Enum describes the error condition; superset of OpenCL error codes
 	 */
-	__inline clfftStatus clfftInitSetupData( clfftSetupData* setupData )
-	{
-		setupData->major	= clfftVersionMajor;
-		setupData->minor	= clfftVersionMinor;
-		setupData->patch	= clfftVersionPatch;
-		setupData->debugFlags	= 0;
+	CLFFTAPI clfftStatus clfftInitSetupData( clfftSetupData* setupData );
 
-		return	CLFFT_SUCCESS;
-	}
 
 	/*! @brief Initialize the internal FFT resources.
 	 *  @details The internal resources include FFT implementation caches kernels, programs, and buffers.
