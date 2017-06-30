@@ -819,7 +819,8 @@ namespace StockhamGenerator
 
 				passStr += "\n\t";
 				passStr += "__global "; passStr += RegBaseType<PR>(4);
-				passStr += " *buff4g = "; passStr += bufferRe; passStr += ";\n\t"; // Assuming 'outOffset' is 0, so not adding it here
+				passStr += " *buff4g = (__global "; passStr += RegBaseType<PR>(4); passStr += " *)";
+				passStr += bufferRe; passStr += ";\n\t"; // Assuming 'outOffset' is 0, so not adding it here
 
 				for(size_t r=0; r<radix; r++) // setting the radix loop outside to facilitate grouped writing
 				{
