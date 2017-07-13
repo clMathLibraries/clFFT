@@ -110,10 +110,10 @@ install:
       pushd ${OPENCL_ROOT};
       travis_retry git clone --depth 1 https://github.com/KhronosGroup/OpenCL-ICD-Loader.git;
       mv ./OpenCL-ICD-Loader/* .;
-      travis_retry git clone --depth 1 https://github.com/KhronosGroup/OpenCL-Headers.git inc;
+      travis_retry git clone --depth 1 https://github.com/KhronosGroup/OpenCL-Headers.git inc/CL_headers_repo;
       pushd inc;
       mkdir CL;
-      cp opencl12/CL/* CL/;
+      cp CL_headers_repo/opencl12/CL/* CL/;
       popd;
       mkdir -p lib;
       pushd lib;
