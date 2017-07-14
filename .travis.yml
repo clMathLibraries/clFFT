@@ -113,7 +113,7 @@ install:
       travis_retry git clone --depth 1 https://github.com/KhronosGroup/OpenCL-Headers.git inc/CL_headers_repo;
       pushd inc;
       mkdir CL;
-      cp CL_headers_repo/opencl12/CL/* CL/;
+      cp CL_headers_repo/opencl22/CL/* CL/;
       popd;
       mkdir -p lib;
       pushd lib;
@@ -122,10 +122,10 @@ install:
       sudo cp ./bin/libOpenCL.so /usr/local/lib;
       popd;
       pushd inc/CL;
-      travis_retry git fetch origin opencl12:opencl12;
-      git checkout opencl12;
+      rm -rf *;
+      cp -r ../inc/CL_headers_repo/opencl12/CL/* .;
       popd;
-      sudo cp -r inc/* /usr/local/include;
+      sudo cp -r inc/CL /usr/local/include/;
       popd;
     fi
 
