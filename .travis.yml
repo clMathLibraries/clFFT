@@ -119,11 +119,11 @@ install:
       pushd lib;
       cmake -G "Unix Makefiles" ..;
       make;
-      sudo cp ./bin/libOpenCL.so /usr/local/lib;
+      sudo cp ./lib/libOpenCL.so /usr/local/lib;
       popd;
       pushd inc/CL;
       rm -rf *;
-      cp -r ../inc/CL_headers_repo/opencl12/CL/* .;
+      cp -r ../CL_headers_repo/opencl12/CL/* .;
       popd;
       sudo cp -r inc/CL /usr/local/include/;
       popd;
