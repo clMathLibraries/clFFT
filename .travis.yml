@@ -110,21 +110,22 @@ install:
       pushd ${OPENCL_ROOT};
       travis_retry git clone --depth 1 https://github.com/KhronosGroup/OpenCL-ICD-Loader.git;
       mv ./OpenCL-ICD-Loader/* .;
-      travis_retry git clone --depth 1 https://github.com/KhronosGroup/OpenCL-Headers.git inc/CL;
-      pushd inc/CL;
-      travis_retry wget -w 1 -np -nd -nv -A h,hpp ${OPENCL_REGISTRY}/api/2.1/cl.hpp;
+      travis_retry git clone --depth 1 https://github.com/KhronosGroup/OpenCL-Headers.git inc/CL_headers_repo;
+      pushd inc;
+      mkdir CL;
+      cp CL_headers_repo/opencl22/CL/* CL/;
       popd;
       mkdir -p lib;
       pushd lib;
       cmake -G "Unix Makefiles" ..;
       make;
-      sudo cp ./bin/libOpenCL.so /usr/local/lib;
+      sudo cp ./lib/libOpenCL.so /usr/local/lib;
       popd;
       pushd inc/CL;
-      travis_retry git fetch origin opencl12:opencl12;
-      git checkout opencl12;
+      rm -rf *;
+      cp -r ../CL_headers_repo/opencl12/CL/* .;
       popd;
-      sudo cp -r inc/* /usr/local/include;
+      sudo cp -r inc/CL /usr/local/include/;
       popd;
     fi
 
