@@ -45,9 +45,13 @@ install:
   - ps: mv ./OpenCL-ICD-Loader/* .
   # This downloads all the opencl header files
   # The cmake build files expect a directory called inc
-  - ps: mkdir inc/CL
-  - git clone --depth 1 https://github.com/KhronosGroup/OpenCL-Headers.git inc/CL
-  - ps: wget $opencl_registry/api/2.1/cl.hpp -OutFile inc/CL/cl.hpp
+  - ps: mkdir inc/CL_headers_repo
+  - git clone --depth 1 https://github.com/KhronosGroup/OpenCL-Headers.git inc/CL_headers_repo
+  - ps: pushd inc
+  - ps: mkdir CL
+  - ps: cp CL_headers_repo/opencl22/CL/* CL/
+  - ps: popd
+  # - ps: wget $opencl_registry/api/2.1/cl.hpp -OutFile inc/CL/cl.hpp
   # - ps: dir; if( $lastexitcode -eq 0 ){ dir include/CL } else { Write-Output boom }
   # Create the static import lib in a directory called lib, so findopencl() will find it
   - ps: mkdir lib
@@ -58,8 +62,10 @@ install:
   - ps: popd
   # Switch to OpenCL 1.2 headers
   - ps: pushd inc/CL
-  - git fetch origin opencl12:opencl12
-  - git checkout opencl12
+  - ps: del * 
+  - ps: cp -r ../CL_headers_repo/opencl12/CL/* .
+  # - git fetch origin opencl12:opencl12
+  # - git checkout opencl12
   - ps: popd
   # Rename the inc directory to include, so FindOpencl() will find it
   - ps: ren inc include
