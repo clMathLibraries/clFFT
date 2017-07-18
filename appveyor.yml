@@ -62,7 +62,7 @@ install:
   - ps: popd
   # Switch to OpenCL 1.2 headers
   - ps: pushd inc/CL
-  - ps: rm -rf * 
+  - ps: del * 
   - ps: cp -r ../CL_headers_repo/opencl12/CL/* .
   # - git fetch origin opencl12:opencl12
   # - git checkout opencl12
