@@ -3488,9 +3488,14 @@ namespace StockhamGenerator
         clGetDeviceInfo(Dev_ID, CL_DEVICE_VENDOR, 0, NULL, &SizeParam_ret);
         char* nameVendor = new char[SizeParam_ret];
         clGetDeviceInfo(Dev_ID, CL_DEVICE_VENDOR, SizeParam_ret, nameVendor, NULL);
+        char nameDevice[128];
+        clGetDeviceInfo(Dev_ID, CL_DEVICE_NAME, SizeParam_ret, nameDevice, NULL);
 
         //nv compiler doesn't support __constant kernel argument
-        if (strncmp(nameVendor, "NVIDIA",6)!=0)
+        //rocm compiler (for Vega) doesn't support __constant kernel argument
+        if ((strncmp(nameVendor, "NVIDIA",6)!=0) &&
+            (strncmp(nameVendor, "Advanced Micro Devices, Inc.", 28) != 0 &&
+             strncmp(nameDevice, "gfx900", 6) != 0))
           str += "__constant cb_t *cb __attribute__((max_constant_size(32))), ";
         else
           str += "__global cb_t *cb, ";
