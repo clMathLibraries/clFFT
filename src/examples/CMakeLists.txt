@@ -14,6 +14,8 @@
 # limitations under the License.
 # ########################################################################
 
+find_package(Threads REQUIRED)
+
 INCLUDE_DIRECTORIES(
     "${CMAKE_CURRENT_SOURCE_DIR}"
     "${OpenCL_INCLUDE_DIRS}"
@@ -40,7 +42,16 @@ FOREACH(FILE ${FILES})
     SET(EXAMPLE_NAME example_${DIR_NAME}_${EXAMPLE})
     ADD_EXECUTABLE(${EXAMPLE_NAME} ${FILE})
 
-    TARGET_LINK_LIBRARIES(${EXAMPLE_NAME} clFFT ${OpenCL_LIBRARIES} ${CMAKE_DL_LIBS})
+    TARGET_LINK_LIBRARIES(${EXAMPLE_NAME} clFFT
+		${OpenCL_LIBRARIES}
+		${CMAKE_DL_LIBS}
+	)
+
+	if(UNIX)
+		TARGET_LINK_LIBRARIES(${EXAMPLE_NAME} clFFT
+			Threads::Threads
+		)
+	endif()
 
     SET_TARGET_PROPERTIES(${EXAMPLE_NAME}
         PROPERTIES
