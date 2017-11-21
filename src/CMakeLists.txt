@@ -107,11 +107,11 @@ set( SUFFIX_LIB_DEFAULT "" )
 set( SUFFIX_BIN_DEFAULT "" )
 
 # Modify the global find property to help us find libraries like Boost in the correct paths for 64-bit
-# Essentially, find_library calls will look for /lib64 instead of /lib; works for windows and linux
+# Essentially, find_library calls will look for /lib64 instead of /lib; works for windows, not on debian
 if( BUILD64 )
 	set_property( GLOBAL PROPERTY FIND_LIBRARY_USE_LIB64_PATHS TRUE )
 	message( STATUS "64bit build - FIND_LIBRARY_USE_LIB64_PATHS TRUE" )
-	if( NOT APPLE )
+	if( WIN32 )
 		set( SUFFIX_LIB_DEFAULT "64" )
 	endif()
 else( )
@@ -320,13 +320,31 @@ install( FILES ${CMAKE_CURRENT_BINARY_DIR}/clFFTConfigVersion.cmake
 	${CMAKE_CURRENT_BINARY_DIR}/clFFTConfig.cmake
 	DESTINATION ${destdir} )
 
+install( FILES ${CMAKE_SOURCE_DIR}/FindclFFT.cmake
+	DESTINATION ${destdir} )
+
 # The following code is setting variables to control the behavior of CPack to generate our
+set(CPACK_PACKAGE_NAME "clFFT")
+set(CPACK_PACKAGE_VENDOR "AMD")
+set(CPACK_PACKAGE_DESCRIPTION "A software library containing FFT functions written in OpenCL")
+set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "FFT in OpenCL")
+#set(CPACK_PACKAGE_CONTACT "none@gmail.com")
+set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_SOURCE_DIR}/../LICENSE")
+set(CPACK_RESOURCE_FILE_README "${CMAKE_SOURCE_DIR}/../README.md")
+
 if( WIN32 )
 	set( CPACK_SOURCE_GENERATOR "ZIP" )
 	set( CPACK_GENERATOR "ZIP" )
 else( )
-	set( CPACK_SOURCE_GENERATOR "TGZ" )
-	set( CPACK_GENERATOR "TGZ" )
+	set( CPACK_SOURCE_GENERATOR "TGZ;DEB" )
+	set( CPACK_GENERATOR "TGZ;DEB" )
+
+	set(CPACK_DEBIAN_PACKAGE_MAINTAINER "${CPACK_PACKAGE_VENDOR} <${CPACK_PACKAGE_CONTACT}>")
+	set(CPACK_DEBIAN_PACKAGE_ARCHITECTURE "${CPACK_SYSTEM_NAME}")
+	set(CPACK_DEBIAN_PACKAGE_SECTION "libdevel")
+	set(CPACK_DEBIAN_PACKAGE_DEPENDS "libc6, ocl-icd-opencl-dev")
+	set(CPACK_DEBIAN_PACKAGE_RECOMMENDS "cmake")
+	#set(CPACK_DEBIAN_PACKAGE_CONTROL_EXTRA "debian/conffiles")
 endif( )
 
 if( BUILD64 )
