@@ -97,6 +97,12 @@ FFTAction::FFTAction(FFTPlan * fftPlan, clfftStatus & err)
     err = CLFFT_SUCCESS;
 }
 
+
+FFTAction::~FFTAction()
+{
+}
+
+
 clfftStatus FFTAction::selectBufferArguments(FFTPlan * fftPlan,
                                              cl_mem* clInputBuffers,
                                              cl_mem* clOutputBuffers,
