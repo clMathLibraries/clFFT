@@ -323,15 +323,6 @@ install( FILES ${CMAKE_CURRENT_BINARY_DIR}/clFFTConfigVersion.cmake
 install( FILES ${CMAKE_SOURCE_DIR}/FindclFFT.cmake
 	DESTINATION ${destdir} )
 
-# The following code is setting variables to control the behavior of CPack to generate our
-set(CPACK_PACKAGE_NAME "clFFT")
-set(CPACK_PACKAGE_VENDOR "AMD")
-set(CPACK_PACKAGE_DESCRIPTION "A software library containing FFT functions written in OpenCL")
-set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "FFT in OpenCL")
-set(CPACK_PACKAGE_CONTACT "none@gmail.com")
-set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_SOURCE_DIR}/../LICENSE")
-set(CPACK_RESOURCE_FILE_README "${CMAKE_SOURCE_DIR}/../README.md")
-
 if( WIN32 )
 	set( CPACK_SOURCE_GENERATOR "ZIP" )
 	set( CPACK_GENERATOR "ZIP" )
@@ -348,11 +339,17 @@ endif( )
 
 set( CPACK_SOURCE_PACKAGE_FILE_NAME "${CMAKE_PROJECT_NAME}-${CLFFT_VERSION}-${CMAKE_HOST_SYSTEM_NAME}-Source" )
 
+# The following code is setting variables to control the behavior of CPack to generate our
+set( CPACK_PACKAGE_CONTACT "none@gmail.com")
+set( CPACK_PACKAGE_DESCRIPTION "A software library containing FFT functions written in OpenCL")
+set( CPACK_PACKAGE_DESCRIPTION_SUMMARY "OpenCL implementation of an FFT library" )
+set( CPACK_PACKAGE_NAME "clFFT")
+set( CPACK_PACKAGE_VENDOR "Neutral" )
 set( CPACK_PACKAGE_VERSION_MAJOR ${CLFFT_VERSION_MAJOR} )
 set( CPACK_PACKAGE_VERSION_MINOR ${CLFFT_VERSION_MINOR} )
 set( CPACK_PACKAGE_VERSION_PATCH ${CLFFT_VERSION_PATCH} )
-set( CPACK_PACKAGE_DESCRIPTION_SUMMARY "OpenCL implementation of an FFT library" )
-set( CPACK_PACKAGE_VENDOR "Neutral" )
+set( CPACK_RESOURCE_FILE_LICENSE "${CMAKE_SOURCE_DIR}/../LICENSE")
+set( CPACK_RESOURCE_FILE_README "${CMAKE_SOURCE_DIR}/../README.md")
 set( CPACK_SOURCE_IGNORE_FILES "/\\\\.hg/;/\\\\.svn/;/\\\\.git/" )
 
 # Define all variables that influence CPack before including CPack, such as install targets
