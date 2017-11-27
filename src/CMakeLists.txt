@@ -327,11 +327,14 @@ if( WIN32 )
 	set( CPACK_SOURCE_GENERATOR "ZIP" )
 	set( CPACK_GENERATOR "ZIP" )
 else( )
-	set( CPACK_DEBIAN_PACKAGE_DEPENDS "opencl-c-headers (>=1.2)")
-	set( CPACK_DEBIAN_PACKAGE_RECOMMENDS "build-essential, cmake")
-
-	set( CPACK_SOURCE_GENERATOR "TGZ;DEB" )
-	set( CPACK_GENERATOR "TGZ;DEB" )
+	if(EXISTS "/etc/debian_version")
+		set(DEBIAN TRUE)
+		set( CPACK_SOURCE_GENERATOR "TGZ;DEB" )
+		set( CPACK_GENERATOR "TGZ;DEB" )
+	else ()
+		set( CPACK_SOURCE_GENERATOR "TGZ" )
+		set( CPACK_GENERATOR "TGZ" )
+	endif( )
 endif( )
 
 if( BUILD64 )
@@ -355,5 +358,7 @@ set( CPACK_RESOURCE_FILE_LICENSE "${CMAKE_SOURCE_DIR}/../LICENSE")
 set( CPACK_RESOURCE_FILE_README "${CMAKE_SOURCE_DIR}/../README.md")
 set( CPACK_SOURCE_IGNORE_FILES "/\\\\.hg/;/\\\\.svn/;/\\\\.git/" )
 
-# Define all variables that influence CPack before including CPack, such as install targets
+set( CPACK_DEBIAN_PACKAGE_DEPENDS "opencl-c-headers (>=1.2)")
+set( CPACK_DEBIAN_PACKAGE_RECOMMENDS "build-essential, cmake")
+
 include( CPack )
