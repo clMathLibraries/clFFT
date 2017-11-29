@@ -349,7 +349,7 @@ endif( )
 set( CPACK_SOURCE_PACKAGE_FILE_NAME "${CMAKE_PROJECT_NAME}-${CLFFT_VERSION}-${CMAKE_HOST_SYSTEM_NAME}-Source" )
 
 # The following code is setting variables to control the behavior of CPack to generate our
-set( CPACK_PACKAGE_CONTACT "none@gmail.com")
+set( CPACK_PACKAGE_CONTACT "clFFT maintainers")
 set( CPACK_PACKAGE_DESCRIPTION "A software library containing FFT functions written in OpenCL")
 set( CPACK_PACKAGE_DESCRIPTION_SUMMARY "OpenCL implementation of an FFT library" )
 set( CPACK_PACKAGE_NAME "clFFT")
