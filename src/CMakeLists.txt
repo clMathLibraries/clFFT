@@ -48,6 +48,10 @@ set( CLFFT_SOVERSION 2 )
 
 set( CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${PROJECT_SOURCE_DIR} )
 
+if(EXISTS "/etc/debian_version")
+	set(DEBIAN TRUE CACHE BOOL "Enable debian specific options: 64-bit lib name and .deb generation")
+endif()
+
 # On windows, it's convenient to change the default install prefix such that it does NOT point to 'program files'
 # Need to check out CMAKE_RUNTIME_OUTPUT_DIRECTORY variable, and see if that eliminates the need to modify install path
 if( WIN32 AND CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT )
@@ -107,11 +111,11 @@ set( SUFFIX_LIB_DEFAULT "" )
 set( SUFFIX_BIN_DEFAULT "" )
 
 # Modify the global find property to help us find libraries like Boost in the correct paths for 64-bit
-# Essentially, find_library calls will look for /lib64 instead of /lib; works for windows and linux
+# Essentially, find_library calls will look for /lib64 instead of /lib; works for windows, not on debian
 if( BUILD64 )
 	set_property( GLOBAL PROPERTY FIND_LIBRARY_USE_LIB64_PATHS TRUE )
 	message( STATUS "64bit build - FIND_LIBRARY_USE_LIB64_PATHS TRUE" )
-	if( NOT APPLE )
+	if( NOT APPLE AND NOT DEBIAN )
 		set( SUFFIX_LIB_DEFAULT "64" )
 	endif()
 else( )
@@ -320,13 +324,20 @@ install( FILES ${CMAKE_CURRENT_BINARY_DIR}/clFFTConfigVersion.cmake
 	${CMAKE_CURRENT_BINARY_DIR}/clFFTConfig.cmake
 	DESTINATION ${destdir} )
 
-# The following code is setting variables to control the behavior of CPack to generate our
+install( FILES ${CMAKE_SOURCE_DIR}/FindclFFT.cmake
+	DESTINATION ${destdir} )
+
 if( WIN32 )
 	set( CPACK_SOURCE_GENERATOR "ZIP" )
 	set( CPACK_GENERATOR "ZIP" )
 else( )
-	set( CPACK_SOURCE_GENERATOR "TGZ" )
-	set( CPACK_GENERATOR "TGZ" )
+	if(DEBIAN)
+		set( CPACK_SOURCE_GENERATOR "TGZ;DEB" )
+		set( CPACK_GENERATOR "TGZ;DEB" )
+	else ()
+		set( CPACK_SOURCE_GENERATOR "TGZ" )
+		set( CPACK_GENERATOR "TGZ" )
+	endif( )
 endif( )
 
 if( BUILD64 )
@@ -337,12 +348,20 @@ endif( )
 
 set( CPACK_SOURCE_PACKAGE_FILE_NAME "${CMAKE_PROJECT_NAME}-${CLFFT_VERSION}-${CMAKE_HOST_SYSTEM_NAME}-Source" )
 
+# The following code is setting variables to control the behavior of CPack to generate our
+set( CPACK_PACKAGE_CONTACT "clFFT maintainers")
+set( CPACK_PACKAGE_DESCRIPTION "A software library containing FFT functions written in OpenCL")
+set( CPACK_PACKAGE_DESCRIPTION_SUMMARY "OpenCL implementation of an FFT library" )
+set( CPACK_PACKAGE_NAME "clFFT")
+set( CPACK_PACKAGE_VENDOR "Neutral" )
 set( CPACK_PACKAGE_VERSION_MAJOR ${CLFFT_VERSION_MAJOR} )
 set( CPACK_PACKAGE_VERSION_MINOR ${CLFFT_VERSION_MINOR} )
 set( CPACK_PACKAGE_VERSION_PATCH ${CLFFT_VERSION_PATCH} )
-set( CPACK_PACKAGE_DESCRIPTION_SUMMARY "OpenCL implementation of an FFT library" )
-set( CPACK_PACKAGE_VENDOR "Neutral" )
+set( CPACK_RESOURCE_FILE_LICENSE "${CMAKE_SOURCE_DIR}/../LICENSE")
+set( CPACK_RESOURCE_FILE_README "${CMAKE_SOURCE_DIR}/../README.md")
 set( CPACK_SOURCE_IGNORE_FILES "/\\\\.hg/;/\\\\.svn/;/\\\\.git/" )
 
-# Define all variables that influence CPack before including CPack, such as install targets
+set( CPACK_DEBIAN_PACKAGE_DEPENDS "opencl-c-headers (>=1.2)")
+set( CPACK_DEBIAN_PACKAGE_RECOMMENDS "build-essential, cmake")
+
 include( CPack )

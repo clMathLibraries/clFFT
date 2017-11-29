@@ -90,12 +90,17 @@ FFTStockhamAction::FFTStockhamAction(clfftPlanHandle plHandle, FFTPlan * plan, c
 }
 
 
-
 FFTAction::FFTAction(FFTPlan * fftPlan, clfftStatus & err)
     : plan(fftPlan)
 {
     err = CLFFT_SUCCESS;
 }
+
+
+FFTAction::~FFTAction()
+{
+}
+
 
 clfftStatus FFTAction::selectBufferArguments(FFTPlan * fftPlan,
                                              cl_mem* clInputBuffers,
