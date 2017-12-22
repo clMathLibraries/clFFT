@@ -1108,7 +1108,12 @@ static const size_t reShapeFactor = 4;   // wgTileSize = { lwSize.x * reShapeFac
 
 static void ApplyHWTuning(size_t &loopCount, FFTPlan* plan)
 {
-    if (plan->dim == CLFFT_2D && plan->length[0] <= 1024 && plan->length[1] <= 1024)
+    bool apply = true;
+    for (size_t index = 0; index < plan->length.size(); ++index)
+    {
+        apply &= plan->length[index] <= 1024;
+    }
+    if (apply)
     {
 #define CL_DEVICE_GFXIP_MAJOR_AMD 0x404A
 #define GFXIP_MAJOR_VEGA 9
