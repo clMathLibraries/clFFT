@@ -90,6 +90,7 @@ target_link_libraries( clFFT ${OpenCL_LIBRARIES} ${CMAKE_DL_LIBS} )
 set_target_properties( clFFT PROPERTIES VERSION ${CLFFT_VERSION} )
 set_target_properties( clFFT PROPERTIES SOVERSION ${CLFFT_SOVERSION} )
 set_target_properties( clFFT PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIR}/staging" )
+set_target_properties( clFFT PROPERTIES INTERFACE_INCLUDE_DIRECTORIES $<INSTALL_INTERFACE:include> )
 
 if( CMAKE_COMPILER_IS_GNUCC )
     configure_file( ${CMAKE_CURRENT_SOURCE_DIR}/clFFT.pc.in
