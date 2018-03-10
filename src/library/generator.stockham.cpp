@@ -396,7 +396,7 @@ namespace StockhamGenerator
 			return;
 		}
 
-		size_t baseRadix[] = {13,11,7,5,3,2}; // list only supported primes
+		size_t baseRadix[] = {19,17,13,11,7,5,3,2}; // list only supported primes
 		size_t baseRadixSize = sizeof(baseRadix)/sizeof(baseRadix[0]);
 
 		size_t l = length;
@@ -448,6 +448,16 @@ namespace StockhamGenerator
 			workGroupSize = 169;
 			numTrans = length >= 13 * workGroupSize ? 1 : (13 * workGroupSize) / length;
 		}
+		else if (primeFactorsExpanded[17] == length) // Length is pure power of 17
+		{
+			workGroupSize = 17;
+			numTrans = length >= 17 * workGroupSize ? 1 : (17 * workGroupSize) / length;
+		}
+		else if (primeFactorsExpanded[19] == length) // Length is pure power of 19
+		{
+			workGroupSize = 19;
+			numTrans = length >= 19 * workGroupSize ? 1 : (19 * workGroupSize) / length;
+		}
 		else
 		{
 			size_t leastNumPerWI = 1; // least number of elements in one work item
@@ -488,6 +498,12 @@ namespace StockhamGenerator
 			}
 			else if (primeFactorsExpanded[2] * primeFactorsExpanded[13] == length) {
 				leastNumPerWI = 26; maxWorkGroupSize = 128;
+			}
+			else if (primeFactorsExpanded[2] * primeFactorsExpanded[17] == length) {
+				leastNumPerWI = 34; maxWorkGroupSize = 128;
+			}
+			else if (primeFactorsExpanded[2] * primeFactorsExpanded[19] == length) {
+				leastNumPerWI = 38; maxWorkGroupSize = 128;
 			}
 			else {
 				    leastNumPerWI =210; maxWorkGroupSize = 12;
@@ -3053,7 +3069,7 @@ namespace StockhamGenerator
 			else
 			{
 				// Possible radices
-				size_t cRad[] = {13,11,10,8,7,6,5,4,3,2,1}; // Must be in descending order
+				size_t cRad[] = {19,17,13,11,10,8,7,6,5,4,3,2,1}; // Must be in descending order
 				size_t cRadSize = (sizeof(cRad)/sizeof(cRad[0]));
 
 				// Generate the radix and pass objects
@@ -3358,6 +3374,48 @@ namespace StockhamGenerator
 				str += "#define b13_22 0.2261094450357824"; str += sfx; str += "\n";
 				str += "#define b13_23 0.0833333333333333"; str += sfx; str += "\n";
 				str += "#define b13_24 0.0386329546443481"; str += sfx; str += "\n";
+			}
+
+			if (length % 17 == 0)
+			{
+				str += "#define C17Q0 0.93247222940435580457311589182158"; str += sfx; str += "\n";
+				str += "#define C17Q1 0.36124166618715294874471459618375"; str += sfx; str += "\n";
+				str += "#define C17Q2 0.73900891722065911592453430987246"; str += sfx; str += "\n";
+				str += "#define C17Q3 0.67369564364655721171269191242562"; str += sfx; str += "\n";
+				str += "#define C17Q4 0.44573835577653826739645754937977"; str += sfx; str += "\n";
+				str += "#define C17Q5 0.89516329135506232206701649975394"; str += sfx; str += "\n";
+				str += "#define C17Q6 0.09226835946330199523965110715495"; str += sfx; str += "\n";
+				str += "#define C17Q7 0.99573417629503452187119117890517"; str += sfx; str += "\n";
+				str += "#define C17Q8 0.27366299007208286353907793543625"; str += sfx; str += "\n";
+				str += "#define C17Q9 0.96182564317281907040879629073141"; str += sfx; str += "\n";
+				str += "#define C17Q10 0.60263463637925638917858815498622"; str += sfx; str += "\n";
+				str += "#define C17Q11 0.79801722728023950333280511279642"; str += sfx; str += "\n";
+				str += "#define C17Q12 0.85021713572961415213414392294990"; str += sfx; str += "\n";
+				str += "#define C17Q13 0.52643216287735580024460779913968"; str += sfx; str += "\n";
+				str += "#define C17Q14 0.98297309968390177828194884485480"; str += sfx; str += "\n";
+				str += "#define C17Q15 0.18374951781657033157440883962159"; str += sfx; str += "\n";
+			}
+
+			if (length % 19 == 0)
+			{
+				str += "#define C19Q0 0.94581724170063467901966571428509"; str += sfx; str += "\n";
+				str += "#define C19Q1 0.32469946920468348740757271654668"; str += sfx; str += "\n";
+				str += "#define C19Q2 0.78914050939639359921898114939856"; str += sfx; str += "\n";
+				str += "#define C19Q3 0.61421271268966781744433583351442"; str += sfx; str += "\n";
+				str += "#define C19Q4 0.54694815812242687471176274669639"; str += sfx; str += "\n";
+				str += "#define C19Q5 0.83716647826252857480606120093683"; str += sfx; str += "\n";
+				str += "#define C19Q6 0.24548548714079914892229091779571"; str += sfx; str += "\n";
+				str += "#define C19Q7 0.96940026593933041673610732179658"; str += sfx; str += "\n";
+				str += "#define C19Q8 0.08257934547233232460034393423713"; str += sfx; str += "\n";
+				str += "#define C19Q9 0.99658449300666984981935200075048"; str += sfx; str += "\n";
+				str += "#define C19Q10 0.40169542465296945751684165974294"; str += sfx; str += "\n";
+				str += "#define C19Q11 0.91577332665505743991934923569413"; str += sfx; str += "\n";
+				str += "#define C19Q12 0.67728157162574107476215098449473"; str += sfx; str += "\n";
+				str += "#define C19Q13 0.73572391067313162477420761196146"; str += sfx; str += "\n";
+				str += "#define C19Q14 0.87947375120648907139085475488285"; str += sfx; str += "\n";
+				str += "#define C19Q15 0.47594739303707354443135291945400"; str += sfx; str += "\n";
+				str += "#define C19Q16 0.98636130340272237360250919481947"; str += sfx; str += "\n";
+				str += "#define C19Q17 0.16459459028073389414365205908766"; str += sfx; str += "\n";
 			}
 
 			str += "\n";
