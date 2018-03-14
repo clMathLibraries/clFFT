@@ -2036,7 +2036,352 @@ namespace StockhamGenerator
 						bflyStr += radix13str;
 
 				} break;
+			case 17:
+				{
 
+					bflyStr +=
+
+						"fptype pr0,pr1,pr2,pr3,pr4,pr5,pr6,pr7;\n\t"
+						"fptype pi0,pi1,pi2,pi3,pi4,pi5,pi6,pi7;\n\n\t"
+
+						"pr0 = (*R1).x + (*R16).x;\n\t"
+						"pr1 = (*R2).x + (*R15).x;\n\t"
+						"pr2 = (*R3).x + (*R14).x;\n\t"
+						"pr3 = (*R4).x + (*R13).x;\n\t"
+						"pr4 = (*R5).x + (*R12).x;\n\t"
+						"pr5 = (*R6).x + (*R11).x;\n\t"
+						"pr6 = (*R7).x + (*R10).x;\n\t"
+						"pr7 = (*R8).x + (*R9).x;\n\t"
+						"pi0 = (*R1).y - (*R16).y;\n\t"
+						"pi1 = (*R2).y - (*R15).y;\n\t"
+						"pi2 = (*R3).y - (*R14).y;\n\t"
+						"pi3 = (*R4).y - (*R13).y;\n\t"
+						"pi4 = (*R5).y - (*R12).y;\n\t"
+						"pi5 = (*R6).y - (*R11).y;\n\t"
+						"pi6 = (*R7).y - (*R10).y;\n\t"
+						"pi7 = (*R8).y - (*R9).y;\n\n\t"
+
+
+						"fptype qr1,qr2,qr3,qr4,qr5,qr6,qr7,qr8;\n\t"
+						"fptype qi1,qi2,qi3,qi4,qi5,qi6,qi7,qi8;\n\n\t"
+
+
+						"TR0 = (*R0).x + pr0 + pr1 + pr2 + pr3 + pr4 + pr5 + pr6 + pr7;\n\t"
+						"qr1 = (*R0).x + C17Q0 * pr0 + C17Q2 * pr1 + C17Q4 * pr2 + C17Q6 * pr3 - C17Q8 * pr4 - C17Q10 * pr5 - C17Q12 * pr6 - C17Q14 * pr7;\n\t"
+						"qi1 = C17Q1 * pi0  + C17Q3 * pi1 + C17Q5 * pi2 + C17Q7 * pi3 + C17Q9 * pi4 + C17Q11 * pi5 + C17Q13 * pi6 + C17Q15 * pi7;\n\t"
+						"qr2 = (*R0).x + C17Q2 * pr0 + C17Q6 * pr1 - C17Q10 * pr2 - C17Q14 * pr3 - C17Q12 * pr4 - C17Q8 * pr5 + C17Q4 * pr6 + C17Q0 * pr7;\n\t"
+						"qi2 = C17Q3 * pi0 + C17Q7 * pi1 + C17Q11 * pi2 + C17Q15 * pi3 - C17Q13 * pi4 - C17Q9 * pi5 - C17Q5 * pi6 - C17Q1 * pi7;\n\t"
+						"qr3 = (*R0).x + C17Q4 * pr0 - C17Q10 * pr1 - C17Q14 * pr2 - C17Q8 * pr3 + C17Q2 * pr4 + C17Q0 * pr5 + C17Q6 * pr6 - C17Q12 * pr7;\n\t"
+						"qi3 = C17Q5 * pi0 + C17Q11 * pi1 - C17Q15 * pi2 - C17Q9 * pi3 - C17Q3 * pi4 + C17Q1 * pi5 + C17Q7 * pi6 + C17Q13 * pi7;\n\t"
+						"qr4 = (*R0).x + C17Q6 * pr0 - C17Q14 * pr1 - C17Q8 * pr2 + C17Q0 * pr3 + C17Q4 * pr4 - C17Q12 * pr5 - C17Q10 * pr6 + C17Q2 * pr7;\n\t"
+						"qi4 = C17Q7 * pi0 + C17Q15 * pi1 - C17Q9 * pi2 - C17Q1 * pi3 + C17Q5 * pi4 + C17Q13 * pi5 - C17Q11 * pi6 - C17Q3 * pi7;\n\t"
+						"qr5 = (*R0).x - C17Q8 * pr0 - C17Q12 * pr1 + C17Q2 * pr2 + C17Q4 * pr3 - C17Q14 * pr4 + C17Q6 * pr5 + C17Q0 * pr6 - C17Q10 * pr7;\n\t"
+						"qi5 = C17Q9 * pi0 - C17Q13 * pi1 - C17Q3 * pi2 + C17Q5 * pi3 + C17Q15 * pi4 - C17Q7 * pi5 + C17Q1 * pi6 + C17Q11 * pi7;\n\t"
+						"qr6 = (*R0).x - C17Q10 * pr0 - C17Q8 * pr1 + C17Q0 * pr2 - C17Q12 * pr3 + C17Q6 * pr4 + C17Q2 * pr5 - C17Q14 * pr6 + C17Q4 * pr7;\n\t"
+						"qi6 = C17Q11 * pi0 - C17Q9 * pi1 + C17Q1 * pi2 + C17Q13 * pi3 - C17Q7 * pi4 + C17Q3 * pi5 + C17Q15 * pi6 - C17Q5 * pi7;\n\t"
+						"qr7 = (*R0).x - C17Q12 * pr0 + C17Q4 * pr1 + C17Q6 * pr2 - C17Q10 * pr3 + C17Q0 * pr4 - C17Q14 * pr5 + C17Q2 * pr6 - C17Q8 * pr7;\n\t"
+						"qi7 = C17Q13 * pi0 - C17Q5 * pi1 + C17Q7 * pi2 - C17Q11 * pi3 + C17Q1 * pi4 + C17Q15 * pi5 - C17Q3 * pi6 + C17Q9 * pi7;\n\t"
+						"qr8 = (*R0).x - C17Q14 * pr0 + C17Q0 * pr1 - C17Q12 * pr2 + C17Q2 * pr3 - C17Q10 * pr4 + C17Q4 * pr5 - C17Q8 * pr6 + C17Q6 * pr7;\n\t"
+						"qi8 = C17Q15 * pi0 - C17Q1 * pi1 + C17Q13 * pi2 - C17Q3 * pi3 + C17Q11 * pi4 - C17Q5 * pi5 + C17Q9 * pi6 - C17Q7 * pi7;\n\n\t";
+
+					if (fwd)
+					{
+						bflyStr +=
+							"TR1 = qr1 + qi1;\n\t"
+							"TR16 = qr1 - qi1;\n\t"
+							"TR2 = qr2 + qi2;\n\t"
+							"TR15 = qr2 - qi2;\n\t"
+							"TR3 = qr3 + qi3;\n\t"
+							"TR14 = qr3 - qi3;\n\t"
+							"TR4 = qr4 + qi4;\n\t"
+							"TR13 = qr4 - qi4;\n\t"
+							"TR5 = qr5 + qi5;\n\t"
+							"TR12 = qr5 - qi5;\n\t"
+							"TR6 = qr6 + qi6;\n\t"
+							"TR11 = qr6 - qi6;\n\t"
+							"TR7 = qr7 + qi7;\n\t"
+							"TR10 = qr7 - qi7;\n\t"
+							"TR8 = qr8 + qi8;\n\t"
+							"TR9 = qr8 - qi8;\n\n\t";
+					}
+					else
+					{
+						bflyStr +=
+							"TR1 = qr1 - qi1;\n\t"
+							"TR16 = qr1 + qi1;\n\t"
+							"TR2 = qr2 - qi2;\n\t"
+							"TR15 = qr2 + qi2;\n\t"
+							"TR3 = qr3 - qi3;\n\t"
+							"TR14 = qr3 + qi3;\n\t"
+							"TR4 = qr4 - qi4;\n\t"
+							"TR13 = qr4 + qi4;\n\t"
+							"TR5 = qr5 - qi5;\n\t"
+							"TR12 = qr5 + qi5;\n\t"
+							"TR6 = qr6 - qi6;\n\t"
+							"TR11 = qr6 + qi6;\n\t"
+							"TR7 = qr7 - qi7;\n\t"
+							"TR10 = qr7 + qi7;\n\t"
+							"TR8 = qr8 - qi8;\n\t"
+							"TR9 = qr8 + qi8;\n\n\t";
+					}
+
+					bflyStr +=
+						"pr0 = (*R1).y + (*R16).y;\n\t"
+						"pr1 = (*R2).y + (*R15).y;\n\t"
+						"pr2 = (*R3).y + (*R14).y;\n\t"
+						"pr3 = (*R4).y + (*R13).y;\n\t"
+						"pr4 = (*R5).y + (*R12).y;\n\t"
+						"pr5 = (*R6).y + (*R11).y;\n\t"
+						"pr6 = (*R7).y + (*R10).y;\n\t"
+						"pr7 = (*R8).y + (*R9).y;\n\t"
+						"pi0 = (*R1).x - (*R16).x;\n\t"
+						"pi1 = (*R2).x - (*R15).x;\n\t"
+						"pi2 = (*R3).x - (*R14).x;\n\t"
+						"pi3 = (*R4).x - (*R13).x;\n\t"
+						"pi4 = (*R5).x - (*R12).x;\n\t"
+						"pi5 = (*R6).x - (*R11).x;\n\t"
+						"pi6 = (*R7).x - (*R10).x;\n\t"
+						"pi7 = (*R8).x - (*R9).x;\n\n\t"
+
+						"TI0 = (*R0).y + pr0 + pr1 + pr2 + pr3 + pr4 + pr5 + pr6 + pr7;\n\t"
+						"qr1 =  (*R0).y + C17Q0 * pr0 + C17Q2 * pr1 + C17Q4 * pr2 + C17Q6 * pr3 - C17Q8 * pr4 - C17Q10 * pr5 - C17Q12 * pr6 - C17Q14 * pr7;\n\t"
+						"qi1 = - C17Q1 * pi0 - C17Q3 * pi1 - C17Q5 * pi2 - C17Q7 * pi3 - C17Q9 * pi4 - C17Q11 * pi5 - C17Q13 * pi6 - C17Q15 * pi7;\n\t"
+						"qr2 =  (*R0).y + C17Q2 * pr0 + C17Q6 * pr1 - C17Q10 * pr2 - C17Q14 * pr3 - C17Q12 * pr4 - C17Q8 * pr5 + C17Q4 * pr6 + C17Q0 * pr7;\n\t"
+						"qi2 = - C17Q3 * pi0 - C17Q7 * pi1 - C17Q11 * pi2 - C17Q15 * pi3 + C17Q13 * pi4 + C17Q9 * pi5 + C17Q5 * pi6 + C17Q1 * pi7;\n\t"
+						"qr3 =  (*R0).y + C17Q4 * pr0 - C17Q10 * pr1 - C17Q14 * pr2 - C17Q8 * pr3 + C17Q2 * pr4 + C17Q0 * pr5 + C17Q6 * pr6 - C17Q12 * pr7;\n\t"
+						"qi3 = - C17Q5 * pi0 - C17Q11 * pi1 + C17Q15 * pi2 + C17Q9 * pi3 + C17Q3 * pi4 - C17Q1 * pi5 - C17Q7 * pi6 - C17Q13 * pi7;\n\t"
+						"qr4 =  (*R0).y + C17Q6 * pr0 - C17Q14 * pr1 - C17Q8 * pr2 + C17Q0 * pr3 + C17Q4 * pr4 - C17Q12 * pr5 - C17Q10 * pr6 + C17Q2 * pr7;\n\t"
+						"qi4 = - C17Q7 * pi0 - C17Q15 * pi1 + C17Q9 * pi2 + C17Q1 * pi3 - C17Q5 * pi4 - C17Q13 * pi5 + C17Q11 * pi6 + C17Q3 * pi7;\n\t"
+						"qr5 =  (*R0).y - C17Q8 * pr0 - C17Q12 * pr1 + C17Q2 * pr2 + C17Q4 * pr3 - C17Q14 * pr4 + C17Q6 * pr5 + C17Q0 * pr6 - C17Q10 * pr7;\n\t"
+						"qi5 = - C17Q9 * pi0 + C17Q13 * pi1 + C17Q3 * pi2 - C17Q5 * pi3 - C17Q15 * pi4 + C17Q7 * pi5 - C17Q1 * pi6 - C17Q11 * pi7;\n\t"
+						"qr6 =  (*R0).y - C17Q10 * pr0 - C17Q8 * pr1 + C17Q0 * pr2 - C17Q12 * pr3 + C17Q6 * pr4 + C17Q2 * pr5 - C17Q14 * pr6 + C17Q4 * pr7;\n\t"
+						"qi6 = - C17Q11 * pi0 + C17Q9 * pi1 - C17Q1 * pi2 - C17Q13 * pi3 + C17Q7 * pi4 - C17Q3 * pi5 - C17Q15 * pi6 + C17Q5 * pi7;\n\t"
+						"qr7 =  (*R0).y - C17Q12 * pr0 + C17Q4 * pr1 + C17Q6 * pr2 - C17Q10 * pr3 + C17Q0 * pr4 - C17Q14 * pr5 + C17Q2 * pr6 - C17Q8 * pr7;\n\t"
+						"qi7 = - C17Q13 * pi0 + C17Q5 * pi1 - C17Q7 * pi2 + C17Q11 * pi3 - C17Q1 * pi4 - C17Q15 * pi5 + C17Q3 * pi6 - C17Q9 * pi7;\n\t"
+						"qr8 =  (*R0).y - C17Q14 * pr0 + C17Q0 * pr1 - C17Q12 * pr2 + C17Q2 * pr3 - C17Q10 * pr4 + C17Q4 * pr5 - C17Q8 * pr6 + C17Q6 * pr7;\n\t"
+						"qi8 = - C17Q15 * pi0 + C17Q1 * pi1 - C17Q13 * pi2 + C17Q3 * pi3 - C17Q11 * pi4 + C17Q5 * pi5 - C17Q9 * pi6 + C17Q7 * pi7;\n\n\t";
+
+					if (fwd)
+					{
+						bflyStr +=
+							"TI1 = qr1 + qi1;\n\t"
+							"TI16 = qr1 - qi1;\n\t"
+							"TI2 = qr2 + qi2;\n\t"
+							"TI15 = qr2 - qi2;\n\t"
+							"TI3 = qr3 + qi3;\n\t"
+							"TI14 = qr3 - qi3;\n\t"
+							"TI4 = qr4 + qi4;\n\t"
+							"TI13 = qr4 - qi4;\n\t"
+							"TI5 = qr5 + qi5;\n\t"
+							"TI12 = qr5 - qi5;\n\t"
+							"TI6 = qr6 + qi6;\n\t"
+							"TI11 = qr6 - qi6;\n\t"
+							"TI7 = qr7 + qi7;\n\t"
+							"TI10 = qr7 - qi7;\n\t"
+							"TI8 = qr8 + qi8;\n\t"
+							"TI9 = qr8 - qi8;\n\n\t";
+
+					}
+					else
+					{
+						bflyStr +=
+
+							"TI1 = qr1 - qi1;\n\t"
+							"TI16 = qr1 + qi1;\n\t"
+							"TI2 = qr2 - qi2;\n\t"
+							"TI15 = qr2 + qi2;\n\t"
+							"TI3 = qr3 - qi3;\n\t"
+							"TI14 = qr3 + qi3;\n\t"
+							"TI4 = qr4 - qi4;\n\t"
+							"TI13 = qr4 + qi4;\n\t"
+							"TI5 = qr5 - qi5;\n\t"
+							"TI12 = qr5 + qi5;\n\t"
+							"TI6 = qr6 - qi6;\n\t"
+							"TI11 = qr6 + qi6;\n\t"
+							"TI7 = qr7 - qi7;\n\t"
+							"TI10 = qr7 + qi7;\n\t"
+							"TI8 = qr8 - qi8;\n\t"
+							"TI9 = qr8 + qi8;\n\n\t";
+					}
+
+				} break;
+			case 19:
+			{
+				bflyStr +=
+					"fptype pr0,pr1,pr2,pr3,pr4,pr5,pr6,pr7,pr8;\n\t"
+					"fptype pi0,pi1,pi2,pi3,pi4,pi5,pi6,pi7,pi8;\n\n\t"
+					"pr0 = (*R1).x + (*R18).x;\n\t"
+					"pr1 = (*R2).x + (*R17).x;\n\t"
+					"pr2 = (*R3).x + (*R16).x;\n\t"
+					"pr3 = (*R4).x + (*R15).x;\n\t"
+					"pr4 = (*R5).x + (*R14).x;\n\t"
+					"pr5 = (*R6).x + (*R13).x;\n\t"
+					"pr6 = (*R7).x + (*R12).x;\n\t"
+					"pr7 = (*R8).x + (*R11).x;\n\t"
+					"pr8 = (*R9).x + (*R10).x;\n\t"
+					"pi0 = (*R1).y - (*R18).y;\n\t"
+					"pi1 = (*R2).y - (*R17).y;\n\t"
+					"pi2 = (*R3).y - (*R16).y;\n\t"
+					"pi3 = (*R4).y - (*R15).y;\n\t"
+					"pi4 = (*R5).y - (*R14).y;\n\t"
+					"pi5 = (*R6).y - (*R13).y;\n\t"
+					"pi6 = (*R7).y - (*R12).y;\n\t"
+					"pi7 = (*R8).y - (*R11).y;\n\t"
+					"pi8 = (*R9).y - (*R10).y;\n\n\t"
+
+					"fptype qr1,qr2,qr3,qr4,qr5,qr6,qr7,qr8,qr9;\n\t"
+					"fptype qi1,qi2,qi3,qi4,qi5,qi6,qi7,qi8,qi9;\n\n\t"
+
+					"TR0 = (*R0).x + pr0 + pr1 + pr2 + pr3 + pr4 + pr5 + pr6 + pr7 + pr8;\n\t"
+					"qr1 = (*R0).x + C19Q0 * pr0 + C19Q2 * pr1 + C19Q4 * pr2 + C19Q6 * pr3 - C19Q8 * pr4 - C19Q10 * pr5 - C19Q12 * pr6 - C19Q14 * pr7 - C19Q16 * pr8;\n\t"
+					"qi1 = C19Q1 * pi0 + C19Q3 * pi1 + C19Q5 * pi2 + C19Q7 * pi3 + C19Q9 * pi4 + C19Q11 * pi5 + C19Q13 * pi6 + C19Q15 * pi7 + C19Q17 * pi8;\n\t"
+					"qr2 = (*R0).x + C19Q2 * pr0 + C19Q6 * pr1 - C19Q10 * pr2 - C19Q14 * pr3 - C19Q16 * pr4 - C19Q12 * pr5 - C19Q8 * pr6 + C19Q4 * pr7 + C19Q0 * pr8;\n\t"
+					"qi2 = C19Q3 * pi0 + C19Q7 * pi1 + C19Q11 * pi2 + C19Q15 * pi3 - C19Q17 * pi4 - C19Q13 * pi5 - C19Q9 * pi6 - C19Q5 * pi7 - C19Q1 * pi8;\n\t"
+					"qr3 = (*R0).x + C19Q4 * pr0 - C19Q10 * pr1 - C19Q16 * pr2 - C19Q12 * pr3 + C19Q6 * pr4 + C19Q0 * pr5 + C19Q2 * pr6 - C19Q8 * pr7 - C19Q14 * pr8;\n\t"
+					"qi3 = C19Q5 * pi0 + C19Q11 * pi1 + C19Q17 * pi2 - C19Q13 * pi3 - C19Q7 * pi4 - C19Q1 * pi5 + C19Q3 * pi6 + C19Q9 * pi7 + C19Q15 * pi8;\n\t"
+					"qr4 = (*R0).x + C19Q6 * pr0 - C19Q14 * pr1 - C19Q12 * pr2 + C19Q4 * pr3 + C19Q0 * pr4 - C19Q8 * pr5 - C19Q16 * pr6 - C19Q10 * pr7 + C19Q2 * pr8;\n\t"
+					"qi4 = C19Q7 * pi0 + C19Q15 * pi1 - C19Q13 * pi2 - C19Q5 * pi3 + C19Q1 * pi4 + C19Q9 * pi5 + C19Q17 * pi6 - C19Q11 * pi7 - C19Q3 * pi8;\n\t"
+					"qr5 = (*R0).x - C19Q8 * pr0 - C19Q16 * pr1 + C19Q6 * pr2 + C19Q0 * pr3 - C19Q10 * pr4 - C19Q14 * pr5 + C19Q4 * pr6 + C19Q2 * pr7 - C19Q12 * pr8;\n\t"
+					"qi5 = C19Q9 * pi0 - C19Q17 * pi1 - C19Q7 * pi2 + C19Q1 * pi3 + C19Q11 * pi4 - C19Q15 * pi5 - C19Q5 * pi6 + C19Q3 * pi7 + C19Q13 * pi8;\n\t"
+					"qr6 = (*R0).x - C19Q10 * pr0 - C19Q12 * pr1 + C19Q0 * pr2 - C19Q8 * pr3 - C19Q14 * pr4 + C19Q2 * pr5 + C19Q6 * pr6 - C19Q16 * pr7 + C19Q4 * pr8;\n\t"
+					"qi6 = C19Q11 * pi0 - C19Q13 * pi1 - C19Q1 * pi2 + C19Q9 * pi3 - C19Q15 * pi4 - C19Q3 * pi5 + C19Q7 * pi6 - C19Q17 * pi7 - C19Q5 * pi8;\n\t"
+					"qr7 = (*R0).x - C19Q12 * pr0 - C19Q8 * pr1 + C19Q2 * pr2 - C19Q16 * pr3 + C19Q4 * pr4 + C19Q6 * pr5 - C19Q14 * pr6 + C19Q0 * pr7 - C19Q10 * pr8;\n\t"
+					"qi7 = C19Q13 * pi0 - C19Q9 * pi1 + C19Q3 * pi2 + C19Q17 * pi3 - C19Q5 * pi4 + C19Q7 * pi5 - C19Q15 * pi6 - C19Q1 * pi7 + C19Q11 * pi8;\n\t"
+					"qr8 = (*R0).x - C19Q14 * pr0 + C19Q4 * pr1 - C19Q8 * pr2 - C19Q10 * pr3 + C19Q2 * pr4 - C19Q16 * pr5 + C19Q0 * pr6 - C19Q12 * pr7 + C19Q6 * pr8;\n\t"
+					"qi8 = C19Q15 * pi0 - C19Q5 * pi1 + C19Q9 * pi2 - C19Q11 * pi3 + C19Q3 * pi4 - C19Q17 * pi5 - C19Q1 * pi6 + C19Q13 * pi7 - C19Q7 * pi8;\n\t"
+					"qr9 = (*R0).x - C19Q16 * pr0 + C19Q0 * pr1 - C19Q14 * pr2 + C19Q2 * pr3 - C19Q12 * pr4 + C19Q4 * pr5 - C19Q10 * pr6 + C19Q6 * pr7 - C19Q8 * pr8;\n\t"
+					"qi9 = C19Q17 * pi0 - C19Q1 * pi1 + C19Q15 * pi2 - C19Q3 * pi3 + C19Q13 * pi4 - C19Q5 * pi5 + C19Q11 * pi6 - C19Q7 * pi7 + C19Q9 * pi8;\n\n\t";
+
+				if (fwd)
+				{
+					bflyStr +=
+						"TR1 = qr1 + qi1;\n\t"
+						"TR18 =  qr1 - qi1;\n\t"
+						"TR2 = qr2 + qi2;\n\t"
+						"TR17 =  qr2 - qi2;\n\t"
+						"TR3 =  qr3 + qi3;\n\t"
+						"TR16 =  qr3 - qi3;\n\t"
+						"TR4 =  qr4 + qi4;\n\t"
+						"TR15 =  qr4 - qi4;\n\t"
+						"TR5 =  qr5 + qi5;\n\t"
+						"TR14 =  qr5 - qi5;\n\t"
+						"TR6 =  qr6 + qi6;\n\t"
+						"TR13 =  qr6 - qi6;\n\t"
+						"TR7 =  qr7 + qi7;\n\t"
+						"TR12 =  qr7 - qi7;\n\t"
+						"TR8 =  qr8 + qi8;\n\t"
+						"TR11 =  qr8 - qi8;\n\t"
+						"TR9 =  qr9 + qi9;\n\t"
+						"TR10 =  qr9 - qi9;\n\n\t";
+				}
+				else
+				{
+					bflyStr +=
+						"TR1 = qr1 - qi1;\n\t"
+						"TR18 =  qr1 + qi1;\n\t"
+						"TR2 = qr2 - qi2;\n\t"
+						"TR17 =  qr2 + qi2;\n\t"
+						"TR3 =  qr3 - qi3;\n\t"
+						"TR16 =  qr3 + qi3;\n\t"
+						"TR4 =  qr4 - qi4;\n\t"
+						"TR15 =  qr4 + qi4;\n\t"
+						"TR5 =  qr5 - qi5;\n\t"
+						"TR14 =  qr5 + qi5;\n\t"
+						"TR6 =  qr6 - qi6;\n\t"
+						"TR13 =  qr6 + qi6;\n\t"
+						"TR7 =  qr7 - qi7;\n\t"
+						"TR12 =  qr7 + qi7;\n\t"
+						"TR8 =  qr8 - qi8;\n\t"
+						"TR11 =  qr8 + qi8;\n\t"
+						"TR9 =  qr9 - qi9;\n\t"
+						"TR10 =  qr9 + qi9;\n\n\t";
+				}
+
+				bflyStr +=
+					"pr0 = (*R1).y + (*R18).y;\n\t"
+					"pr1 = (*R2).y + (*R17).y;\n\t"
+					"pr2 = (*R3).y + (*R16).y;\n\t"
+					"pr3 = (*R4).y + (*R15).y;\n\t"
+					"pr4 = (*R5).y + (*R14).y;\n\t"
+					"pr5 = (*R6).y + (*R13).y;\n\t"
+					"pr6 = (*R7).y + (*R12).y;\n\t"
+					"pr7 = (*R8).y + (*R11).y;\n\t"
+					"pr8 = (*R9).y + (*R10).y;\n\t"
+					"pi0 = (*R1).x - (*R18).x;\n\t"
+					"pi1 = (*R2).x - (*R17).x;\n\t"
+					"pi2 = (*R3).x - (*R16).x;\n\t"
+					"pi3 = (*R4).x - (*R15).x;\n\t"
+					"pi4 = (*R5).x - (*R14).x;\n\t"
+					"pi5 = (*R6).x - (*R13).x;\n\t"
+					"pi6 = (*R7).x - (*R12).x;\n\t"
+					"pi7 = (*R8).x - (*R11).x;\n\t"
+					"pi8 = (*R9).x - (*R10).x;\n\n\t"
+
+					"TI0 = (*R0).y + pr0 + pr1 + pr2 + pr3 + pr4 + pr5 + pr6 + pr7 + pr8;\n\t"
+					"qr1 = (*R0).y + C19Q0 * pr0 + C19Q2 * pr1 + C19Q4 * pr2 + C19Q6 * pr3 - C19Q8 * pr4 - C19Q10 * pr5 - C19Q12 * pr6 - C19Q14 * pr7 - C19Q16 * pr8;\n\t"
+					"qi1 = -C19Q1 * pi0 - C19Q3 * pi1 - C19Q5 * pi2 - C19Q7 * pi3 - C19Q9 * pi4 - C19Q11 * pi5 - C19Q13 * pi6 - C19Q15 * pi7 - C19Q17 * pi8;\n\t"
+					"qr2 = (*R0).y + C19Q2 * pr0 + C19Q6 * pr1 - C19Q10 * pr2 - C19Q14 * pr3 - C19Q16 * pr4 - C19Q12 * pr5 - C19Q8 * pr6 + C19Q4 * pr7 + C19Q0 * pr8;\n\t"
+					"qi2 = -C19Q3 * pi0 - C19Q7 * pi1 - C19Q11 * pi2 - C19Q15 * pi3 + C19Q17 * pi4 + C19Q13 * pi5 + C19Q9 * pi6 + C19Q5 * pi7 + C19Q1 * pi8;\n\t"
+					"qr3 = (*R0).y + C19Q4 * pr0 - C19Q10 * pr1 - C19Q16 * pr2 - C19Q12 * pr3 + C19Q6 * pr4 + C19Q0 * pr5 + C19Q2 * pr6 - C19Q8 * pr7 - C19Q14 * pr8;\n\t"
+					"qi3 = -C19Q5 * pi0 - C19Q11 * pi1 - C19Q17 * pi2 + C19Q13 * pi3 + C19Q7 * pi4 + C19Q1 * pi5 - C19Q3 * pi6 - C19Q9 * pi7 - C19Q15 * pi8;\n\t"
+					"qr4 = (*R0).y + C19Q6 * pr0 - C19Q14 * pr1 - C19Q12 * pr2 + C19Q4 * pr3 + C19Q0 * pr4 - C19Q8 * pr5 - C19Q16 * pr6 - C19Q10 * pr7 + C19Q2 * pr8;\n\t"
+					"qi4 = -C19Q7 * pi0 - C19Q15 * pi1 + C19Q13 * pi2 + C19Q5 * pi3 - C19Q1 * pi4 - C19Q9 * pi5 - C19Q17 * pi6 + C19Q11 * pi7 + C19Q3 * pi8;\n\t"
+					"qr5 = (*R0).y - C19Q8 * pr0 - C19Q16 * pr1 + C19Q6 * pr2 + C19Q0 * pr3 - C19Q10 * pr4 - C19Q14 * pr5 + C19Q4 * pr6 + C19Q2 * pr7 - C19Q12 * pr8;\n\t"
+					"qi5 = -C19Q9 * pi0 + C19Q17 * pi1 + C19Q7 * pi2 - C19Q1 * pi3 - C19Q11 * pi4 + C19Q15 * pi5 + C19Q5 * pi6 - C19Q3 * pi7 - C19Q13 * pi8;\n\t"
+					"qr6 = (*R0).y - C19Q10 * pr0 - C19Q12 * pr1 + C19Q0 * pr2 - C19Q8 * pr3 - C19Q14 * pr4 + C19Q2 * pr5 + C19Q6 * pr6 - C19Q16 * pr7 + C19Q4 * pr8;\n\t"
+					"qi6 = -C19Q11 * pi0 + C19Q13 * pi1 + C19Q1 * pi2 - C19Q9 * pi3 + C19Q15 * pi4 + C19Q3 * pi5 - C19Q7 * pi6 + C19Q17 * pi7 + C19Q5 * pi8;\n\t"
+					"qr7 = (*R0).y - C19Q12 * pr0 - C19Q8 * pr1 + C19Q2 * pr2 - C19Q16 * pr3 + C19Q4 * pr4 + C19Q6 * pr5 - C19Q14 * pr6 + C19Q0 * pr7 - C19Q10 * pr8;\n\t"
+					"qi7 = -C19Q13 * pi0 + C19Q9 * pi1 - C19Q3 * pi2 - C19Q17 * pi3 + C19Q5 * pi4 - C19Q7 * pi5 + C19Q15 * pi6 + C19Q1 * pi7 - C19Q11 * pi8;\n\t"
+					"qr8 = (*R0).y - C19Q14 * pr0 + C19Q4 * pr1 - C19Q8 * pr2 - C19Q10 * pr3 + C19Q2 * pr4 - C19Q16 * pr5 + C19Q0 * pr6 - C19Q12 * pr7 + C19Q6 * pr8;\n\t"
+					"qi8 = -C19Q15 * pi0 + C19Q5 * pi1 - C19Q9 * pi2 + C19Q11 * pi3 - C19Q3 * pi4 + C19Q17 * pi5 + C19Q1 * pi6 - C19Q13 * pi7 + C19Q7 * pi8;\n\t"
+					"qr9 = (*R0).y - C19Q16 * pr0 + C19Q0 * pr1 - C19Q14 * pr2 + C19Q2 * pr3 - C19Q12 * pr4 + C19Q4 * pr5 - C19Q10 * pr6 + C19Q6 * pr7 - C19Q8 * pr8;\n\t"
+					"qi9 = -C19Q17 * pi0 + C19Q1 * pi1 - C19Q15 * pi2 + C19Q3 * pi3 - C19Q13 * pi4 + C19Q5 * pi5 - C19Q11 * pi6 + C19Q7 * pi7 - C19Q9 * pi8;\n\n\t";
+
+				if (fwd)
+				{
+					bflyStr +=
+						"TI1  = qr1 + qi1;\n\t"
+						"TI18 = qr1 - qi1;\n\t"
+						"TI2  = qr2 + qi2;\n\t"
+						"TI17 = qr2 - qi2;\n\t"
+						"TI3  = qr3 + qi3;\n\t"
+						"TI16 = qr3 - qi3;\n\t"
+						"TI4  = qr4 + qi4;\n\t"
+						"TI15 = qr4 - qi4;\n\t"
+						"TI5  = qr5 + qi5;\n\t"
+						"TI14 = qr5 - qi5;\n\t"
+						"TI6  = qr6 + qi6;\n\t"
+						"TI13 = qr6 - qi6;\n\t"
+						"TI7  = qr7 + qi7;\n\t"
+						"TI12 = qr7 - qi7;\n\t"
+						"TI8  = qr8 + qi8;\n\t"
+						"TI11 = qr8 - qi8;\n\t"
+						"TI9  = qr9 + qi9;\n\t"
+						"TI10 = qr9 - qi9;\n\n\t";
+				}
+				else
+				{
+					bflyStr +=
+						"TI1  = qr1 - qi1;\n\t"
+						"TI18 = qr1 + qi1;\n\t"
+						"TI2  = qr2 - qi2;\n\t"
+						"TI17 = qr2 + qi2;\n\t"
+						"TI3  = qr3 - qi3;\n\t"
+						"TI16 = qr3 + qi3;\n\t"
+						"TI4  = qr4 - qi4;\n\t"
+						"TI15 = qr4 + qi4;\n\t"
+						"TI5  = qr5 - qi5;\n\t"
+						"TI14 = qr5 + qi5;\n\t"
+						"TI6  = qr6 - qi6;\n\t"
+						"TI13 = qr6 + qi6;\n\t"
+						"TI7  = qr7 - qi7;\n\t"
+						"TI12 = qr7 + qi7;\n\t"
+						"TI8  = qr8 - qi8;\n\t"
+						"TI11 = qr8 + qi8;\n\t"
+						"TI9  = qr9 - qi9;\n\t"
+						"TI10 = qr9 + qi9;\n\n\t";
+				}
+			} break;
 			default:
 				assert(false);
 			}

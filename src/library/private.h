@@ -143,7 +143,7 @@ class tofstreamRAII
 		}
 };
 
-//(currently) true if length is a power of 2,3,5,7,11,13
+//(currently) true if length is a power of 2,3,5,7,11,13,17,19
 inline bool IsASupportedLength( size_t length )
 {
 	while( length > 1 )
@@ -160,6 +160,10 @@ inline bool IsASupportedLength( size_t length )
 			length /= 11;
 		else if (length % 13 == 0)
 			length /= 13;
+		else if (length % 17 == 0)
+			length /= 17;
+		else if (length % 19 == 0)
+			length /= 19;
 		else
 			return false;
 	}
