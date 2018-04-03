@@ -3946,7 +3946,7 @@ namespace StockhamGenerator
 							if(inInterleaved || inReal)
 							{
 								if(!rcSimple) {	str += "lwbIn2 = gbIn + iOffset2;\n\t"; }
-								str += "lwbIn = (__global float2 *) gbIn + iOffset;\n\t";
+								str += "lwbIn = gbIn + iOffset;\n\t";
 							}
 							else
 							{
@@ -4022,7 +4022,7 @@ namespace StockhamGenerator
 						{
 							if(inInterleaved)
 							{
-								str += "lwbIn = (__global float2 *) gbIn + iOffset;\n\t";
+								str += "lwbIn = gbIn + iOffset;\n\t";
 							}
 							else
 							{
