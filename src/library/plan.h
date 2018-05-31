@@ -329,6 +329,7 @@ class FFTAction
 {
 public:
     FFTAction(FFTPlan * plan, clfftStatus & err);
+    virtual ~FFTAction() {}
 
     virtual clfftStatus enqueue(clfftPlanHandle plHandle,
                                 clfftDirection dir,
