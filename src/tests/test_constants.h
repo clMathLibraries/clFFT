@@ -24,7 +24,7 @@
 #include <stdexcept>
 
 //Pre-callback function strings
-#define PRE_MULVAL float2 mulval_pre(__global void* in, uint offset, __global void* userdata)\n \
+#define PRE_MULVAL float2 mulval_pre(__global const void* in, uint offset, __global void* userdata)\n \
 				{ \n \
 				float scalar = *((__global float*)userdata + offset); \n \
 				float2 ret = *((__global float2*)in + offset) * scalar; \n \
@@ -36,7 +36,7 @@
 						float scalar1;  \
 						float scalar2;  \
 						} USER_DATA; \n \
-					float2 mulval_pre(__global void* in, uint offset, __global void* userdata)\n \
+					float2 mulval_pre(__global const void* in, uint offset, __global void* userdata)\n \
 					{ \n \
 					__global USER_DATA *data = ((__global USER_DATA *)userdata + offset); \n \
 					float scalar = data->scalar1 * data->scalar2; \n \
@@ -44,14 +44,14 @@
 					return ret; \n \
 					}
 
-#define PRE_MULVAL_DP double2 mulval_pre(__global void* in, uint offset, __global void* userdata)\n \
+#define PRE_MULVAL_DP double2 mulval_pre(__global const void* in, uint offset, __global void* userdata)\n \
 				{ \n \
 				double scalar = *((__global double*)userdata + offset); \n \
 				double2 ret = *((__global double2*)in + offset) * scalar; \n \
 				return ret; \n \
 				}
 
-#define PRE_MULVAL_PLANAR float2 mulval_pre(__global void* inRe, __global void* inIm, uint offset, __global void* userdata)\n \
+#define PRE_MULVAL_PLANAR float2 mulval_pre(__global const void* inRe, __global const void* inIm, uint offset, __global void* userdata)\n \
 				{ \n \
 				float scalar = *((__global float*)userdata + offset); \n \
 				float2 ret; \n \
@@ -60,7 +60,7 @@
 				return ret; \n \
 				}
 
-#define PRE_MULVAL_PLANAR_DP double2 mulval_pre(__global void* inRe, __global void* inIm, uint offset, __global void* userdata)\n \
+#define PRE_MULVAL_PLANAR_DP double2 mulval_pre(__global const void* inRe, __global const void* inIm, uint offset, __global void* userdata)\n \
 				{ \n \
 				double scalar = *((__global double*)userdata + offset); \n \
 				double2 ret; \n \
@@ -69,14 +69,14 @@
 				return ret; \n \
 				}
 
-#define PRE_MULVAL_REAL float mulval_pre(__global void* in, uint offset, __global void* userdata)\n \
+#define PRE_MULVAL_REAL float mulval_pre(__global const void* in, uint offset, __global void* userdata)\n \
 				{ \n \
 				float scalar = *((__global float*)userdata + offset); \n \
 				float ret = *((__global float*)in + offset) * scalar; \n \
 				return ret; \n \
 				}
 
-#define PRE_MULVAL_REAL_DP double mulval_pre(__global void* in, uint offset, __global void* userdata)\n \
+#define PRE_MULVAL_REAL_DP double mulval_pre(__global const void* in, uint offset, __global void* userdata)\n \
 				{ \n \
 				double scalar = *((__global double*)userdata + offset); \n \
 				double ret = *((__global double*)in + offset) * scalar; \n \
@@ -84,7 +84,7 @@
 				}
 
 //Precallback test for LDS - works when 1 WI works on one input element
-#define PRE_MULVAL_LDS float2 mulval_pre(__global void* in, uint offset, __global void* userdata, __local void* localmem)\n \
+#define PRE_MULVAL_LDS float2 mulval_pre(__global const void* in, uint offset, __global void* userdata, __local void* localmem)\n \
 				{ \n \
 				uint lid = get_local_id(0); \n \
 				__local float* lds = (__local float*)localmem + lid; \n \

@@ -258,12 +258,12 @@ namespace CopyGenerator
 				// input
 				if(inIlvd)
 				{
-					str += "__global "; str += r2Type; str += " *lwbIn;\n\t";
+					str += "__global const "; str += r2Type; str += " *lwbIn;\n\t";
 				}
 				else
 				{
-					str += "__global "; str += rType; str += " *lwbInRe;\n\t";
-					str += "__global "; str += rType; str += " *lwbInIm;\n\t";
+					str += "__global const "; str += rType; str += " *lwbInRe;\n\t";
+					str += "__global const "; str += rType; str += " *lwbInIm;\n\t";
 				}
 			}
 
