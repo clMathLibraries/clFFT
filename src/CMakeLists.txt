@@ -16,6 +16,8 @@
 
 cmake_minimum_required( VERSION 3.1 )
 
+option (CMAKE_SUPPRESS_REGENERATION "Suppress the cmake macro that causes regeneration of build scripts during build" ON)
+
 if( CMAKE_GENERATOR MATCHES "NMake" )
 	option( NMAKE_COMPILE_VERBOSE "Print compile and link strings to the console" OFF )
 	if( NMAKE_COMPILE_VERBOSE )
