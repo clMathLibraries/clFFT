@@ -116,15 +116,15 @@ int main( void )
     cl_context ctx = 0;
     cl_command_queue queue = 0;
     cl_mem bufX;
-	float *X;
+    float *X;
     cl_event event = NULL;
     int ret = 0;
-	size_t N = 16;
+    size_t N = 16;
 
-	/* FFT library realted declarations */
-	clfftPlanHandle planHandle;
-	clfftDim dim = CLFFT_1D;
-	size_t clLengths[1] = {N};
+    /* FFT library realted declarations */
+    clfftPlanHandle planHandle;
+    clfftDim dim = CLFFT_1D;
+    size_t clLengths[1] = {N};
 
     /* Setup OpenCL environment. */
     err = clGetPlatformIDs( 1, &platform, NULL );
@@ -135,47 +135,47 @@ int main( void )
     queue = clCreateCommandQueue( ctx, device, 0, &err );
 
     /* Setup clFFT. */
-	clfftSetupData fftSetup;
-	err = clfftInitSetupData(&fftSetup);
-	err = clfftSetup(&fftSetup);
+    clfftSetupData fftSetup;
+    err = clfftInitSetupData(&fftSetup);
+    err = clfftSetup(&fftSetup);
 
-	/* Allocate host & initialize data. */
-	/* Only allocation shown for simplicity. */
-	X = (float *)malloc(N * 2 * sizeof(*X));
+    /* Allocate host & initialize data. */
+    /* Only allocation shown for simplicity. */
+    X = (float *)malloc(N * 2 * sizeof(*X));
 
     /* Prepare OpenCL memory objects and place data inside them. */
     bufX = clCreateBuffer( ctx, CL_MEM_READ_WRITE, N * 2 * sizeof(*X), NULL, &err );
 
     err = clEnqueueWriteBuffer( queue, bufX, CL_TRUE, 0,
-	N * 2 * sizeof( *X ), X, 0, NULL, NULL );
+    N * 2 * sizeof( *X ), X, 0, NULL, NULL );
 
-	/* Create a default plan for a complex FFT. */
-	err = clfftCreateDefaultPlan(&planHandle, ctx, dim, clLengths);
+    /* Create a default plan for a complex FFT. */
+    err = clfftCreateDefaultPlan(&planHandle, ctx, dim, clLengths);
 
-	/* Set plan parameters. */
-	err = clfftSetPlanPrecision(planHandle, CLFFT_SINGLE);
-	err = clfftSetLayout(planHandle, CLFFT_COMPLEX_INTERLEAVED, CLFFT_COMPLEX_INTERLEAVED);
-	err = clfftSetResultLocation(planHandle, CLFFT_INPLACE);
+    /* Set plan parameters. */
+    err = clfftSetPlanPrecision(planHandle, CLFFT_SINGLE);
+    err = clfftSetLayout(planHandle, CLFFT_COMPLEX_INTERLEAVED, CLFFT_COMPLEX_INTERLEAVED);
+    err = clfftSetResultLocation(planHandle, CLFFT_INPLACE);
 
     /* Bake the plan. */
-	err = clfftBakePlan(planHandle, 1, &queue, NULL, NULL);
+    err = clfftBakePlan(planHandle, 1, &queue, NULL, NULL);
 
-	/* Execute the plan. */
-	err = clfftEnqueueTransform(planHandle, CLFFT_FORWARD, 1, &queue, 0, NULL, NULL, &bufX, NULL, NULL);
+    /* Execute the plan. */
+    err = clfftEnqueueTransform(planHandle, CLFFT_FORWARD, 1, &queue, 0, NULL, NULL, &bufX, NULL, NULL);
 
-	/* Wait for calculations to be finished. */
-	err = clFinish(queue);
+    /* Wait for calculations to be finished. */
+    err = clFinish(queue);
 
-	/* Fetch results of calculations. */
-	err = clEnqueueReadBuffer( queue, bufX, CL_TRUE, 0, N * 2 * sizeof( *X ), X, 0, NULL, NULL );
+    /* Fetch results of calculations. */
+    err = clEnqueueReadBuffer( queue, bufX, CL_TRUE, 0, N * 2 * sizeof( *X ), X, 0, NULL, NULL );
 
     /* Release OpenCL memory objects. */
     clReleaseMemObject( bufX );
 
-	free(X);
+    free(X);
 
-	/* Release the plan. */
-	err = clfftDestroyPlan( &planHandle );
+    /* Release the plan. */
+    err = clfftDestroyPlan( &planHandle );
 
     /* Release clFFT library. */
     clfftTeardown( );

@@ -55,6 +55,7 @@ int transform( size_t* lengths, const size_t *inStrides, const size_t *outStride
 	//	this from the lengths that the user specifies for X, Y, Z.  A length of one means that
 	//	The user does not want that dimension.
 
+
 	const size_t max_dimensions = 3;
 	size_t strides[ 4 ];
 	size_t o_strides[ 4 ];
@@ -158,6 +159,10 @@ int transform( size_t* lengths, const size_t *inStrides, const size_t *outStride
 		size_of_output_buffers_in_bytes = outfftBatchSize * sizeof(T);
 		break;
 	}
+
+
+
+
 
 	// Fill the input buffers
 	switch( in_layout )
@@ -383,6 +388,25 @@ int transform( size_t* lengths, const size_t *inStrides, const size_t *outStride
 		break;
 	}
 
+
+
+	std::cout << "Doing test transform" << std::endl;
+	std::cout << "Lengths: " << lengths[ 0 ] << ", " << lengths[ 1 ] << ", " << lengths[ 2 ] << ".";
+	std::cout << "Input Mem buffers: " << reinterpret_cast<intptr_t>(input_cl_mem_buffers[ 0 ]) << ", " << reinterpret_cast<intptr_t>(input_cl_mem_buffers[ 1 ]) << o_strides[ 3 ] << ".";
+	std::cout << "Output Mem buffers: " << reinterpret_cast<intptr_t>(output_cl_mem_buffers[ 0 ]) << ", " << reinterpret_cast<intptr_t>(output_cl_mem_buffers[ 1 ]) << o_strides[ 3 ] << ".";
+
+	std::cout << "Layouts: " << static_cast<int>(in_layout) << ", " << static_cast<int>(out_layout) << std::endl;
+	std::cout << "number_of_output_buffers: " << number_of_output_buffers << std::endl;
+	std::cout << "fftVectorSize: " << fftVectorSize << std::endl;
+	std::cout << "fftVectorSizePadded: " << fftVectorSizePadded << std::endl;
+	std::cout << "fftBatchSize: " << fftBatchSize << std::endl;
+	std::cout << "outfftVectorSize: " << outfftVectorSize << std::endl;
+	std::cout << "outfftVectorSizePadded: " << outfftVectorSizePadded << std::endl;
+	std::cout << "outfftBatchSize: " << outfftBatchSize << std::endl;
+
+	std::cout << "Input buffer size (bytes): " << size_of_input_buffers_in_bytes << "." << std::endl;
+	std::cout << "Output buffer size (bytes): " << size_of_output_buffers_in_bytes << "." << std::endl;
+
 	//	Discover and load the timer module if present
 	void* timerLibHandle = LoadSharedLibrary( "lib", "StatTimer", false );
 	if( timerLibHandle == NULL )
@@ -404,8 +428,11 @@ int transform( size_t* lengths, const size_t *inStrides, const size_t *outStride
 	OPENCL_V_THROW( clfftSetPlanBatchSize( plan_handle, batch_size ), "clfftSetPlanBatchSize failed" );
 	OPENCL_V_THROW( clfftSetPlanPrecision( plan_handle, precision ), "clfftSetPlanPrecision failed" );
 
+	std::cout << "Input Strides: " << dim << " -> " << strides[ 0 ] << ", " << strides[ 1 ] << ", " << strides[ 2 ] << ", " << strides[ 3 ] << "." << std::endl;
 	OPENCL_V_THROW (clfftSetPlanInStride  ( plan_handle, dim, strides ), "clfftSetPlanInStride failed" );
+	std::cout << "Output Strides: " << dim << " -> " << o_strides[ 0 ] << ", " << o_strides[ 1 ] << ", " << o_strides[ 2 ] << ", " << o_strides[ 3 ] << "." << std::endl;
 	OPENCL_V_THROW (clfftSetPlanOutStride ( plan_handle, dim, o_strides ), "clfftSetPlanOutStride failed" );
+	std::cout << "Plan Distance: " << strides[ 3 ] << ", " << o_strides[ 3 ] << "." << std::endl;
 	OPENCL_V_THROW (clfftSetPlanDistance  ( plan_handle, strides[ 3 ], o_strides[ 3 ]), "clfftSetPlanDistance failed" );
 
 	// Set backward scale factor to 1.0 for non real FFTs to do correct output checks
@@ -507,7 +534,7 @@ int transform( size_t* lengths, const size_t *inStrides, const size_t *outStride
 		"clfftEnqueueTransform failed" );
 
 	OPENCL_V_THROW( clFinish( queue ), "clFinish failed" );
-	
+
 
 	//	Create and initialize our timer class, if the external timer shared library loaded
 	baseStatTimer* timer = NULL;
@@ -526,7 +553,7 @@ int transform( size_t* lengths, const size_t *inStrides, const size_t *outStride
 
 	if(profile_count > 1)
 	{
-		Timer tr;		
+		Timer tr;
 		tr.Start();
 		for( cl_uint i = 0; i < profile_count; ++i )
 		{
@@ -795,7 +822,7 @@ int _tmain( int argc, _TCHAR* argv[] )
 
 #endif /* MEMORYREPORT */
 
-	//	OpenCL state 
+	//	OpenCL state
 	cl_device_type		deviceType	= CL_DEVICE_TYPE_ALL;
 	cl_int				deviceId = 0;
 	cl_int				platformId = 0;
@@ -1028,9 +1055,39 @@ int _tmain( int argc, _TCHAR* argv[] )
 		}
 
 		if( precision == CLFFT_SINGLE )
-			transform<float>( lengths, iStrides, oStrides, batchSize, inLayout, outLayout, place, precision, dir, deviceType, deviceId, platformId, printInfo, command_queue_flags, profile_count, setupData );
+			transform<float>( lengths,
+							iStrides,
+							oStrides,
+							batchSize,
+							inLayout,
+							outLayout,
+							place,
+							precision,
+							dir,
+							deviceType,
+							deviceId,
+							platformId,
+							printInfo,
+							command_queue_flags,
+							profile_count,
+							setupData );
 		else
-			transform<double>( lengths, iStrides, oStrides, batchSize, inLayout, outLayout, place, precision, dir, deviceType, deviceId, platformId, printInfo, command_queue_flags, profile_count, setupData );
+			transform<double>( lengths,
+							iStrides,
+							oStrides,
+							batchSize,
+							inLayout,
+							outLayout,
+							place,
+							precision,
+							dir,
+							deviceType,
+							deviceId,
+							platformId,
+							printInfo,
+							command_queue_flags,
+							profile_count,
+							setupData );
 	}
 	catch( std::exception& e )
 	{
