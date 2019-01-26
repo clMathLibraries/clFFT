@@ -45,6 +45,7 @@ std::basic_istream<_Elem, _Traits> & operator>> (std::basic_istream<_Elem, _Trai
 
 template < typename T >
 int transform( size_t* lengths, const size_t *inStrides, const size_t *outStrides, size_t batch_size,
+				size_t offsetIn, size_t offsetOut,
 				clfftLayout in_layout, clfftLayout out_layout,
 				clfftResultLocation place, clfftPrecision precision, clfftDirection dir,
 				cl_device_type deviceType, cl_int deviceId, cl_int platformId, bool printInfo,
@@ -66,6 +67,7 @@ int transform( size_t* lengths, const size_t *inStrides, const size_t *outStride
 	size_t outfftBatchSize = 0;
 	size_t size_of_input_buffers_in_bytes = 0;
 	size_t size_of_output_buffers_in_bytes = 0;
+
 	cl_uint number_of_output_buffers = 0;
 	clfftDim	dim = CLFFT_1D;
 	cl_mem input_cl_mem_buffers [2] = { NULL, NULL };
@@ -139,23 +141,23 @@ int transform( size_t* lengths, const size_t *inStrides, const size_t *outStride
 	{
 	case CLFFT_COMPLEX_INTERLEAVED:
 		number_of_output_buffers = 1;
-		size_of_output_buffers_in_bytes = outfftBatchSize * sizeof( std::complex< T > );
+		size_of_output_buffers_in_bytes = ( outfftBatchSize + offsetOut ) * sizeof( std::complex< T > );
 		break;
 	case CLFFT_COMPLEX_PLANAR:
 		number_of_output_buffers = 2;
-		size_of_output_buffers_in_bytes = outfftBatchSize * sizeof(T);
+		size_of_output_buffers_in_bytes = ( outfftBatchSize + offsetOut ) * sizeof(T);
 		break;
 	case CLFFT_HERMITIAN_INTERLEAVED:
 		number_of_output_buffers = 1;
-		size_of_output_buffers_in_bytes = outfftBatchSize * sizeof( std::complex< T > );
+		size_of_output_buffers_in_bytes = ( outfftBatchSize + offsetOut ) * sizeof( std::complex< T > );
 		break;
 	case CLFFT_HERMITIAN_PLANAR:
 		number_of_output_buffers = 2;
-		size_of_output_buffers_in_bytes = outfftBatchSize * sizeof(T);
+		size_of_output_buffers_in_bytes = ( outfftBatchSize + offsetOut ) * sizeof(T);
 		break;
 	case CLFFT_REAL:
 		number_of_output_buffers = 1;
-		size_of_output_buffers_in_bytes = outfftBatchSize * sizeof(T);
+		size_of_output_buffers_in_bytes = ( outfftBatchSize + offsetOut ) * sizeof(T);
 		break;
 	}
 
@@ -165,7 +167,7 @@ int transform( size_t* lengths, const size_t *inStrides, const size_t *outStride
 	case CLFFT_COMPLEX_INTERLEAVED:
 		{
 			//	This call creates our openCL context and sets up our devices; expected to throw on error
-			size_of_input_buffers_in_bytes = fftBatchSize * sizeof( std::complex< T > );
+			size_of_input_buffers_in_bytes = ( fftBatchSize + offsetIn ) * sizeof( std::complex< T > );
 
 			device_id = initializeCL( deviceType, deviceId, platformId, context, printInfo );
 			createOpenCLCommandQueue( context,
@@ -174,10 +176,10 @@ int transform( size_t* lengths, const size_t *inStrides, const size_t *outStride
 				size_of_input_buffers_in_bytes, 1, input_cl_mem_buffers,
 				size_of_output_buffers_in_bytes, number_of_output_buffers, output_cl_mem_buffers);
 
-			std::vector< std::complex< T > > input( fftBatchSize );
+			std::vector< std::complex< T > > input( fftBatchSize + offsetIn );
 
 			// set zero
-			for( cl_uint i = 0; i < fftBatchSize; ++i )
+			for( cl_uint i = 0; i < ( fftBatchSize + offsetIn ); ++i )
 			{
 				input[ i ] = 0;
 			}
@@ -211,7 +213,7 @@ int transform( size_t* lengths, const size_t *inStrides, const size_t *outStride
 	case CLFFT_COMPLEX_PLANAR:
 		{
 			//	This call creates our openCL context and sets up our devices; expected to throw on error
-			size_of_input_buffers_in_bytes = fftBatchSize * sizeof( T );
+			size_of_input_buffers_in_bytes = ( fftBatchSize + offsetIn ) * sizeof( T );
 
 			device_id = initializeCL( deviceType, deviceId, platformId, context, printInfo );
 			createOpenCLCommandQueue( context,
@@ -220,11 +222,11 @@ int transform( size_t* lengths, const size_t *inStrides, const size_t *outStride
 				size_of_input_buffers_in_bytes, 2, input_cl_mem_buffers,
 				size_of_output_buffers_in_bytes, number_of_output_buffers, output_cl_mem_buffers);
 
-			std::vector< T > real( fftBatchSize );
-			std::vector< T > imag( fftBatchSize );
+			std::vector< T > real( fftBatchSize + offsetIn );
+			std::vector< T > imag( fftBatchSize + offsetIn );
 
 			// set zero
-			for( cl_uint i = 0; i < fftBatchSize; ++i )
+			for( cl_uint i = 0; i < (fftBatchSize + offsetIn ); ++i )
 			{
 				real[ i ] = 0;
 				imag[ i ] = 0;
@@ -261,7 +263,7 @@ int transform( size_t* lengths, const size_t *inStrides, const size_t *outStride
 	case CLFFT_HERMITIAN_INTERLEAVED:
 		{
 			//	This call creates our openCL context and sets up our devices; expected to throw on error
-			size_of_input_buffers_in_bytes = fftBatchSize * sizeof( std::complex< T > );
+			size_of_input_buffers_in_bytes = ( fftBatchSize + offsetIn ) * sizeof( std::complex< T > );
 
 			device_id = initializeCL( deviceType, deviceId, platformId, context, printInfo );
 			createOpenCLCommandQueue( context,
@@ -270,10 +272,10 @@ int transform( size_t* lengths, const size_t *inStrides, const size_t *outStride
 				size_of_input_buffers_in_bytes, 1, input_cl_mem_buffers,
 				size_of_output_buffers_in_bytes, number_of_output_buffers, output_cl_mem_buffers);
 
-			std::vector< std::complex< T > > input( fftBatchSize );
+			std::vector< std::complex< T > > input( fftBatchSize + offsetIn );
 
 			// set zero
-			for( cl_uint i = 0; i < fftBatchSize; ++i )
+			for( cl_uint i = 0; i < ( fftBatchSize + offsetIn ); ++i )
 			{
 				input[ i ] = 0;
 			}
@@ -295,7 +297,7 @@ int transform( size_t* lengths, const size_t *inStrides, const size_t *outStride
 	case CLFFT_HERMITIAN_PLANAR:
 		{
 			//	This call creates our openCL context and sets up our devices; expected to throw on error
-			size_of_input_buffers_in_bytes = fftBatchSize * sizeof( T );
+			size_of_input_buffers_in_bytes = ( fftBatchSize + offsetIn ) * sizeof( T );
 
 			device_id = initializeCL( deviceType, deviceId, platformId, context, printInfo );
 			createOpenCLCommandQueue( context,
@@ -304,11 +306,11 @@ int transform( size_t* lengths, const size_t *inStrides, const size_t *outStride
 				size_of_input_buffers_in_bytes, 2, input_cl_mem_buffers,
 				size_of_output_buffers_in_bytes, number_of_output_buffers, output_cl_mem_buffers);
 
-			std::vector< T > real( fftBatchSize );
-			std::vector< T > imag( fftBatchSize );
+			std::vector< T > real( fftBatchSize + offsetIn );
+			std::vector< T > imag( fftBatchSize + offsetIn );
 
 			// set zero
-			for( cl_uint i = 0; i < fftBatchSize; ++i )
+			for( cl_uint i = 0; i < ( fftBatchSize + offsetIn ); ++i )
 			{
 				real[ i ] = 0;
 				imag[ i ] = 0;
@@ -334,7 +336,7 @@ int transform( size_t* lengths, const size_t *inStrides, const size_t *outStride
 	case CLFFT_REAL:
 		{
 			//	This call creates our openCL context and sets up our devices; expected to throw on error
-			size_of_input_buffers_in_bytes = fftBatchSize * sizeof( T );
+			size_of_input_buffers_in_bytes = ( fftBatchSize + offsetIn ) * sizeof( T );
 
 			device_id = initializeCL( deviceType, deviceId, platformId, context, printInfo );
 			createOpenCLCommandQueue( context,
@@ -343,10 +345,10 @@ int transform( size_t* lengths, const size_t *inStrides, const size_t *outStride
 				size_of_input_buffers_in_bytes, 1, input_cl_mem_buffers,
 				size_of_output_buffers_in_bytes, number_of_output_buffers, output_cl_mem_buffers);
 
-			std::vector< T > real( fftBatchSize );
+			std::vector< T > real( fftBatchSize + offsetIn );
 
 			// set zero
-			for( cl_uint i = 0; i < fftBatchSize; ++i )
+			for( cl_uint i = 0; i < ( fftBatchSize + offsetIn ); ++i )
 			{
 				real[ i ] = 0;
 			}
@@ -407,6 +409,9 @@ int transform( size_t* lengths, const size_t *inStrides, const size_t *outStride
 	OPENCL_V_THROW (clfftSetPlanInStride  ( plan_handle, dim, strides ), "clfftSetPlanInStride failed" );
 	OPENCL_V_THROW (clfftSetPlanOutStride ( plan_handle, dim, o_strides ), "clfftSetPlanOutStride failed" );
 	OPENCL_V_THROW (clfftSetPlanDistance  ( plan_handle, strides[ 3 ], o_strides[ 3 ]), "clfftSetPlanDistance failed" );
+
+	OPENCL_V_THROW (clfftSetPlanOffsetIn  ( plan_handle, offsetIn  ), "clfftSetPlanOffsetIn failed" );
+	OPENCL_V_THROW (clfftSetPlanOffsetOut ( plan_handle, offsetOut ), "clfftSetPlanOffsetOut failed" );
 
 	// Set backward scale factor to 1.0 for non real FFTs to do correct output checks
 	if(dir == CLFFT_BACKWARD && in_layout != CLFFT_REAL && out_layout != CLFFT_REAL)
@@ -594,7 +599,7 @@ int transform( size_t* lengths, const size_t *inStrides, const size_t *outStride
 		case CLFFT_HERMITIAN_INTERLEAVED:
 		case CLFFT_COMPLEX_INTERLEAVED:
 			{
-				std::vector< std::complex< T > > output( outfftBatchSize );
+				std::vector< std::complex< T > > output( outfftBatchSize + offsetOut );
 
 				if( place == CLFFT_INPLACE )
 				{
@@ -610,7 +615,7 @@ int transform( size_t* lengths, const size_t *inStrides, const size_t *outStride
 				}
 
 				//check output data
-				for( cl_uint i = 0; i < outfftBatchSize; ++i )
+				for( cl_uint i = 0; i < ( outfftBatchSize + offsetOut ); ++i )
 				{
 					if (0 == (i % outfftVectorSizePadded))
 					{
@@ -640,8 +645,8 @@ int transform( size_t* lengths, const size_t *inStrides, const size_t *outStride
 		case CLFFT_HERMITIAN_PLANAR:
 		case CLFFT_COMPLEX_PLANAR:
 			{
-				std::valarray< T > real( outfftBatchSize );
-				std::valarray< T > imag( outfftBatchSize );
+				std::valarray< T > real( outfftBatchSize + offsetOut );
+				std::valarray< T > imag( outfftBatchSize + offsetOut );
 
 				if( place == CLFFT_INPLACE )
 				{
@@ -663,7 +668,7 @@ int transform( size_t* lengths, const size_t *inStrides, const size_t *outStride
 				}
 
 				//  Check output data
-				for( cl_uint i = 0; i < outfftBatchSize; ++i )
+				for( cl_uint i = 0; i < ( outfftBatchSize + offsetOut ); ++i )
 				{
 					if (0 == (i % outfftVectorSizePadded))
 					{
@@ -692,7 +697,7 @@ int transform( size_t* lengths, const size_t *inStrides, const size_t *outStride
 			break;
 		case CLFFT_REAL:
 			{
-				std::valarray< T > real( outfftBatchSize );
+				std::valarray< T > real( outfftBatchSize + offsetOut );
 
 				if( place == CLFFT_INPLACE )
 				{
@@ -814,7 +819,8 @@ int _tmain( int argc, _TCHAR* argv[] )
 
 	cl_uint command_queue_flags = 0;
 	size_t batchSize = 1;
-
+	size_t offsetIn  = 0;
+	size_t offsetOut = 0;
 
 	//	Initialize flags for FFT library
 	std::auto_ptr< clfftSetupData > setupData( new clfftSetupData );
@@ -854,6 +860,8 @@ int _tmain( int argc, _TCHAR* argv[] )
 			( "profile,p",     po::value< cl_uint >( &profile_count )->default_value( 1 ), "Time and report the kernel speed of the FFT (default: profiling off)" )
 			( "inLayout",      po::value< clfftLayout >( &inLayout )->default_value( CLFFT_COMPLEX_INTERLEAVED ), "Layout of input data:\n1) interleaved\n2) planar\n3) hermitian interleaved\n4) hermitian planar\n5) real" )
 			( "outLayout",     po::value< clfftLayout >( &outLayout )->default_value( CLFFT_COMPLEX_INTERLEAVED ), "Layout of input data:\n1) interleaved\n2) planar\n3) hermitian interleaved\n4) hermitian planar\n5) real" )
+			( "offsetIn",   po::value< size_t >( &offsetIn )->default_value( 0 ), "Input  offset to be used in number of elements" )
+			( "offsetOut",  po::value< size_t >( &offsetOut)->default_value( 0 ), "Output offset to be used in number of elements" )
 			;
 
 		po::variables_map vm;
@@ -1028,9 +1036,9 @@ int _tmain( int argc, _TCHAR* argv[] )
 		}
 
 		if( precision == CLFFT_SINGLE )
-			transform<float>( lengths, iStrides, oStrides, batchSize, inLayout, outLayout, place, precision, dir, deviceType, deviceId, platformId, printInfo, command_queue_flags, profile_count, setupData );
+			transform<float>(  lengths, iStrides, oStrides, batchSize, offsetIn, offsetOut, inLayout, outLayout, place, precision, dir, deviceType, deviceId, platformId, printInfo, command_queue_flags, profile_count, setupData );
 		else
-			transform<double>( lengths, iStrides, oStrides, batchSize, inLayout, outLayout, place, precision, dir, deviceType, deviceId, platformId, printInfo, command_queue_flags, profile_count, setupData );
+			transform<double>( lengths, iStrides, oStrides, batchSize, offsetIn, offsetOut, inLayout, outLayout, place, precision, dir, deviceType, deviceId, platformId, printInfo, command_queue_flags, profile_count, setupData );
 	}
 	catch( std::exception& e )
 	{

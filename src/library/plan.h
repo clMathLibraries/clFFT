@@ -151,6 +151,9 @@ struct FFTKernelGenKeyParams {
 	double                   fft_fwdScale;
 	double                   fft_backScale;
 
+	size_t				  fft_offsetIn;
+	size_t				  fft_offsetOut;
+
 	size_t                   fft_SIMD;          // Assume this SIMD/workgroup size
 	size_t                   fft_LDSsize;       // Limit the use of LDS to this many bytes.
 	size_t                   fft_R;             // # of complex values to keep in working registers
@@ -217,6 +220,9 @@ struct FFTKernelGenKeyParams {
 		fft_MaxWorkGroupSize = 0;
 		fft_3StepTwiddle = false;
 		fft_twiddleFront = false;
+
+		fft_offsetIn  = 0;
+		fft_offsetOut = 0;
 
 		transOutHorizontal = false;
 
@@ -415,6 +421,9 @@ public:
 	size_t                  iDist, oDist;
 	size_t                  batchsize;
 
+	size_t					offsetIn;
+	size_t					offsetOut;
+
 	// Note the device passed to BakePlan, assuming we are baking for one device
 	// TODO, change this logic for handling multiple GPUs/devices
 	cl_device_id bakeDevice;
@@ -575,9 +584,10 @@ public:
     ,   plHandle(0)
 	,   hasPreCallback(false)
 	,   hasPostCallback(false)
+	,	offsetIn(0)
+	,	offsetOut(0)
 	{
 	};
-
 
 	size_t ElementSize() const;
 

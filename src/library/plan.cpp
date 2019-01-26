@@ -31,9 +31,9 @@
 
 using std::vector;
 
-const std::string beginning_of_binary( "<[£_beginning_of_binary_£]>" );
-const std::string end_of_binary( "<[£_I_may_be_a_sorry_case,_but_I_don't_write_jokes_in_base_13_£]>" );
-const std::string end_of_file( "<[£_You're_off_the_edge_of_the_map,_mate._Here_there_be_monsters_£]>" );
+const std::string beginning_of_binary( "<[ï¿½_beginning_of_binary_ï¿½]>" );
+const std::string end_of_binary( "<[ï¿½_I_may_be_a_sorry_case,_but_I_don't_write_jokes_in_base_13_ï¿½]>" );
+const std::string end_of_file( "<[ï¿½_You're_off_the_edge_of_the_map,_mate._Here_there_be_monsters_ï¿½]>" );
 
 static bool pow235(size_t num, size_t &pow2, size_t &pow3, size_t &pow5)
 {
@@ -273,6 +273,8 @@ clfftStatus	clfftCreateDefaultPlanInternal( clfftPlanHandle* plHandle, cl_contex
 	fftPlan->backwardScale	= 1.0 / static_cast< double >( lenX * lenY * lenZ );
 	fftPlan->batchsize		= 1;
 	fftPlan->gen			= Stockham; //default setting
+	fftPlan->offsetIn		= 0;
+	fftPlan->offsetOut		= 0;
 
 	OPENCL_V(fftPlan->SetEnvelope(), _T("SetEnvelope failed"));
 

@@ -341,6 +341,38 @@ extern "C" {
 	 */
 	CLFFTAPI clfftStatus	clfftSetPlanPrecision( clfftPlanHandle plHandle, clfftPrecision precision );
 
+	/*! @brief Set the offset in number of elements for the input array
+	 *  @details Sets the plan property which sets offset in number elements for the input array
+	 *  @param[in] plHandle Handle to a previously created plan
+	 *  @param[in] offset size
+	 *  @return Enum describing error condition; superset of OpenCL error codes
+	 */
+	CLFFTAPI clfftStatus clfftSetPlanOffsetIn( clfftPlanHandle plHandle, size_t offsetIn );
+
+	/*! @brief Retrieve the offset  in number of elements for the input array
+	 *  @details Queries a plan object and retrieves the value of the offset  in number of elements for the input array
+	 *  @param[in]  plHandle Handle to a previously created plan
+	 *  @param[out] offset size
+	 *  @return Enum describing error condition; superset of OpenCL error codes
+	 */
+	CLFFTAPI clfftStatus clfftGetPlanOffsetIn( const clfftPlanHandle plHandle, size_t* offsetIn );
+
+	/*! @brief Retrieve the offset  in number of elements for the output array
+	 *  @details Queries a plan object and retrieves the value of the offset  in number of elements for the input array
+	 *  @param[in]  plHandle Handle to a previously created plan
+	 *  @param[out] offset size
+	 *  @return Enum describing error condition; superset of OpenCL error codes
+	 */
+	CLFFTAPI clfftStatus clfftSetPlanOffsetOut( clfftPlanHandle plHandle, size_t offsetOut );
+
+	/*! @brief Retrieve the offset  in number of elements for the output array
+	 *  @details Queries a plan object and retrieves the value of the offset  in number of elements for the input array
+	 *  @param[in]  plHandle Handle to a previously created plan
+	 *  @param[out] offset size
+	 *  @return Enum describing error condition; superset of OpenCL error codes
+	 */
+	CLFFTAPI clfftStatus clfftGetPlanOffsetOut( const clfftPlanHandle plHandle, size_t* offsetOut );
+
 	/*! @brief Retrieve the scaling factor that is applied to the FFT data
 	 *  @details The user must pass a reference to a cl_float variable, which is set to the
 	 *  floating point scaling factor that is multiplied across the FFT data.

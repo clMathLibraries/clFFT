@@ -2801,6 +2801,9 @@ namespace StockhamGenerator
         size_t workGroupSize;					// Work group size
 		size_t cnPerWI;							// complex numbers per work-item
 
+		size_t offsetIn;
+		size_t offsetOut;
+
 		size_t numTrans;						// Number of transforms per work-group
 		size_t workGroupSizePerTrans;			// Work group subdivision per transform
 		size_t numPasses;						// Number of FFT passes
@@ -2936,6 +2939,11 @@ namespace StockhamGenerator
 			}
 
 			str += "\t"; str += off; str += " = ";
+
+			str += " ";
+			str += input ? "offsetIn" : "offsetOut";
+			str += " + ";
+
 			std::string nextBatch = batch;
 			for(size_t i=(params.fft_DataDim - 1); i>1; i--)
 			{
@@ -2959,6 +2967,10 @@ namespace StockhamGenerator
 
         {
 			length = params.fft_N[0];
+
+			offsetIn = params.fft_offsetIn;
+			offsetIn = params.fft_offsetOut;
+
 			workGroupSize = params.fft_SIMD;
 			numTrans = (workGroupSize * params.fft_R) / length;
 
@@ -3490,6 +3502,7 @@ namespace StockhamGenerator
         clGetDeviceInfo(Dev_ID, CL_DEVICE_VENDOR, SizeParam_ret, nameVendor, NULL);
 
         //nv compiler doesn't support __constant kernel argument
+        // TODO : works with CUDA 10.0, so might not be true anymore
         if (strncmp(nameVendor, "NVIDIA",6)!=0)
           str += "__constant cb_t *cb __attribute__((max_constant_size(32))), ";
         else
@@ -3517,7 +3530,6 @@ namespace StockhamGenerator
 				callbackstr += ", __local void* localmem";
 			}
 		}
-
 				// Function attributes
 				if(params.fft_placeness == CLFFT_INPLACE)
 				{
@@ -3531,14 +3543,6 @@ namespace StockhamGenerator
 						{
 							str += "__global "; str += rType; str += " * restrict gb";
 						}
-
-						//If plan has callback
-						if (hasCallback)
-						{
-							str += callbackstr;
-						}
-
-						str += ")\n";
 					}
 					else
 					{
@@ -3549,27 +3553,11 @@ namespace StockhamGenerator
 						if(inInterleaved)
 						{
 							str += "__global "; str += r2Type; str += " * restrict gb";
-
-							//If plan has callback
-							if (hasCallback)
-							{
-								str += callbackstr;
-							}
-							
-							str += ")\n";
 						}
 						else
 						{
 							str += "__global "; str += rType; str += " * restrict gbRe, ";
 							str += "__global "; str += rType; str += " * restrict gbIm";
-
-							//If plan has callback
-							if (hasCallback)
-							{
-								str += callbackstr;
-							}
-
-							str += ")\n";
 						}
 					}
 				}
@@ -3604,14 +3592,6 @@ namespace StockhamGenerator
 							str += "__global "; str += rType; str += " * restrict gbOutRe, ";
 							str += "__global "; str += rType; str += " * restrict gbOutIm";
 						}
-
-						//If plan has callback
-						if (hasCallback)
-						{
-							str += callbackstr;
-						}
-
-						str += ")\n";
 					}
 					else
 					{
@@ -3634,16 +3614,16 @@ namespace StockhamGenerator
 							str += "__global "; str += rType; str += " * restrict gbOutRe, ";
 							str += "__global "; str += rType; str += " * restrict gbOutIm";
 						}
-
-						//If plan has callback
-						if (hasCallback)
-						{
-							str += callbackstr;
-						}
-
-						str += ")\n";
 					}
 				}
+
+				//If plan has callback
+				if (hasCallback)
+				{
+					str += callbackstr;
+				}
+				str += ", const int offsetIn, const int offsetOut ";
+				str += ")\n";
 
 				str += "{\n";
 
@@ -4504,6 +4484,8 @@ clfftStatus FFTGeneratedStockhamAction::initParams ()
     this->signature.fft_placeness    = this->plan->placeness;
     this->signature.fft_inputLayout  = this->plan->inputLayout;
 	this->signature.fft_MaxWorkGroupSize = this->plan->envelope.limit_WorkGroupSize;
+	this->signature.fft_offsetIn  = this->plan->offsetIn;
+	this->signature.fft_offsetOut  = this->plan->offsetOut;
 
     ARG_CHECK(this->plan->length.size()    > 0);
 	ARG_CHECK(this->plan->inStride.size()  > 0);

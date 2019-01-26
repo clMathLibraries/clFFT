@@ -52,6 +52,58 @@ clfftStatus clfftSetPlanBatchSize( clfftPlanHandle plHandle, size_t batchsize )
 	return CLFFT_SUCCESS;
 }
 
+clfftStatus clfftGetPlanOffsetIn( const clfftPlanHandle plHandle, size_t* offsetIn )
+{
+	FFTRepo& fftRepo	= FFTRepo::getInstance( );
+	FFTPlan* fftPlan	= NULL;
+	lockRAII* planLock	= NULL;
+
+	OPENCL_V( fftRepo.getPlan( plHandle, fftPlan, planLock ), _T( "fftRepo.getPlan failed" ) );
+	scopedLock sLock( *planLock, _T( "clfftGetPlanOffsetIn" ) );
+
+	*offsetIn   = fftPlan->offsetIn;
+	return CLFFT_SUCCESS;
+}
+
+clfftStatus clfftSetPlanOffsetIn( clfftPlanHandle plHandle, size_t offsetIn )
+{
+	FFTRepo& fftRepo	= FFTRepo::getInstance( );
+	FFTPlan* fftPlan	= NULL;
+	lockRAII* planLock	= NULL;
+
+	OPENCL_V( fftRepo.getPlan( plHandle, fftPlan, planLock ), _T( "fftRepo.getPlan failed" ) );
+	scopedLock sLock( *planLock, _T( "clfftSetPlanOffsetIn" ) );
+
+	fftPlan->offsetIn  = offsetIn;
+	return CLFFT_SUCCESS;
+}
+
+clfftStatus clfftGetPlanOffsetOut( const clfftPlanHandle plHandle, size_t* offsetOut )
+{
+	FFTRepo& fftRepo	= FFTRepo::getInstance( );
+	FFTPlan* fftPlan	= NULL;
+	lockRAII* planLock	= NULL;
+
+	OPENCL_V( fftRepo.getPlan( plHandle, fftPlan, planLock ), _T( "fftRepo.getPlan failed" ) );
+	scopedLock sLock( *planLock, _T( "clfftGetPlanOffsetIn" ) );
+
+	*offsetOut   = fftPlan->offsetOut;
+	return CLFFT_SUCCESS;
+}
+
+clfftStatus clfftSetPlanOffsetOut( clfftPlanHandle plHandle, size_t offsetOut )
+{
+	FFTRepo& fftRepo	= FFTRepo::getInstance( );
+	FFTPlan* fftPlan	= NULL;
+	lockRAII* planLock	= NULL;
+
+	OPENCL_V( fftRepo.getPlan( plHandle, fftPlan, planLock ), _T( "fftRepo.getPlan failed" ) );
+	scopedLock sLock( *planLock, _T( "clfftSetPlanOffsetIn" ) );
+
+	fftPlan->offsetOut  = offsetOut;
+	return CLFFT_SUCCESS;
+}
+
 clfftStatus clfftGetPlanContext( const clfftPlanHandle plHandle, cl_context* context )
 {
 	FFTRepo& fftRepo	= FFTRepo::getInstance( );
