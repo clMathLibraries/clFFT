@@ -3507,7 +3507,7 @@ namespace StockhamGenerator
           str += "__constant cb_t *cb __attribute__((max_constant_size(32))), ";
         else
           str += "__global cb_t *cb, ";
-
+       // str += "__constant cb_t *cb __attribute__((max_constant_size(32))), ";
         delete [] nameVendor;
 
 		//If plan has pre/post callback

@@ -31,8 +31,9 @@ void OffsetCalc(std::stringstream& transKernel, const FFTKernelGenKeyParams& par
 	const size_t *stride = input ? params.fft_inStride : params.fft_outStride;
 	std::string offset = input ? "iOffset" : "oOffset";
 
-
-	clKernWrite(transKernel, 3) << "size_t " << offset << " = 0;" << std::endl;
+	
+	std::string offsetInOut = input ? "offsetIn" : "offsetOut";
+	clKernWrite( transKernel, 3 ) << "size_t " << offset << " = " << offsetInOut << " ;" << std::endl;
 	clKernWrite(transKernel, 3) << "g_index = get_group_id(0);" << std::endl;
 
 	for (size_t i = params.fft_DataDim - 2; i > 0; i--)
@@ -50,7 +51,8 @@ void OffsetCalcLeadingDimensionBatched(std::stringstream& transKernel, const FFT
 	const size_t *stride = params.fft_inStride;
 	std::string offset = "iOffset";
 
-	clKernWrite(transKernel, 3) << "size_t " << offset << " = 0;" << std::endl;
+	
+	clKernWrite(transKernel, 3) << "size_t " << offset << " = offsetIn;" << std::endl;
 	clKernWrite(transKernel, 3) << "g_index = get_group_id(0);" << std::endl;
 
 	for (size_t i = params.fft_DataDim - 2; i > 0; i--)
@@ -68,7 +70,8 @@ void Swap_OffsetCalc(std::stringstream& transKernel, const FFTKernelGenKeyParams
 	const size_t *stride = params.fft_inStride;
 	std::string offset = "iOffset";
 
-	clKernWrite(transKernel, 3) << "size_t " << offset << " = 0;" << std::endl;
+	
+	clKernWrite(transKernel, 3) << "size_t " << offset << " = offsetOut;" << std::endl;
 
 	for (size_t i = params.fft_DataDim - 2; i > 0; i--)
 	{
@@ -246,6 +249,9 @@ clfftStatus genTransposePrototype(const FFTGeneratedTransposeSquareAction::Signa
 		}
 	}
 
+	
+	clKernWrite( transKernel, 0 ) << ", const int offsetIn, const int offsetOut ";
+
 	// Close the method signature
 	clKernWrite(transKernel, 0) << " )\n{" << std::endl;
 	return CLFFT_SUCCESS;
@@ -316,6 +322,9 @@ clfftStatus genTransposePrototypeLeadingDimensionBatched(const FFTGeneratedTrans
 
 
 	// Close the method signature
+	
+	clKernWrite( transKernel, 0 ) << ", const int offsetIn, const int offsetOut ";
+
 	clKernWrite(transKernel, 0) << " )\n{" << std::endl;
 	return CLFFT_SUCCESS;
 }

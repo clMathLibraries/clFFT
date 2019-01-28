@@ -125,8 +125,10 @@ static void OffsetCalc(std::stringstream& transKernel, const FFTKernelGenKeyPara
 	const size_t *stride = input ? params.fft_inStride : params.fft_outStride;
 	std::string offset = input ? "iOffset" : "oOffset";
 
+	
+	std::string offsetInOut = input ? "offsetIn" : "offsetOut";
+	clKernWrite( transKernel, 3 ) << "size_t " << offset << " = " << offsetInOut << " ;" << std::endl;
 
-	clKernWrite( transKernel, 3 ) << "size_t " << offset << " = 0;" << std::endl;
 	clKernWrite( transKernel, 3 ) << "currDimIndex = groupIndex.y;" << std::endl;
 
 
@@ -344,6 +346,10 @@ static clfftStatus genTransposePrototype( const FFTGeneratedTransposeGCNAction::
 	}
 
     // Close the method signature
+
+	
+	clKernWrite( transKernel, 0 ) << ", const int offsetIn, const int offsetOut ";
+
     clKernWrite( transKernel, 0 ) << " )\n{" << std::endl;
 
     return CLFFT_SUCCESS;
