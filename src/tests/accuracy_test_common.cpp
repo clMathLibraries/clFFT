@@ -14,42 +14,39 @@
  * limitations under the License.
  * ************************************************************************/
 
-
 #include <gtest/gtest.h>
-#include<math.h>
+#include <math.h>
 
-#include "test_constants.h"
-#include "fftw_transform.h"
-#include "cl_transform.h"
-#include "typedefs.h"
 #include "accuracy_test_common.h"
+#include "cl_transform.h"
+#include "fftw_transform.h"
+#include "test_constants.h"
+#include "typedefs.h"
 #include <stdexcept>
 #include <vector>
 
 /*****************************************************/
-clfftResultLocation cl_placeness( placeness::placeness_t placeness )
-{
-	if( placeness == placeness::in_place )
-		return CLFFT_INPLACE;
-	else if( placeness == placeness::out_of_place )
-		return CLFFT_OUTOFPLACE;
-	else
-		throw std::runtime_error( "invalid placeness" );
+clfftResultLocation cl_placeness(placeness::placeness_t placeness) {
+  if (placeness == placeness::in_place)
+    return CLFFT_INPLACE;
+  else if (placeness == placeness::out_of_place)
+    return CLFFT_OUTOFPLACE;
+  else
+    throw std::runtime_error("invalid placeness");
 }
 
 /*****************************************************/
-clfftLayout cl_layout( layout::buffer_layout_t layout_in )
-{
-	if( layout_in == layout::real )
-		return CLFFT_REAL;
-	else if( layout_in == layout::hermitian_planar )
-		return CLFFT_HERMITIAN_PLANAR;
-	else if( layout_in == layout::complex_planar )
-		return CLFFT_COMPLEX_PLANAR;
-	else if( layout_in == layout::hermitian_interleaved )
-		return CLFFT_HERMITIAN_INTERLEAVED;
-	else if( layout_in == layout::complex_interleaved )
-		return CLFFT_COMPLEX_INTERLEAVED;
-	else
-		throw std::runtime_error( "invalid layout_in" );
+clfftLayout cl_layout(layout::buffer_layout_t layout_in) {
+  if (layout_in == layout::real)
+    return CLFFT_REAL;
+  else if (layout_in == layout::hermitian_planar)
+    return CLFFT_HERMITIAN_PLANAR;
+  else if (layout_in == layout::complex_planar)
+    return CLFFT_COMPLEX_PLANAR;
+  else if (layout_in == layout::hermitian_interleaved)
+    return CLFFT_HERMITIAN_INTERLEAVED;
+  else if (layout_in == layout::complex_interleaved)
+    return CLFFT_COMPLEX_INTERLEAVED;
+  else
+    throw std::runtime_error("invalid layout_in");
 }

@@ -14,14 +14,13 @@
  * limitations under the License.
  * ************************************************************************/
 
-
 #pragma once
-#if !defined( CLFFT_TYPEDEFS_H )
+#if !defined(CLFFT_TYPEDEFS_H)
 #define CLFFT_TYPEDEFS_H
 
-#include "test_constants.h"
-#include "fftw_transform.h"
 #include "cl_transform.h"
+#include "fftw_transform.h"
+#include "test_constants.h"
 
 typedef clfft<float, cl_float> clfft_single;
 typedef clfft<double, cl_double> clfft_double;

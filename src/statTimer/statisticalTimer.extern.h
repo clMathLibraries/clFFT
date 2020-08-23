@@ -14,7 +14,6 @@
  * limitations under the License.
  * ************************************************************************/
 
-
 #pragma once
 #ifndef _STATISTICALTIMER_EXTERN_H_
 #define _STATISTICALTIMER_EXTERN_H_
@@ -25,49 +24,51 @@
  * \file clfft.StatisticalTimer.extern.h
  * \brief A timer class that provides a cross platform timer for use
  * in timing code progress with a high degree of accuracy.
- *	This class is implemented entirely in the header, to facilitate inclusion into multiple
- *	projects without needing to compile an object file for each project.
+ *	This class is implemented entirely in the header, to facilitate
+ *inclusion into multiple projects without needing to compile an object file for
+ *each project.
  */
 
-// The following ifdef block is the standard way of creating macros which make exporting
-// from a DLL simpler. All files within this DLL are compiled with the STATTIMER_EXPORTS
-// symbol defined on the command line. this symbol should not be defined on any project
-// that uses this DLL. This way any other project whose source files include this file see
-// STATTIMER_API functions as being imported from a DLL, whereas this DLL sees symbols
-// defined with this macro as being exported.
-#if defined( _WIN32 )
-	#if !defined( __cplusplus )
-		#define inline __inline
-	#endif
+// The following ifdef block is the standard way of creating macros which make
+// exporting from a DLL simpler. All files within this DLL are compiled with the
+// STATTIMER_EXPORTS symbol defined on the command line. this symbol should not
+// be defined on any project that uses this DLL. This way any other project
+// whose source files include this file see STATTIMER_API functions as being
+// imported from a DLL, whereas this DLL sees symbols defined with this macro as
+// being exported.
+#if defined(_WIN32)
+#if !defined(__cplusplus)
+#define inline __inline
+#endif
 
-    #if defined( CLFFT_STATIC )
-        #define STATTIMER_API
-    #elif defined( STATTIMER_EXPORTS )
-        #define STATTIMER_API __declspec( dllexport )
-    #else
-        #define STATTIMER_API __declspec( dllimport )
-    #endif
+#if defined(CLFFT_STATIC)
+#define STATTIMER_API
+#elif defined(STATTIMER_EXPORTS)
+#define STATTIMER_API __declspec(dllexport)
 #else
-	#define STATTIMER_API
+#define STATTIMER_API __declspec(dllimport)
+#endif
+#else
+#define STATTIMER_API
 #endif
 
 //	The type of timer to be returned from ::getStatTimer( )
-typedef enum clfftTimerType_
-{
-	CLFFT_GPU			= 1,
-	CLFFT_CPU,
+typedef enum clfftTimerType_ {
+  CLFFT_GPU = 1,
+  CLFFT_CPU,
 } clfftTimerType;
 
-//	Table of typedef definitions for all exported functions from this shared module.
-//	Clients of this module can use these typedefs to help create function pointers
-//	that can be initialized to point to the functions exported from this module.
-typedef baseStatTimer* (*PFGETSTATTIMER)( const clfftTimerType type );
+//	Table of typedef definitions for all exported functions from this shared
+//module. 	Clients of this module can use these typedefs to help create function
+//pointers 	that can be initialized to point to the functions exported from this
+//module.
+typedef baseStatTimer *(*PFGETSTATTIMER)(const clfftTimerType type);
 
-	/**
-	* \fn getInstance()
-	* \brief This returns a reference to the singleton timer.  Guarantees only 1 timer class is ever
-	*	instantiated within a compilable executable.
-	*/
-extern "C" STATTIMER_API baseStatTimer* getStatTimer( const clfftTimerType type );
+/**
+ * \fn getInstance()
+ * \brief This returns a reference to the singleton timer.  Guarantees only 1
+ *timer class is ever instantiated within a compilable executable.
+ */
+extern "C" STATTIMER_API baseStatTimer *getStatTimer(const clfftTimerType type);
 
 #endif // _STATISTICALTIMER_EXTERN_H_

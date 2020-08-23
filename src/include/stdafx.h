@@ -14,7 +14,6 @@
  * limitations under the License.
  * ************************************************************************/
 
-
 // stdafx.h : include file for standard system include files,
 // or project specific include files that are used frequently, but
 // are changed infrequently
@@ -24,29 +23,28 @@
 
 #define _CRT_SECURE_NO_WARNINGS
 
-#include <iostream>
-#include <sstream>
+#include <cassert>
+#include <complex>
+#include <cstdarg>
+#include <cstring>
 #include <fstream>
 #include <iomanip>
-#include <cstring>
+#include <iostream>
 #include <memory>
-#include <vector>
+#include <sstream>
 #include <valarray>
-#include <cstring>
-#include <stdarg.h>
-#include <assert.h>
-#include <complex>
+#include <vector>
 
 //	_WIN32 is defined for both 32 & 64 bit environments
-#if defined( _WIN32 )
-	#include <tchar.h>
-	#include "targetver.h"
+#if defined(_WIN32)
+#include <tchar.h>
+#include "targetver.h"
 
-#if !defined( NOMINMAX )
-	#define NOMINMAX
+#if !defined(NOMINMAX)
+#define NOMINMAX
 #endif
 
-    #define WIN32_LEAN_AND_MEAN			// Exclude rarely-used stuff from Windows headers
-	// Windows Header Files:
-	#include <windows.h>
+#define WIN32_LEAN_AND_MEAN // Exclude rarely-used stuff from Windows headers
+// Windows Header Files:
+#include <windows.h>
 #endif
