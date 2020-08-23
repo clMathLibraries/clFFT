@@ -14,22 +14,21 @@
  * limitations under the License.
  * ************************************************************************/
 
-
 // StatTimer.cpp : Defines the exported functions for the DLL application.
 //
 
-#include "stdafx.h"
 #include "statisticalTimer.extern.h"
 #include "statisticalTimer.CPU.h"
 #include "statisticalTimer.GPU.h"
+#include "stdafx.h"
 
-//	Even though the individual getInstance functions of the timer classes return references,
-//	we convert those to pointers before returning from here so that the clients can initialize
-//	their local variables to NULL, which refernces do not allow.
-baseStatTimer* getStatTimer( const clfftTimerType type )
-{
-	if( type == CLFFT_CPU )
-		return	&CpuStatTimer::getInstance( );
+//	Even though the individual getInstance functions of the timer classes
+//return references, 	we convert those to pointers before returning from here so
+//that the clients can initialize 	their local variables to NULL, which refernces
+//do not allow.
+baseStatTimer *getStatTimer(const clfftTimerType type) {
+  if (type == CLFFT_CPU)
+    return &CpuStatTimer::getInstance();
 
-	return	&GpuStatTimer::getInstance( );
+  return &GpuStatTimer::getInstance();
 }

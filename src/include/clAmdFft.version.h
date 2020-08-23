@@ -15,11 +15,13 @@
  * ************************************************************************/
 
 /*! @file clAmdFft.version.h
- * /note clAmdFft.version.h is a deprecated header file.  
- * This header is provided to help projects that were written with the older clAmdFft codebase, to help them 
- * port to the new API at their own schedule.  It will not be maintained or updated, and will be removed after 
- * a reasonable amount of time has passed.  All new code should be written against clFFT.h.  
- * Older projects should migrate to the new header at their earliest convenience.
+ * /note clAmdFft.version.h is a deprecated header file.
+ * This header is provided to help projects that were written with the older
+ * clAmdFft codebase, to help them port to the new API at their own schedule. It
+ * will not be maintained or updated, and will be removed after a reasonable
+ * amount of time has passed.  All new code should be written against clFFT.h.
+ * Older projects should migrate to the new header at their earliest
+ * convenience.
  */
 
 /* the configured version and settings for clFFT

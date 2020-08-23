@@ -14,15 +14,10 @@
  * limitations under the License.
  * ************************************************************************/
 
-
 /*****************************************************/
-template< typename T >
-unsigned int float_as_hex( T a ) {
-	return *(unsigned int*)&a;
+template <typename T> unsigned int float_as_hex(T a) {
+  return *(unsigned int *)&a;
 }
 
 /*****************************************************/
-template< typename T >
-T hex_as_float( unsigned int a ) {
-	return *(T*)&a;
-}
+template <typename T> T hex_as_float(unsigned int a) { return *(T *)&a; }

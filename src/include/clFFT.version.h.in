@@ -14,7 +14,6 @@
  * limitations under the License.
  * ************************************************************************/
 
-
 /* the configured version and settings for clFFT
  */
 #define clfftVersionMajor @CLFFT_VERSION_MAJOR@

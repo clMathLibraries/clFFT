@@ -14,13 +14,11 @@
  * limitations under the License.
  * ************************************************************************/
 
-
 #pragma once
-#if !defined( AMD_CLFFT_action_H )
+#if !defined(AMD_CLFFT_action_H)
 #define AMD_CLFFT_action_H
 
 #include "plan.h"
-
 
 //
 // FFTCopyAction
@@ -28,15 +26,14 @@
 // Base class for every Copy action for the FFT.
 // Currently do nothing special. The kernel generation and compilation occurs
 // by the subclass FFTGeneratedCopyAction
-// 
-class FFTCopyAction : public FFTAction
-{
+//
+class FFTCopyAction : public FFTAction {
 public:
-    FFTCopyAction(clfftPlanHandle plHandle, FFTPlan * plan, cl_command_queue queue, clfftStatus & err);
+  FFTCopyAction(clfftPlanHandle plHandle, FFTPlan *plan, cl_command_queue queue,
+                clfftStatus &err);
 
-    clfftGenerators getGenerator() { return Copy; }
+  clfftGenerators getGenerator() override { return Copy; }
 };
-
 
 //
 // FFTStockhamAction
@@ -44,17 +41,14 @@ public:
 // Base class for every Stockham action for the FFT.
 // Currently do nothing special. The kernel generation and compilation occurs
 // by the subclasses FFTGeneratedStockhamAction or FFTStaticStockhamAction
-// 
-class FFTStockhamAction : public FFTAction
-{
+//
+class FFTStockhamAction : public FFTAction {
 public:
-    FFTStockhamAction(clfftPlanHandle plHandle, FFTPlan * plan, cl_command_queue queue, clfftStatus & err);
+  FFTStockhamAction(clfftPlanHandle plHandle, FFTPlan *plan,
+                    cl_command_queue queue, clfftStatus &err);
 
-    clfftGenerators getGenerator() { return Stockham; }
+  clfftGenerators getGenerator() override { return Stockham; }
 };
-
-
-
 
 //
 // FFTTransposeGCNAction
@@ -62,13 +56,13 @@ public:
 // Base class for every TransposeGCN action for the FFT.
 // Currently do nothing special. The kernel generation and compilation occurs
 // by the subclass FFTGeneratedTransposeGCNAction
-// 
-class FFTTransposeGCNAction : public FFTAction
-{
+//
+class FFTTransposeGCNAction : public FFTAction {
 public:
-    FFTTransposeGCNAction(clfftPlanHandle plHandle, FFTPlan * plan, cl_command_queue queue, clfftStatus & err);
+  FFTTransposeGCNAction(clfftPlanHandle plHandle, FFTPlan *plan,
+                        cl_command_queue queue, clfftStatus &err);
 
-    clfftGenerators getGenerator() { return Transpose_GCN; }
+  clfftGenerators getGenerator() override { return Transpose_GCN; }
 };
 
 //
@@ -77,13 +71,13 @@ public:
 // Base class for every TransposeSquare action for the FFT.
 // Currently do nothing special. The kernel generation and compilation occurs
 // by the subclass FFTGeneratedTransposeSquareAction
-// 
-class FFTTransposeSquareAction : public FFTAction
-{
+//
+class FFTTransposeSquareAction : public FFTAction {
 public:
-    FFTTransposeSquareAction(clfftPlanHandle plHandle, FFTPlan * plan, cl_command_queue queue, clfftStatus & err);
+  FFTTransposeSquareAction(clfftPlanHandle plHandle, FFTPlan *plan,
+                           cl_command_queue queue, clfftStatus &err);
 
-    clfftGenerators getGenerator() { return Transpose_SQUARE; }
+  clfftGenerators getGenerator() override { return Transpose_SQUARE; }
 };
 
 //
@@ -92,13 +86,13 @@ public:
 // Base class for every TransposeSquare action for the FFT.
 // Currently do nothing special. The kernel generation and compilation occurs
 // by the subclass FFTGeneratedTransposeSquareAction
-// 
-class FFTTransposeNonSquareAction : public FFTAction
-{
+//
+class FFTTransposeNonSquareAction : public FFTAction {
 public:
-    FFTTransposeNonSquareAction(clfftPlanHandle plHandle, FFTPlan * plan, cl_command_queue queue, clfftStatus & err);
+  FFTTransposeNonSquareAction(clfftPlanHandle plHandle, FFTPlan *plan,
+                              cl_command_queue queue, clfftStatus &err);
 
-    clfftGenerators getGenerator() { return Transpose_NONSQUARE; }
+  clfftGenerators getGenerator() override { return Transpose_NONSQUARE; }
 };
 
 //
@@ -106,7 +100,7 @@ public:
 //
 // Implements a Copy action for the FFT
 // Its signature is represented by FFTKernelGenKeyParams structure
-// 
+//
 // This class implements:
 //  - the generation of the kernel string
 //  - the build of the kernel
@@ -118,38 +112,36 @@ public:
 // but in practice the copy action only use a few information of that
 // structure, so a proper structure should be used instead.
 //
-class FFTGeneratedCopyAction : public FFTCopyAction
-{
+class FFTGeneratedCopyAction : public FFTCopyAction {
 public:
-    FFTGeneratedCopyAction(clfftPlanHandle plHandle, FFTPlan * plan, cl_command_queue queue, clfftStatus & err);
+  FFTGeneratedCopyAction(clfftPlanHandle plHandle, FFTPlan *plan,
+                         cl_command_queue queue, clfftStatus &err);
 
-    typedef FFTKernelSignature<FFTKernelGenKeyParams, FFT_DEFAULT_COPY_ACTION> Signature;
+  typedef FFTKernelSignature<FFTKernelGenKeyParams, FFT_DEFAULT_COPY_ACTION>
+      Signature;
 
 private:
-    Signature signature;
+  Signature signature;
 
-    clfftStatus generateKernel  (FFTRepo& fftRepo, const cl_command_queue commQueueFFT );
-    clfftStatus getWorkSizes    (std::vector<size_t> & globalws, std::vector<size_t> & localws);
-    clfftStatus initParams      ();
+  clfftStatus generateKernel(FFTRepo &fftRepo,
+                             const cl_command_queue commQueueFFT) override;
+  clfftStatus getWorkSizes(std::vector<size_t> &globalws,
+                           std::vector<size_t> &localws) override;
+  clfftStatus initParams();
 
-    bool buildForwardKernel();
-    bool buildBackwardKernel();
+  bool buildForwardKernel() override;
+  bool buildBackwardKernel() override;
 
 public:
-
-    virtual const Signature * getSignatureData()
-    {
-        return &this->signature;
-    }
+  const Signature *getSignatureData() override { return &this->signature; }
 };
-
 
 //
 // FFTGeneratedStockhamAction
 //
 // Represents a Stockham action for the FFT. This class implements the former
 // mechanism of kernel generation and compilation for Stockham method.
-// 
+//
 // This class implements:
 //  - the generation of the kernel string
 //  - the build of the kernel
@@ -160,43 +152,39 @@ public:
 // FFTGenerated*Action class, but a "Stockham-specific" version of that
 // structure should be used instead.
 //
-class FFTGeneratedStockhamAction : public FFTStockhamAction
-{
+class FFTGeneratedStockhamAction : public FFTStockhamAction {
 public:
-    FFTGeneratedStockhamAction(clfftPlanHandle plHandle, FFTPlan * plan, cl_command_queue queue, clfftStatus & err);
-    
-    typedef FFTKernelSignature<FFTKernelGenKeyParams, FFT_DEFAULT_STOCKHAM_ACTION> Signature;
+  FFTGeneratedStockhamAction(clfftPlanHandle plHandle, FFTPlan *plan,
+                             cl_command_queue queue, clfftStatus &err);
+
+  typedef FFTKernelSignature<FFTKernelGenKeyParams, FFT_DEFAULT_STOCKHAM_ACTION>
+      Signature;
 
 private:
-    Signature signature;
+  Signature signature;
 
-    clfftStatus generateKernel  (FFTRepo& fftRepo, const cl_command_queue commQueueFFT );
-    clfftStatus getWorkSizes    (std::vector<size_t> & globalws, std::vector<size_t> & localws);
-    clfftStatus initParams      ();
+  clfftStatus generateKernel(FFTRepo &fftRepo,
+                             const cl_command_queue commQueueFFT) override;
+  clfftStatus getWorkSizes(std::vector<size_t> &globalws,
+                           std::vector<size_t> &localws) override;
+  clfftStatus initParams();
 
-    bool buildForwardKernel();
-    bool buildBackwardKernel();
+  bool buildForwardKernel() override;
+  bool buildBackwardKernel() override;
 
 public:
-
-    virtual const Signature * getSignatureData()
-    {
-        return &this->signature;
-    }
+  const Signature *getSignatureData() override { return &this->signature; }
 };
-
-
-
 
 // FFTGeneratedTransposeGCNAction
 //
 // Implements a TransposeGCN action for the FFT
 // Its signature is represented by FFTKernelGenKeyParams structure
-// 
+//
 // This class implements:
 //  - the generation of the kernel string
 //  - the build of the kernel
-// 
+//
 // The structure FFTKernelGenKeyParams is used to characterize and generate
 // the appropriate transpose kernel. That structure is used for the signature of
 // this action. It is common to Stockham, copy and transpose methods. For
@@ -204,41 +192,40 @@ public:
 // but in practice the transpose action only use a few information of that
 // structure, so a proper structure should be used instead.
 //
-class FFTGeneratedTransposeGCNAction : public FFTTransposeGCNAction
-{
+class FFTGeneratedTransposeGCNAction : public FFTTransposeGCNAction {
 public:
-    FFTGeneratedTransposeGCNAction(clfftPlanHandle plHandle, FFTPlan * plan, cl_command_queue queue, clfftStatus & err);
+  FFTGeneratedTransposeGCNAction(clfftPlanHandle plHandle, FFTPlan *plan,
+                                 cl_command_queue queue, clfftStatus &err);
 
-    typedef FFTKernelSignature<FFTKernelGenKeyParams, FFT_DEFAULT_TRANSPOSE_ACTION> Signature;
+  typedef FFTKernelSignature<FFTKernelGenKeyParams,
+                             FFT_DEFAULT_TRANSPOSE_ACTION>
+      Signature;
 
 private:
-    Signature signature;
+  Signature signature;
 
-    clfftStatus generateKernel  (FFTRepo& fftRepo, const cl_command_queue commQueueFFT );
-    clfftStatus getWorkSizes    (std::vector<size_t> & globalws, std::vector<size_t> & localws);
-    clfftStatus initParams      ();
+  clfftStatus generateKernel(FFTRepo &fftRepo,
+                             const cl_command_queue commQueueFFT) override;
+  clfftStatus getWorkSizes(std::vector<size_t> &globalws,
+                           std::vector<size_t> &localws) override;
+  clfftStatus initParams();
 
-    bool buildForwardKernel();
-    bool buildBackwardKernel();
+  bool buildForwardKernel() override;
+  bool buildBackwardKernel() override;
 
 public:
-
-    virtual const Signature * getSignatureData()
-    {
-        return &this->signature;
-    }
+  const Signature *getSignatureData() override { return &this->signature; }
 };
-
 
 // FFTGeneratedTransposeSquareAction
 //
 // Implements a TransposeSquare action for the FFT
 // Its signature is represented by FFTKernelGenKeyParams structure
-// 
+//
 // This class implements:
 //  - the generation of the kernel string
 //  - the build of the kernel
-// 
+//
 // The structure FFTKernelGenKeyParams is used to characterize and generate
 // the appropriate transpose kernel. That structure is used for the signature of
 // this action. It is common to Stockham, copy and transpose methods. For
@@ -246,40 +233,40 @@ public:
 // but in practice the transpose action only use a few information of that
 // structure, so a proper structure should be used instead.
 //
-class FFTGeneratedTransposeSquareAction : public FFTTransposeSquareAction
-{
+class FFTGeneratedTransposeSquareAction : public FFTTransposeSquareAction {
 public:
-    FFTGeneratedTransposeSquareAction(clfftPlanHandle plHandle, FFTPlan * plan, cl_command_queue queue, clfftStatus & err);
+  FFTGeneratedTransposeSquareAction(clfftPlanHandle plHandle, FFTPlan *plan,
+                                    cl_command_queue queue, clfftStatus &err);
 
-    typedef FFTKernelSignature<FFTKernelGenKeyParams, FFT_DEFAULT_TRANSPOSE_ACTION> Signature;
+  typedef FFTKernelSignature<FFTKernelGenKeyParams,
+                             FFT_DEFAULT_TRANSPOSE_ACTION>
+      Signature;
 
 private:
-    Signature signature;
+  Signature signature;
 
-    clfftStatus generateKernel  (FFTRepo& fftRepo, const cl_command_queue commQueueFFT );
-    clfftStatus getWorkSizes    (std::vector<size_t> & globalws, std::vector<size_t> & localws);
-    clfftStatus initParams      ();
+  clfftStatus generateKernel(FFTRepo &fftRepo,
+                             const cl_command_queue commQueueFFT) override;
+  clfftStatus getWorkSizes(std::vector<size_t> &globalws,
+                           std::vector<size_t> &localws) override;
+  clfftStatus initParams();
 
-    bool buildForwardKernel();
-    bool buildBackwardKernel();
+  bool buildForwardKernel() override;
+  bool buildBackwardKernel() override;
 
 public:
-
-    virtual const Signature * getSignatureData()
-    {
-        return &this->signature;
-    }
+  const Signature *getSignatureData() override { return &this->signature; }
 };
 
 // FFTGeneratedTransposeNonSquareAction
 //
 // Implements a TransposeSquare action for the FFT
 // Its signature is represented by FFTKernelGenKeyParams structure
-// 
+//
 // This class implements:
 //  - the generation of the kernel string
 //  - the build of the kernel
-// 
+//
 // The structure FFTKernelGenKeyParams is used to characterize and generate
 // the appropriate transpose kernel. That structure is used for the signature of
 // this action. It is common to Stockham, copy and transpose methods. For
@@ -287,28 +274,30 @@ public:
 // but in practice the transpose action only use a few information of that
 // structure, so a proper structure should be used instead.
 //
-class FFTGeneratedTransposeNonSquareAction : public FFTTransposeNonSquareAction
-{
+class FFTGeneratedTransposeNonSquareAction
+    : public FFTTransposeNonSquareAction {
 public:
-    FFTGeneratedTransposeNonSquareAction(clfftPlanHandle plHandle, FFTPlan * plan, cl_command_queue queue, clfftStatus & err);
+  FFTGeneratedTransposeNonSquareAction(clfftPlanHandle plHandle, FFTPlan *plan,
+                                       cl_command_queue queue,
+                                       clfftStatus &err);
 
-    typedef FFTKernelSignature<FFTKernelGenKeyParams, FFT_DEFAULT_TRANSPOSE_ACTION> Signature;
+  typedef FFTKernelSignature<FFTKernelGenKeyParams,
+                             FFT_DEFAULT_TRANSPOSE_ACTION>
+      Signature;
 
 private:
-    Signature signature;
+  Signature signature;
 
-    clfftStatus generateKernel(FFTRepo& fftRepo, const cl_command_queue commQueueFFT);
-    clfftStatus getWorkSizes(std::vector<size_t> & globalws, std::vector<size_t> & localws);
-    clfftStatus initParams();
+  clfftStatus generateKernel(FFTRepo &fftRepo,
+                             const cl_command_queue commQueueFFT) override;
+  clfftStatus getWorkSizes(std::vector<size_t> &globalws,
+                           std::vector<size_t> &localws) override;
+  clfftStatus initParams();
 
-    bool buildForwardKernel();
-    bool buildBackwardKernel();
+  bool buildForwardKernel() override;
+  bool buildBackwardKernel() override;
 
 public:
-
-    virtual const Signature * getSignatureData()
-    {
-        return &this->signature;
-    }
+  const Signature *getSignatureData() override { return &this->signature; }
 };
 #endif // AMD_CLFFT_action_H

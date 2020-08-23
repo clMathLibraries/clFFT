@@ -15,11 +15,10 @@
  * ************************************************************************/
 
 #pragma once
-#if !defined( AMD_CLFFT_generator_transpose_H )
+#if !defined(AMD_CLFFT_generator_transpose_H)
 #define AMD_CLFFT_generator_transpose_H
+#include "plan.h"
 #include "private.h"
 #include "repo.h"
-#include "plan.h"
 
 #endif
-
