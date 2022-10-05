@@ -340,7 +340,7 @@ public:
                                 cl_mem* clInputBuffers,
                                 cl_mem* clOutputBuffers);
 
-	virtual ~FFTACTION() = default;
+	virtual ~FFTAction() = default;
 
 protected:
 
