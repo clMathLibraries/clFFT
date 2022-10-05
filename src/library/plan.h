@@ -340,6 +340,8 @@ public:
                                 cl_mem* clInputBuffers,
                                 cl_mem* clOutputBuffers);
 
+	virtual ~FFTACTION() = default;
+
 protected:
 
     virtual clfftGenerators                getGenerator() = 0;
