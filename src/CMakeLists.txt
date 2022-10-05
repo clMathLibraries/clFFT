@@ -16,6 +16,8 @@
 
 cmake_minimum_required( VERSION 3.1 )
 
+set(CMAKE_CXX_STANDARD 98)
+
 if( CMAKE_GENERATOR MATCHES "NMake" )
 	option( NMAKE_COMPILE_VERBOSE "Print compile and link strings to the console" OFF )
 	if( NMAKE_COMPILE_VERBOSE )
