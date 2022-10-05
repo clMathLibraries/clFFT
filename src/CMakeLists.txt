@@ -16,6 +16,8 @@
 
 cmake_minimum_required( VERSION 3.1 )
 
+set( CMAKE_CXX_STANDARD 98 )
+
 if( CMAKE_GENERATOR MATCHES "NMake" )
 	option( NMAKE_COMPILE_VERBOSE "Print compile and link strings to the console" OFF )
 	if( NMAKE_COMPILE_VERBOSE )
@@ -212,14 +214,6 @@ elseif( CMAKE_COMPILER_IS_GNUCXX )
 	# For linux debug builds, define the same preprocessing symbols as win to keep it simple
 	if( CMAKE_BUILD_TYPE MATCHES "Debug" )
 		add_definitions( "/D_DEBUG" )
-	endif( )
-
-	if( BUILD64 )
-		set( CMAKE_CXX_FLAGS "-m64 ${CMAKE_CXX_FLAGS}" )
-		set( CMAKE_C_FLAGS "-m64 ${CMAKE_C_FLAGS}" )
-	else( )
-		set( CMAKE_CXX_FLAGS "-m32 ${CMAKE_CXX_FLAGS}" )
-		set( CMAKE_C_FLAGS "-m32 ${CMAKE_C_FLAGS}" )
 	endif( )
 
 	if( CODE_COVERAGE )
